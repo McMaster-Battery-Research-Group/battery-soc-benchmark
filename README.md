@@ -65,6 +65,7 @@ Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca) (Heritage Maroon `
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
 - [ ] Implement `MatlabEvaluator` when the lab's script arrives; set `EVALUATOR=matlab` on the worker host.
+- [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
 - [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
 - [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
 
@@ -124,6 +125,7 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
 - [ ] Implement `MatlabEvaluator` when the lab's script arrives; set `EVALUATOR=matlab` on the worker host.
+- [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
 - [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
 - [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
 
