@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
+import { LOGOS, ACKNOWLEDGEMENT, logoPngPath } from "@/lib/logos";
 
 let transporter: Transporter | null = null;
 let usingEthereal = false;
@@ -52,8 +53,17 @@ function layout(title: string, body: string) {
   <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border:1px solid #dbdbdd;border-radius:4px">
     <tr><td style="background:#7a003c;padding:18px 24px;color:#fff;font-weight:700;font-size:18px">Battery SOC Benchmark</td></tr>
     <tr><td style="padding:24px"><h1 style="margin:0 0 12px;font-size:22px;color:#000">${title}</h1>${body}</td></tr>
-    <tr><td style="padding:16px 24px;border-top:1px solid #dbdbdd;font-size:12px;color:#6d7a84">McMaster Automotive Resource Centre · McMaster University · Hamilton, Ontario</td></tr>
+    <tr><td style="padding:16px 24px;border-top:1px solid #dbdbdd;font-size:12px;color:#6d7a84">${logoRow()}McMaster Automotive Resource Centre · McMaster University · Hamilton, Ontario<br>${ACKNOWLEDGEMENT}</td></tr>
   </table></td></tr></table></body></html>`;
+}
+
+/** Institutional logos in the e-mail footer — only once the official PNGs exist (e-mail clients need absolute image URLs). */
+function logoRow() {
+  const imgs = (["mcmaster", "nserc"] as const)
+    .filter((k) => logoPngPath(k))
+    .map((k) => `<a href="${LOGOS[k].href}"><img src="${site()}${LOGOS[k].png}" alt="${LOGOS[k].alt}" height="40" style="height:40px;width:auto;margin:0 16px 8px 0;vertical-align:middle"></a>`)
+    .join("");
+  return imgs ? `<div style="margin-bottom:10px">${imgs}</div>` : "";
 }
 
 const button = (href: string, label: string) =>

@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import { TEST_CASES, MODEL_TYPE_LABELS, COMPLEXITY_LABELS, type MetricKey } from "@/lib/test-cases";
 import type { PerCycleRow, TimeSeriesTrace } from "@/evaluator/types";
+import { logoPngPath } from "@/lib/logos";
 
 /**
  * Submission report as a PDF (vector charts, brand palette, A4). Pure Node —
@@ -37,9 +38,19 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     const fmt = (v: number, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "—");
     const date = (d: Date | null) => (d ? d.toLocaleString("en-CA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
 
-    // ---------- header band
+    // ---------- header band (+ institutional logos at top-right once the official PNGs are supplied)
     doc.rect(0, 0, doc.page.width, 6).fill(M);
     doc.fillColor(M).font("Helvetica-Bold").fontSize(10).text("BATTERY SOC BENCHMARK  ·  McMaster Automotive Resource Centre", X0, 28);
+    {
+      let lx = X0 + W;
+      for (const k of ["nserc", "mcmaster"] as const) {
+        const p = logoPngPath(k);
+        if (!p) continue;
+        lx -= 96;
+        doc.image(p, lx, 20, { fit: [96, 28], align: "right", valign: "center" });
+        lx -= 14;
+      }
+    }
     doc.fillColor(INK).font("Helvetica-Bold").fontSize(22).text(s.modelName, X0, 48, { width: W });
     const authors = [user, ...(input.collaborators ?? [])];
     const authorLine = authors.length === 1 ? `${user.name}, ${user.affiliation}` : authors.map((a) => `${a.name} (${a.affiliation})`).join(", ");
@@ -165,6 +176,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       doc.page.margins.bottom = 0; // footer sits inside the margin; stop pdfkit from paginating
       doc.fillColor(GREY).font("Helvetica").fontSize(7.5);
       doc.text(`Battery SOC Benchmark · ${siteUrl}/submissions/${s.id} · Cite: Kollmeyer et al., IEEE ITEC 2022, doi:10.1109/ITEC53557.2022.9813996`, X0, doc.page.height - 34, { width: W - 60, lineBreak: false });
+      doc.text("Developed by the McMaster Automotive Resource Centre, McMaster University, with funding from NSERC / CRSNG.", X0, doc.page.height - 22, { width: W - 60, lineBreak: false });
       doc.text(`${i - range.start + 1} / ${range.count}`, X0, doc.page.height - 34, { width: W, align: "right", lineBreak: false });
     }
     doc.end();
