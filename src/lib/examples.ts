@@ -15,6 +15,10 @@ export interface ExampleModel {
   files: { name: string; note: string }[];
   code: string;
   codeNote?: string;
+  /** Python equivalent (numpy only), same Model(X, z) contract */
+  filesPy: { name: string; note: string }[];
+  codePy: string;
+  codePyNote?: string;
   spec: ModelSpec;
   strengths: string[];
   weaknesses: string[];
@@ -62,6 +66,23 @@ function [Y_est, z] = Model(X, z)
     % Output Y: Estimated SOC (1 row, 1 column)
     Y_est = SOC';
 end`,
+    filesPy: [{ name: "Model.py", note: "the estimator" }],
+    codePy: `# SOC Estimation Example — online Coulomb counter (Python)
+import numpy as np
+
+CAPACITY_AH = 4.6                      # nominal capacity of the cell
+
+
+def Model(X, z=None):
+    """X = [current (A, negative = discharge), voltage (V), temperature (C)]
+    Returns (SOC estimate in 0..1, memory z for the next call)."""
+    current = float(X[0])
+    if z is None:                      # first sample: assume fully charged
+        soc = 1.0
+    else:
+        soc = float(z) + current * (1 / 3600) / CAPACITY_AH   # integrate current
+    return soc, soc                    # memory z = previous SOC
+`,
     spec: { kind: "coulomb", capacityAh: 4.6 },
     strengths: ["Trivial to implement and verify", "Zero latency, negligible compute", "Exact if capacity, initial SOC and current are exact"],
     weaknesses: ["Drifts with any current-sensor offset", "Fails the initial-SOC test outright (assumes 100 %)", "Ignores temperature-dependent usable capacity"],
@@ -158,6 +179,79 @@ if abs(SOC_Pred - z.Param.SOC_now) > 0.02
 end
 end`,
     codeNote: "Lightly reformatted from the shipped file; logic unchanged.",
+    filesPy: [{ name: "Model.py", note: "the estimator" }, { name: "ECM_parameters.mat", note: "loaded with scipy.io.loadmat" }, { name: "OCV_table.mat", note: "OCV–SOC curves per temperature" }, { name: "EKF_parameters.mat", note: "Q and R covariances" }],
+    codePy: `# SOC Estimation Example — Extended Kalman Filter, third-order Thevenin ECM (Python)
+import numpy as np
+from scipy.io import loadmat
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+
+def _interp(x, xp, fp):
+    """linear interpolation with extrapolation (MATLAB interp1 'linear','extrap')"""
+    xp, fp = np.asarray(xp, float), np.asarray(fp, float)
+    if x <= xp[0]:
+        return float(fp[0] + (x - xp[0]) * (fp[1] - fp[0]) / (xp[1] - xp[0]))
+    if x >= xp[-1]:
+        return float(fp[-1] + (x - xp[-1]) * (fp[-1] - fp[-2]) / (xp[-1] - xp[-2]))
+    return float(np.interp(x, xp, fp))
+
+
+def _init(X):
+    ecm = loadmat(HERE / "ECM_parameters.mat", squeeze_me=True, struct_as_record=False)["ECM"]
+    ocv = loadmat(HERE / "OCV_table.mat", squeeze_me=True)
+    ekf = loadmat(HERE / "EKF_parameters.mat", squeeze_me=True, struct_as_record=False)["EKF"]
+    T = X[2]                                     # pick the parameter set for the measured temperature
+    key = "T40" if T > 30 else "T25" if T > 17.5 else "T10" if T > 5 else "T0" if T > -5 else "Tn10" if T > -15 else "Tn20"
+    row = ["Tn20", "Tn10", "T0", "T10", "T25", "T40"].index(key)
+    z = {"P": getattr(ecm, key), "E": getattr(ekf, key), "ocv": ocv["OCV_table"][row, :], "soc_range": ocv["SOC_range"], "C0": 4.68}
+    init_soc = min(1.0, max(0.0, _interp(X[1], z["ocv"], z["soc_range"])))
+    _params(z, init_soc)
+    z["Pcov"] = np.diag([0.05, 0.05, 0.05, 0.001])           # initial state covariance
+    z["x"] = np.array([0.0, 0.0, 0.0, init_soc])              # [V_RC1 V_RC2 V_RC3 SOC]
+    return z
+
+
+def _params(z, soc):
+    P = z["P"]
+    z["R0"] = _interp(soc, P.SOC, P.R0)
+    z["R"] = [_interp(soc, P.SOC, getattr(P, f"R{i}")) for i in (1, 2, 3)]
+    z["C"] = [_interp(soc, P.SOC, getattr(P, f"T{i}")) / z["R"][i - 1] for i in (1, 2, 3)]
+    z["soc_now"] = soc
+
+
+def Model(X, z=None):
+    if z is None:
+        z = _init(X)
+    I, V = -float(X[0]), float(X[1])             # positive = discharge inside the model
+    R, C = z["R"], z["C"]
+    a = [np.exp(-1 / (C[i] * R[i])) for i in range(3)]
+    x, Pcov = z["x"], z["Pcov"]
+    Q, Rn = np.asarray(z["E"].Q, float), float(np.asarray(z["E"].R, float))
+
+    # ---- predict: three RC branches + Coulomb counting for SOC
+    x_hat = np.array([a[i] * x[i] + (1 - a[i]) * R[i] * I for i in range(3)] + [x[3] - I / (3600 * z["C0"])])
+    F = np.diag(a + [0.0])
+    Pcov = F @ Pcov @ F.T + Q
+    ocv, sr = z["ocv"], z["soc_range"]
+    y_hat = _interp(x_hat[3], sr, ocv) - x_hat[0] - x_hat[1] - x_hat[2]
+    docv = np.gradient(ocv, sr)                   # dOCV/dSOC
+    H = np.array([-1.0, -1.0, -1.0, _interp(x_hat[3], sr, docv)])
+
+    # ---- update
+    S = H @ Pcov @ H + Rn
+    K = Pcov @ H / S
+    x = x_hat + K * (V - y_hat)
+    Pcov = (np.eye(4) - np.outer(K, H)) @ Pcov
+    z["x"], z["Pcov"] = x, Pcov
+
+    soc = float(x[3])
+    if abs(soc - z["soc_now"]) > 0.02:            # re-interpolate ECM parameters
+        _params(z, soc)
+    return soc, z
+`,
+    codePyNote: "Same parameter files as the MATLAB package; scipy reads them directly.",
     spec: { kind: "ecm", rcPairs: 3, states: ["V₁", "V₂", "V₃", "SOC"], filter: "EKF" },
     strengths: ["Self-correcting: recovers from wrong initial SOC and sensor offset", "Physically interpretable parameters from HPPC", "Moderate compute — runs on a BMS microcontroller"],
     weaknesses: ["Accuracy limited by ECM fidelity, especially below 0 °C", "Needs Q/R tuning per temperature", "Flat OCV region (mid-SOC) gives weak voltage feedback"],
@@ -220,6 +314,37 @@ function x = mapminmax_reverse(y, s)
   x = bsxfun(@plus, bsxfun(@rdivide, bsxfun(@minus, y, s.ymin), s.gain), s.xoffset);
 end`,
     codeNote: "Weight matrices elided for readability — the shipped file contains the full numeric arrays.",
+    filesPy: [{ name: "Model.py", note: "estimator with embedded weights" }],
+    codePy: `# SOC Estimation Example — feedforward NN 3 -> 23 -> 18 -> 1, ReLU (Python)
+import numpy as np
+
+WINDOW = 300                                   # inputs are averaged over the last 300 samples
+
+# normalisation constants and weights exported from the trained network
+X_OFFSET = np.array([-9.6462010537939, 2.63342918099023, -21.353])
+X_GAIN   = np.array([0.129061466569397, 1.1238956119858, 0.027994663883052])
+B1, W1 = np.array([...]), np.array([...])      # 23,   23x3
+B2, W2 = np.array([...]), np.array([...])      # 18,   18x23
+B3, W3 = -0.59133424287317581935, np.array([...])   # 1x18
+Y_GAIN, Y_OFFSET = 2.00515437730162, 0.0120263568795789
+
+
+def Model(X, z=None):
+    x = np.asarray(X, float)
+    if z is None:
+        z = np.repeat(x[None, :], WINDOW, axis=0)  # seed the window with the first sample
+    else:
+        z = np.vstack([z[1:], x])                  # slide the window
+    xin = z.mean(axis=0)
+
+    xp = (xin - X_OFFSET) * X_GAIN - 1             # mapminmax to [-1, 1]
+    a1 = np.maximum(0, W1 @ xp + B1)               # ReLU
+    a2 = np.maximum(0, W2 @ a1 + B2)
+    a3 = W3 @ a2 + B3
+    y = (a3 + 1) / Y_GAIN + Y_OFFSET               # mapminmax reverse
+    return float(y), z
+`,
+    codePyNote: "Weight arrays elided — paste them from the trained network (or load an .npz).",
     spec: { kind: "fnn", layers: [3, 23, 18, 1], activation: "ReLU", inputs: ["Ī", "V̄", "T̄"], window: 300 },
     strengths: ["Learns non-linear temperature effects directly from data", "Cheap inference (two small matrix products)", "No battery model or parameter fitting needed"],
     weaknesses: ["Only as good as the training coverage — new cell / cycles hurt", "Averaging window lags fast transients", "No physical constraint: can produce jumpy estimates"],
@@ -280,6 +405,39 @@ end
     end
 end`,
     codeNote: "Weight matrices elided for readability — the shipped file contains the full numeric arrays.",
+    filesPy: [{ name: "Model.py", note: "estimator with embedded LSTM weights" }],
+    codePy: `# SOC Estimation Example — LSTM (10 units) stepped one sample at a time (Python)
+import numpy as np
+
+MAX = np.array([15.0, 4.5, 51.0])              # normalisation ranges used in training: [I, V, T]
+MIN = np.array([-19.0, 2.5, -27.0])
+
+# weights exported from the trained network (gate order: input, forget, cell, output)
+W  = np.array([...])                           # 40 x 3
+U  = np.array([...])                           # 40 x 10
+B  = np.array([...])                           # 40
+FC_W, FC_B = np.array([...]), 1.0632563        # 1 x 10
+
+
+def _sigmoid(v):
+    return 1 / (1 + np.exp(-v))
+
+
+def Model(X, z=None):
+    x = np.array([(X[1] - MIN[1]) / (MAX[1] - MIN[1]),   # voltage
+                  (X[0] - MIN[0]) / (MAX[0] - MIN[0]),   # current
+                  (X[2] - MIN[2]) / (MAX[2] - MIN[2])])  # temperature
+    if z is None:
+        z = {"h": np.zeros(10), "c": np.zeros(10)}
+
+    gates = W @ x + U @ z["h"] + B
+    i, f, g, o = np.split(gates, 4)
+    c = _sigmoid(f) * z["c"] + _sigmoid(i) * np.tanh(g)
+    h = _sigmoid(o) * np.tanh(c)
+    y = float(np.clip(FC_W @ h + FC_B, 0, 1))      # clipped ReLU on the output
+    return y, {"h": h, "c": c}
+`,
+    codePyNote: "Weight arrays elided — export them from the trained network.",
     spec: { kind: "rnn", cell: "LSTM", units: 10, inputs: ["V", "I", "T"], output: "clipped ReLU" },
     strengths: ["Memory of the full history — no explicit window", "Recovers from initial-SOC error as the state settles", "Best accuracy of the four examples across temperatures"],
     weaknesses: ["Needs careful training on the open cycles", "Higher compute per step than FNN", "Behaviour outside the training envelope is unpredictable"],
