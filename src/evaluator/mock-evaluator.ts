@@ -1,6 +1,6 @@
 import { CELLS, DRIVE_CYCLES, TEMPERATURES_C, type MetricKey } from "@/lib/test-cases";
 import { round, weightedError, type MetricValues } from "@/lib/scoring";
-import type { EvaluationOutput, Evaluator, EvaluationInput, PerCycleRow, TimeSeriesTrace } from "./types";
+import type { DryRunOutput, EvaluationOutput, Evaluator, EvaluationInput, PerCycleRow, TimeSeriesTrace } from "./types";
 
 /** Small deterministic PRNG (mulberry32) so a given submission always evaluates identically. */
 function rng(seed: string) {
@@ -40,6 +40,25 @@ const CELL_FACTOR: Record<string, number> = { m80: 1, m448: 0.85, "m448-N": 1.15
 export class MockEvaluator implements Evaluator {
   readonly name = "mock";
   constructor(private readonly simulatedSeconds = Number(process.env.MOCK_EVAL_SECONDS ?? 8)) {}
+
+  async dryRun(input: EvaluationInput): Promise<DryRunOutput> {
+    const rand = rng(input.submissionId + ":dry");
+    const base = BASELINES[input.modelType] ?? BASELINES.OTHER;
+    await input.log("[mock] dry run on open data: m80 REORDERED1 @ 25C");
+    await sleep(this.simulatedSeconds * 200);
+    const n = 240;
+    const r = base.err * (0.8 + rand() * 0.4);
+    const t: number[] = [];
+    const actual: number[] = [];
+    const estimated: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const x = i / (n - 1);
+      t.push(round(x * 2, 3));
+      actual.push(round(100 - 15 * x, 2));
+      estimated.push(round(100 - 15 * x + (rand() - 0.5) * r * 2, 2));
+    }
+    return { runtime: "mock", cycle: { cell: "m80", cycle: "REORDERED1", temperatureC: 25, samples: 7200 }, rmse: round(r, 3), mae: round(r * 0.8, 3), maxErr: round(r * 2.5, 3), secondsPerSample: 2e-6, complexity: base.complexity, trace: { t, actual, estimated }, elapsedSec: 2 };
+  }
 
   async evaluate(input: EvaluationInput): Promise<EvaluationOutput> {
     const rand = rng(input.submissionId);

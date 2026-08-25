@@ -25,9 +25,9 @@ const STEPS = [
     links: [{ href: "/examples", label: "Walk through the four example models" }, { href: "/docs#submission-format", label: "Submission format" }],
   },
   {
-    icon: CheckCircle2, title: "Test it locally (5 min)",
-    body: <>Zip <code className="rounded bg-grey-100 px-1">Model.m</code>, <code className="rounded bg-grey-100 px-1">Settings.xlsx</code> and any parameter files (no folders), then run the Model Submission Test Tool from <em>2-Aiding Tools.zip</em>. It mimics the evaluator on a short profile and tells you exactly what to fix.</>,
-    links: [{ href: "/docs#test-tool", label: "Local test tool" }],
+    icon: CheckCircle2, title: "Test it on the site (2 min)",
+    body: <>Zip <code className="rounded bg-grey-100 px-1">Model.m</code>/<code className="rounded bg-grey-100 px-1">Model.py</code>, <code className="rounded bg-grey-100 px-1">Settings.xlsx</code> and any parameter files (no folders), then use <strong>Test your package first</strong> on the Submit page. It runs your model through the real evaluator on one public drive cycle and tells you exactly what to fix — no MATLAB or local tooling needed, nothing is scored or recorded.</>,
+    links: [{ href: "/docs#test-tool", label: "How the test run works" }],
   },
   {
     icon: UploadCloud, title: "Submit and read your results (10 min)",

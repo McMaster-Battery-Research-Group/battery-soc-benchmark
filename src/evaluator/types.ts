@@ -49,9 +49,23 @@ export interface EvaluationInput {
  * Implementations must be pure with respect to the database: return results,
  * do not write them. The worker persists the output.
  */
+export interface DryRunOutput {
+  runtime: string;
+  cycle: { cell: string; cycle: string; temperatureC: number; samples: number };
+  rmse: number;
+  mae: number;
+  maxErr: number;
+  secondsPerSample: number;
+  complexity: number;
+  trace: { t: number[]; actual: number[]; estimated: number[] };
+  elapsedSec: number;
+}
+
 export interface Evaluator {
   readonly name: string;
   evaluate(input: EvaluationInput): Promise<EvaluationOutput>;
+  /** Pre-submission check on open data — validation + one public cycle. */
+  dryRun(input: EvaluationInput): Promise<DryRunOutput>;
 }
 
 export class EvaluationError extends Error {

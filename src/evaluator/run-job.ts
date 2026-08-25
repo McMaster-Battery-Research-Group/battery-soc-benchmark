@@ -13,6 +13,57 @@ import { EvaluationError } from "./types";
 export const STALE_LOCK_MS = 30 * 60 * 1000;
 export const MAX_ATTEMPTS = 2;
 
+/** Dry runs are short and interactive, so they jump the queue. */
+export async function claimDryRun() {
+  const staleBefore = new Date(Date.now() - 15 * 60 * 1000);
+  const c = await db.dryRun.findFirst({
+    where: { status: { in: ["QUEUED", "RUNNING"] }, OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }] },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!c) return null;
+  const { count } = await db.dryRun.updateMany({ where: { id: c.id, lockedAt: c.lockedAt }, data: { lockedAt: new Date(), status: "RUNNING" } });
+  return count === 1 ? c : null;
+}
+
+export async function runDryRun(id: string) {
+  const evaluator = getEvaluator();
+  const dr = await db.dryRun.findUnique({ where: { id } });
+  if (!dr) return;
+  const log = async (line: string) => {
+    const cur = await db.dryRun.findUnique({ where: { id }, select: { log: true } });
+    await db.dryRun.update({ where: { id }, data: { log: (cur?.log ?? "") + `${new Date().toISOString()} ${line}\n` } });
+  };
+  try {
+    const localPath = await storage.materialize(dr.fileKey);
+    const out = await evaluator.dryRun({ submissionId: dr.id, filePath: localPath, fileType: "ZIP", modelType: "OTHER", evaluationLevel: "DYNAMIC", log });
+    await db.dryRun.update({ where: { id }, data: { status: "COMPLETED", result: out as object, completedAt: new Date(), lockedAt: null } });
+  } catch (err) {
+    const message = err instanceof EvaluationError && err.userFacing ? err.message : "The evaluator encountered an internal error.";
+    await log(`FAILED: ${err instanceof Error ? err.message : String(err)}`);
+    await db.dryRun.update({ where: { id }, data: { status: "FAILED", failureMessage: message, completedAt: new Date(), lockedAt: null } });
+  } finally {
+    await storage.remove(dr.fileKey);
+  }
+}
+
+export type WorkItem = { kind: "dry"; id: string } | { kind: "job"; id: string };
+
+/** Claim the next unit of work: dry runs first, then evaluation jobs. */
+export async function claimNext(): Promise<WorkItem | null> {
+  const d = await claimDryRun();
+  if (d) return { kind: "dry", id: d.id };
+  const j = await claimJob();
+  return j ? { kind: "job", id: j.id } : null;
+}
+
+export async function runNext(item: WorkItem) {
+  if (item.kind === "dry") {
+    await runDryRun(item.id);
+    return { submissionId: item.id, status: "DRY_RUN" as const };
+  }
+  return runJob(item.id);
+}
+
 export async function claimJob() {
   const staleBefore = new Date(Date.now() - STALE_LOCK_MS);
   const candidate = await db.evaluationJob.findFirst({

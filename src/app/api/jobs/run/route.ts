@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { claimJob, runJob } from "@/evaluator/run-job";
+import { claimNext, runNext } from "@/evaluator/run-job";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -24,9 +24,9 @@ async function handle(req: Request) {
   const results: { submissionId: string; status: string }[] = [];
   // Run jobs until ~45 s have elapsed so we stay inside the function limit.
   while (Date.now() - started < 45_000) {
-    const job = await claimJob();
-    if (!job) break;
-    results.push(await runJob(job.id));
+    const item = await claimNext();
+    if (!item) break;
+    results.push(await runNext(item));
   }
   return NextResponse.json({ processed: results.length, results, ms: Date.now() - started });
 }
