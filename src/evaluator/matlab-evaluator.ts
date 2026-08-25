@@ -3,8 +3,7 @@ import { mkdtemp, readFile, rm } from "fs/promises";
 import os from "os";
 import path from "path";
 import { EvaluationError, type EvaluationInput, type EvaluationOutput, type Evaluator } from "./types";
-import { weightedError } from "@/lib/scoring";
-import { METRIC_KEYS } from "@/lib/test-cases";
+import { parseResultsJson } from "./results";
 
 /**
  * Runs the lab's Standardized Evaluation Tool through matlab/Evaluate_Submission.m.
@@ -62,28 +61,7 @@ export class MatlabEvaluator implements Evaluator {
         });
       });
 
-      const raw = JSON.parse(await readFile(path.join(outDir, "results.json"), "utf8")) as Record<string, unknown>;
-      const num = (k: string) => {
-        const v = Number(raw[k]);
-        if (!Number.isFinite(v)) throw new EvaluationError(`results.json missing numeric field "${k}"`, false);
-        return v;
-      };
-      const metrics = Object.fromEntries(METRIC_KEYS.map((k) => [k, num(k)])) as Record<(typeof METRIC_KEYS)[number], number>;
-      // Recompute the headline score with the site's weights and cross-check the script's value.
-      const site = weightedError(metrics);
-      const script = num("weightedError");
-      if (Math.abs(site - script) > 0.01) await input.log(`[matlab] NOTE weighted error differs: script ${script} vs site ${site} — using script value`);
-
-      return {
-        ...metrics,
-        weightedError: script,
-        complexity: Math.max(1, Math.min(10, Math.round(num("complexity")))),
-        complexityUncertainty: 1,
-        maxError: num("maxError"),
-        perCycle: (raw.perCycle as EvaluationOutput["perCycle"]) ?? [],
-        timeSeries: (raw.timeSeries as EvaluationOutput["timeSeries"]) ?? [],
-        evaluatorVersion: String(raw.evaluatorVersion ?? "matlab-set-v2"),
-      };
+      return parseResultsJson(await readFile(path.join(outDir, "results.json"), "utf8"), input.log);
     } finally {
       await rm(outDir, { recursive: true, force: true }).catch(() => {});
     }

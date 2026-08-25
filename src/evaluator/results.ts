@@ -1,0 +1,28 @@
+import { EvaluationError, type EvaluationOutput } from "./types";
+import { weightedError } from "@/lib/scoring";
+import { METRIC_KEYS } from "@/lib/test-cases";
+
+/** Shared parser for results.json emitted by both Evaluate_Submission.m and socbench_eval. */
+export async function parseResultsJson(text: string, log: (line: string) => Promise<void> | void): Promise<EvaluationOutput> {
+  const raw = JSON.parse(text) as Record<string, unknown>;
+  const num = (k: string) => {
+    const v = Number(raw[k]);
+    if (!Number.isFinite(v)) throw new EvaluationError(`results.json missing numeric field "${k}"`, false);
+    return v;
+  };
+  const metrics = Object.fromEntries(METRIC_KEYS.map((k) => [k, num(k)])) as Record<(typeof METRIC_KEYS)[number], number>;
+  const site = weightedError(metrics);
+  const script = num("weightedError");
+  if (Math.abs(site - script) > 0.01) await log(`NOTE weighted error differs: evaluator ${script} vs site ${site} — using evaluator value`);
+  if (raw.suspicious) await log("NOTE evaluator flagged this submission as suspicious (mean RMSE > 25 %)");
+  return {
+    ...metrics,
+    weightedError: script,
+    complexity: Math.max(1, Math.min(10, Math.round(num("complexity")))),
+    complexityUncertainty: 1,
+    maxError: num("maxError"),
+    perCycle: (raw.perCycle as EvaluationOutput["perCycle"]) ?? [],
+    timeSeries: (raw.timeSeries as EvaluationOutput["timeSeries"]) ?? [],
+    evaluatorVersion: String(raw.evaluatorVersion ?? "unknown"),
+  };
+}
