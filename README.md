@@ -89,12 +89,25 @@ The original tool (daemon, figures, e-mail, `Leaderboard.csv`) and the Borealis 
 
 Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca) (Heritage Maroon `#7A003C` primary, Gold `#FDBF57` secondary, Grey `#495965` body text, Poppins headings / Arial body, 4 px radii, 1280 px container, WCAG 2.2 / AODA). The site has its own wordmark; McMaster and NSERC appear in the funding acknowledgement.
 
-`public/logos/mcmaster.svg` and `public/logos/nserc.svg` are **text-only wordmarks** in brand typography — McMaster's terms allow the institutional logo only with files and approval from Brand Marketing (brandmrk@mcmaster.ca), so no crest/Marauder is reproduced. Drop the official assets over these two files when the lab supplies them; nothing else needs to change.
+### Institutional logos (McMaster + NSERC)
+
+Logos appear in the site footer (every page), the About page, the landing-page partner strip, the PDF report header and the e-mail footer. All of them read from one place, `public/logos/` (paths in `src/lib/logos.ts`):
+
+| File | Used by | Spec |
+| --- | --- | --- |
+| `mcmaster.svg`, `nserc.svg` | web pages | official SVG, horizontal lockup, transparent |
+| `mcmaster.png`, `nserc.png` | PDF report, e-mails (optional) | PNG, transparent, ≥ 600 px wide |
+
+Today the two SVGs are **text-only wordmarks** and the PNGs are absent, so the PDF and e-mails fall back to a text acknowledgement. Drop the official files in and everything picks them up — no code change.
+
+Obtaining them (the lab must do this — the marks are trademarked and cannot be redrawn):
+- **McMaster** — request the logo files and approval for the MARC benchmark site from Brand Marketing, brandmrk@mcmaster.ca (https://brand.mcmaster.ca → *Logos*). Rules baked into the layout: ≥ 100 px wide on desktop / 75 px mobile, clear space around it, never recoloured or placed on busy backgrounds.
+- **NSERC** — download the official *acknowledgement* logo (EN/FR, colour, horizontal) from https://www.nserc-crsng.gc.ca/Professors-Professeurs/Logos-Logos_eng.asp and follow its "Acknowledging NSERC" wording, which the site already uses.
 
 ## TODO
 
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
-- [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
+- [ ] Drop the official McMaster and NSERC assets into `public/logos/` (SVG for web, PNG for PDF/e-mail) once Brand Marketing approves — see *Institutional logos* above.
 - [x] Parity-tested the CC / EKF / FNN / LSTM example packages: all 21 score columns match the historical `Leaderboard.csv` to 0.000 (2026-08-25).
 - [ ] Decide whether the evaluation host ships PyTorch for Python submissions (three archived Python submissions depend on it).
 - [ ] Import the 13 historical leaderboard entries (`archive/old-evaluation-tool/Models/Leaderboard.csv`) as legacy submissions.

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { LOGOS } from "@/lib/logos";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3, Gauge, ThermometerSnowflake, FileCode2, Target } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
 import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
@@ -73,6 +75,12 @@ export default async function HomePage() {
               <p className="text-sm text-grey-700">{s.l}</p>
             </div>
           ))}
+        </div>
+        {/* Partner strip — official logos drop into public/logos (see README → Institutional logos) */}
+        <div className="container-site flex flex-col items-center gap-3 border-t border-border py-4 sm:flex-row sm:justify-center sm:gap-8">
+          <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-grey-600">Supported by</p>
+          <a href={LOGOS.mcmaster.href} target="_blank" rel="noreferrer" aria-label={LOGOS.mcmaster.alt}><Image src={LOGOS.mcmaster.svg} alt={LOGOS.mcmaster.alt} width={180} height={50} className="h-10 w-auto" /></a>
+          <a href={LOGOS.nserc.href} target="_blank" rel="noreferrer" aria-label={LOGOS.nserc.alt}><Image src={LOGOS.nserc.svg} alt={LOGOS.nserc.alt} width={180} height={50} className="h-10 w-auto" /></a>
         </div>
       </section>
 
