@@ -47,6 +47,9 @@ export async function sendMail(opts: { to: string; cc?: string; subject: string;
 
 const site = () => process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+/** RFC 5322 "Display Name <address>" — without a display name Gmail shows only the local part (e.g. "ali584"). */
+export const addr = (name: string | null | undefined, email: string) => (name?.trim() ? `"${name.replace(/["\\]/g, "")}" <${email}>` : email);
+
 function layout(title: string, body: string) {
   return `<!doctype html><html><body style="margin:0;background:#f6f7f7;font-family:Arial,Helvetica,sans-serif;color:#495965">
   <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
@@ -72,7 +75,7 @@ const button = (href: string, label: string) =>
 export function verificationEmail(to: string, name: string, token: string) {
   const href = `${site()}/verify?token=${token}`;
   return sendMail({
-    to,
+    to: addr(name, to),
     subject: "Verify your email — Battery SOC Benchmark",
     html: layout("Confirm your email address", `<p>Hi ${name},</p><p>Thanks for registering. Confirm your email to start submitting SOC estimation models for blinded evaluation.</p>${button(href, "Verify email")}<p style="font-size:13px">This link expires in 24 hours.</p>`),
     text: `Verify your email: ${href}`,
@@ -82,7 +85,7 @@ export function verificationEmail(to: string, name: string, token: string) {
 export function passwordResetEmail(to: string, name: string, token: string) {
   const href = `${site()}/reset-password?token=${token}`;
   return sendMail({
-    to,
+    to: addr(name, to),
     subject: "Reset your password — Battery SOC Benchmark",
     html: layout("Reset your password", `<p>Hi ${name},</p><p>We received a request to reset your password. If this wasn't you, you can ignore this email.</p>${button(href, "Choose a new password")}<p style="font-size:13px">This link expires in 1 hour.</p>`),
     text: `Reset your password: ${href}`,
@@ -92,7 +95,7 @@ export function passwordResetEmail(to: string, name: string, token: string) {
 export function evaluationCompleteEmail(to: string, name: string, modelName: string, submissionId: string, ok: boolean, summary?: string, report?: Buffer) {
   const href = `${site()}/submissions/${submissionId}`;
   return sendMail({
-    to,
+    to: addr(name, to),
     subject: ok ? `Evaluation complete: ${modelName}` : `Evaluation failed: ${modelName}`,
     html: layout(
       ok ? "Your model has been evaluated" : "Your evaluation could not be completed",
@@ -105,11 +108,12 @@ export function evaluationCompleteEmail(to: string, name: string, modelName: str
 
 /** Invitation to co-author; the owner is CC'd so they have a record of who was invited. */
 export function collaboratorInviteEmail(to: string, name: string, byName: string, modelName: string, submissionId: string, evaluated: boolean, token: string, ccOwner?: string) {
+  // byName is the owner, who is also the CC recipient
   const view = `${site()}/submissions/${submissionId}`;
   const respond = `${site()}/collab/${token}`;
   return sendMail({
-    to,
-    cc: ccOwner && ccOwner.toLowerCase() !== to.toLowerCase() ? ccOwner : undefined,
+    to: addr(name, to),
+    cc: ccOwner && ccOwner.toLowerCase() !== to.toLowerCase() ? addr(byName, ccOwner) : undefined,
     subject: `${byName} listed you as a co-author on "${modelName}"`,
     html: layout(
       "Co-author invitation",
@@ -122,7 +126,7 @@ export function collaboratorInviteEmail(to: string, name: string, byName: string
 export function collaboratorDeclinedEmail(to: string, ownerName: string, collaboratorName: string, modelName: string, submissionId: string) {
   const href = `${site()}/submissions/${submissionId}`;
   return sendMail({
-    to,
+    to: addr(ownerName, to),
     subject: `${collaboratorName} declined co-authorship on "${modelName}"`,
     html: layout("Invitation declined", `<p>Hi ${ownerName},</p><p><strong>${collaboratorName}</strong> declined to be listed as a collaborator on <strong>${modelName}</strong> and has been removed from the submission.</p>${button(href, "View the submission")}`),
     text: `${collaboratorName} declined co-authorship on "${modelName}": ${href}`,
