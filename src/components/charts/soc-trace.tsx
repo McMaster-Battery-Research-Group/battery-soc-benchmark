@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
+import { Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, ReferenceArea } from "recharts";
 import { ZoomOut } from "lucide-react";
 import type { TimeSeriesTrace } from "@/evaluator/types";
 import { fmtPct, cn } from "@/lib/utils";
@@ -35,7 +35,57 @@ export function SocTrace({
   const [range, setRange] = React.useState<[number, number]>([0, Math.max(0, n - 1)]);
   const [errScale, setErrScale] = React.useState<"auto" | "fixed">("auto");
   const [fitSoc, setFitSoc] = React.useState(false);
+  const [navKey, setNavKey] = React.useState(0); // bump to remount the brush at full range
   React.useEffect(() => setRange([0, Math.max(0, n - 1)]), [ref?.key, n]);
+  // Debounced: the brush fires on every pixel; re-rendering the plots ~15×/s is plenty.
+  const pending = React.useRef<number | null>(null);
+  const onRange = React.useCallback((s: number, e: number) => {
+    if (pending.current !== null) cancelAnimationFrame(pending.current);
+    pending.current = requestAnimationFrame(() => {
+      pending.current = null;
+      setRange((prev) => (prev[0] === s && prev[1] === e ? prev : [s, e]));
+    });
+  }, []);
+  const navInitial = React.useRef<[number, number]>([0, Math.max(0, n - 1)]);
+  const resetZoom = () => {
+    navInitial.current = [0, Math.max(0, n - 1)];
+    setRange([0, Math.max(0, n - 1)]);
+    setNavKey((k) => k + 1);
+  };
+  // Drag-select on either plot → zoom to that time span.
+  const [sel, setSel] = React.useState<{ from: number; to: number } | null>(null);
+  const zoomTo = (t1: number, t2: number) => {
+    const lo = Math.min(t1, t2);
+    const hi = Math.max(t1, t2);
+    const times = ref?.t ?? [];
+    let s = times.findIndex((t) => t >= lo);
+    let e = times.findIndex((t) => t > hi);
+    if (s < 0) s = 0;
+    e = e < 0 ? times.length - 1 : Math.max(s, e - 1);
+    if (e - s < 3) return; // too small to be a deliberate selection
+    navInitial.current = [s, e];
+    setRange([s, e]);
+    setNavKey((k) => k + 1); // remount the strip at the new window
+  };
+  const label = (e: unknown) => {
+    const v = (e as { activeLabel?: unknown } | null)?.activeLabel;
+    return typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  };
+  const dragHandlers = {
+    onMouseDown: (e: unknown) => {
+      const t = label(e);
+      if (Number.isFinite(t)) setSel({ from: t, to: t });
+    },
+    onMouseMove: (e: unknown) => {
+      const t = label(e);
+      if (sel && Number.isFinite(t)) setSel({ from: sel.from, to: t });
+    },
+    onMouseUp: () => {
+      if (sel && sel.from !== sel.to) zoomTo(sel.from, sel.to);
+      setSel(null);
+    },
+    onMouseLeave: () => setSel(null),
+  };
   if (!ref) return null;
 
   const data = ref.t.map((t, i) => {
@@ -100,9 +150,9 @@ export function SocTrace({
         <label className="inline-flex items-center gap-1.5">
           <input type="checkbox" checked={fitSoc} onChange={(e) => setFitSoc(e.target.checked)} className="accent-maroon" /> Fit SOC axis to data
         </label>
-        <span className="text-grey-500">Drag on the strip below the charts to zoom.</span>
+        <span className="text-grey-500">Drag across a plot to zoom to that span, or use the strip below.</span>
         {zoomed ? (
-          <button onClick={() => setRange([0, n - 1])} className="ml-auto inline-flex items-center gap-1 font-heading font-medium text-maroon hover:underline">
+          <button onClick={resetZoom} className="ml-auto inline-flex items-center gap-1 font-heading font-medium text-maroon hover:underline">
             <ZoomOut className="size-3.5" /> Reset zoom
           </button>
         ) : null}
@@ -110,9 +160,10 @@ export function SocTrace({
 
       {/* SOC */}
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`}>
+        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...dragHandlers} className="cursor-crosshair select-none">
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} />
+          {sel && sel.from !== sel.to ? <ReferenceArea x1={Math.min(sel.from, sel.to)} x2={Math.max(sel.from, sel.to)} fill={CHART.primary} fillOpacity={0.12} stroke={CHART.primary} strokeOpacity={0.5} /> : null}
           <YAxis {...axisProps} width={48} unit="%" domain={socDomain} allowDataOverflow />
           <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
           <Line type="monotone" dataKey="actual" name="Actual" stroke={CHART.actual} strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -124,9 +175,10 @@ export function SocTrace({
 
       {/* Error */}
       <ResponsiveContainer width="100%" height={170}>
-        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`}>
+        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...dragHandlers} className="cursor-crosshair select-none">
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} />
+          {sel && sel.from !== sel.to ? <ReferenceArea x1={Math.min(sel.from, sel.to)} x2={Math.max(sel.from, sel.to)} fill={CHART.primary} fillOpacity={0.12} stroke={CHART.primary} strokeOpacity={0.5} /> : null}
           <YAxis {...axisProps} width={48} unit="%" domain={errDomain} allowDataOverflow tickFormatter={(v) => (Math.abs(v) < 1 ? Number(v).toFixed(2) : Number(v).toFixed(0))} />
           <ReferenceLine y={0} stroke={CHART.axis} />
           <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${Number(p.value) >= 0 ? "+" : ""}${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
@@ -136,30 +188,41 @@ export function SocTrace({
         </LineChart>
       </ResponsiveContainer>
 
-      {/* Navigator strip: whole cycle, drag to select a window */}
-      <div className="mt-1 px-1">
-        <ResponsiveContainer width="100%" height={56}>
-          <LineChart data={data} margin={{ top: 4, right: 12, left: 48, bottom: 0 }}>
-            <Line type="monotone" dataKey="actual" stroke={CHART.actual} strokeWidth={1} dot={false} isAnimationActive={false} />
-            <Brush
-              dataKey="t"
-              height={40}
-              travellerWidth={8}
-              stroke={CHART.primary}
-              fill="rgba(122,0,60,0.04)"
-              startIndex={a}
-              endIndex={b}
-              tickFormatter={(v) => `${Number(v).toFixed(1)}h`}
-              onChange={(r) => {
-                if (r && typeof r.startIndex === "number" && typeof r.endIndex === "number" && (r.startIndex !== a || r.endIndex !== b)) setRange([r.startIndex, r.endIndex]);
-              }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {/* Navigator strip: whole cycle, drag to select a window (uncontrolled + memoized so dragging stays smooth) */}
+      <Navigator key={`${ref.key}-${navKey}`} data={data} onRange={onRange} initialRef={navInitial} />
     </ChartFrame>
   );
 }
+
+/**
+ * Uncontrolled brush over the whole cycle. Memoized on `data` only, so parent
+ * re-renders during a drag do not re-render (and fight with) the brush.
+ */
+const Navigator = React.memo(function Navigator({ data, onRange, initialRef }: { data: Record<string, number>[]; onRange: (s: number, e: number) => void; initialRef: React.MutableRefObject<[number, number]> }) {
+  const [s0, e0] = initialRef.current; // read once at mount; the key prop remounts us when the window is set programmatically
+  return (
+    <div className="mt-1 px-1">
+      <ResponsiveContainer width="100%" height={56}>
+        <LineChart data={data} margin={{ top: 4, right: 12, left: 48, bottom: 0 }}>
+          <Line type="monotone" dataKey="actual" stroke={CHART.actual} strokeWidth={1} dot={false} isAnimationActive={false} />
+          <Brush
+            dataKey="t"
+            height={40}
+            travellerWidth={10}
+            stroke={CHART.primary}
+            fill="rgba(122,0,60,0.04)"
+            startIndex={s0}
+            endIndex={e0}
+            tickFormatter={(v) => `${Number(v).toFixed(1)}h`}
+            onChange={(r) => {
+              if (r && typeof r.startIndex === "number" && typeof r.endIndex === "number") onRange(r.startIndex, r.endIndex);
+            }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}, (prev, next) => prev.data === next.data && prev.onRange === next.onRange); // ignore initialRef changes
 
 function round2(v: number) {
   // pleasant axis limit: 1–2–5 progression
