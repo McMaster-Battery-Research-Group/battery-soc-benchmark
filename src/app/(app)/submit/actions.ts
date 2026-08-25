@@ -49,7 +49,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     preUploadedKey = blobUrl;
   } else {
     const file = fd.get("file");
-    if (!(file instanceof File) || file.size === 0) return { errors: { file: "Upload your submission package (.zip containing Model.m or Model.p and Settings.xlsx)" }, values };
+    if (!(file instanceof File) || file.size === 0) return { errors: { file: "Upload your submission package (.zip containing Model.m / Model.p / Model.py and Settings.xlsx)" }, values };
     fileName = file.name;
     fileSize = file.size;
     bytes = Buffer.from(await file.arrayBuffer());
