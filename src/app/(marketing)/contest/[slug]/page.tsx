@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { Alert } from "@/components/ui/misc";
 import { Countdown } from "./countdown";
+import { ResultsNav } from "@/components/layout/results-nav";
 import { RegisterButton } from "./register-button";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function ContestPage({ params }: { params: Promise<{ slug: 
 
   return (
     <>
+      <ResultsNav />
       <div className="bg-maroon text-white">
         <div className="container-site grid gap-8 py-12 md:grid-cols-3 md:py-16">
           <div className="md:col-span-2">
