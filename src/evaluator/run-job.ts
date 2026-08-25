@@ -89,14 +89,25 @@ export function workerId() {
 
 export async function runJob(jobId: string): Promise<{ submissionId: string; status: "COMPLETED" | "FAILED" | "RETRY" }> {
   const evaluator = getEvaluator();
-  const job = await db.evaluationJob.findUnique({ where: { id: jobId }, include: { submission: { include: { user: true } } } });
+  const job = await db.evaluationJob.findUnique({ where: { id: jobId }, include: { submission: { include: { user: true, collaborators: { include: { user: { select: { email: true, name: true } } } } } } } });
   if (!job) throw new Error("job vanished");
   const sub = job.submission;
+  /** Owner first, then every *confirmed* collaborator — pending (un-notified) ones get nothing until the owner confirms. */
+  const recipients = async () => {
+    // re-read: collaborators may have been added/confirmed while the evaluation ran
+    const fresh = await db.submissionCollaborator.findMany({ where: { submissionId: sub.id }, include: { user: { select: { email: true, name: true } } } });
+    const skipped = fresh.filter((c) => !c.notifiedAt);
+    if (skipped.length) await log(`${skipped.length} pending collaborator(s) not e-mailed — the owner has not confirmed them yet`);
+    return [{ email: sub.user.email, name: sub.user.name }, ...fresh.filter((c) => c.notifiedAt).map((c) => c.user)];
+  };
   const log = async (line: string) => {
     const stamped = `${new Date().toISOString()} ${line}\n`;
     process.stdout.write(`[${sub.seq}] ${line}\n`);
     const cur = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { log: true } });
-    await db.evaluationJob.update({ where: { id: jobId }, data: { log: (cur?.log ?? "") + stamped } });
+    // Every log line also refreshes the lock (heartbeat): a real evaluation can
+    // run for an hour, far longer than STALE_LOCK_MS, and must not be re-claimed
+    // by another worker while it is still making progress.
+    await db.evaluationJob.update({ where: { id: jobId }, data: { log: (cur?.log ?? "") + stamped, lockedAt: new Date() } });
   };
 
   await db.submission.update({ where: { id: sub.id }, data: { status: "RUNNING" } });
@@ -120,12 +131,15 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
     let report: Buffer | undefined;
     try {
-      const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true } });
-      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, result: fresh.result as unknown as ReportInput["result"], siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
+      const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
+      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, collaborators: fresh.collaborators.map((c) => c.user), result: fresh.result as unknown as ReportInput["result"], siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
     } catch (e) {
       await log(`report generation failed (email sent without attachment): ${e instanceof Error ? e.message : String(e)}`);
     }
-    await evaluationCompleteEmail(sub.user.email, sub.user.name, sub.modelName, sub.id, true, `All-cells RMSE: ${out.allCells.toFixed(2)} %, weighted error: ${out.weightedError.toFixed(2)} %.`, report);
+    for (const r of await recipients()) {
+      const sent = await evaluationCompleteEmail(r.email, r.name, sub.modelName, sub.id, true, `All-cells RMSE: ${out.allCells.toFixed(2)} %, weighted error: ${out.weightedError.toFixed(2)} %.`, report);
+      await log(sent ? `results email sent to ${r.email}${report ? " with PDF report" : ""}` : `results email to ${r.email} FAILED — check SMTP_* settings on the worker host`);
+    }
     return { submissionId: sub.id, status: "COMPLETED" };
   } catch (err) {
     const message = err instanceof EvaluationError && err.userFacing ? err.message : "The evaluator encountered an internal error. The administrators have been notified.";
@@ -138,7 +152,10 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     }
     await db.submission.update({ where: { id: sub.id }, data: { status: "FAILED", failureMessage: message, completedAt: new Date() } });
     await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, attempts: MAX_ATTEMPTS } });
-    await evaluationCompleteEmail(sub.user.email, sub.user.name, sub.modelName, sub.id, false, message);
+    for (const r of await recipients()) {
+      const sent = await evaluationCompleteEmail(r.email, r.name, sub.modelName, sub.id, false, message);
+      await log(sent ? `failure email sent to ${r.email}` : `failure email to ${r.email} FAILED — check SMTP_* settings on the worker host`);
+    }
     return { submissionId: sub.id, status: "FAILED" };
   }
 }

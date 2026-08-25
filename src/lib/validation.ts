@@ -14,6 +14,36 @@ export const registerSchema = z.object({
   password: passwordSchema,
 });
 
+const optionalUrl = (hosts?: string[]) =>
+  z
+    .string()
+    .trim()
+    .max(300)
+    .transform((s) => (s && !/^https?:\/\//i.test(s) ? `https://${s}` : s))
+    .refine((s) => !s || /^https?:\/\/[^\s]+\.[^\s]+$/i.test(s), "Enter a valid link")
+    .refine((s) => !s || !hosts || hosts.some((h) => new URL(s).hostname.replace(/^www\./, "").endsWith(h)), hosts ? `Must be a ${hosts[0]} link` : "Enter a valid link")
+    .optional()
+    .or(z.literal(""));
+
+export const profileSchema = z.object({
+  name: z.string().trim().min(2, "Enter your full name").max(80),
+  affiliation: z.string().trim().min(2, "Enter your institution or company").max(120),
+  occupation: z.string().trim().max(80, "At most 80 characters").optional().or(z.literal("")),
+  bio: z.string().trim().max(600, "At most 600 characters").optional().or(z.literal("")),
+  website: optionalUrl(),
+  linkedin: optionalUrl(["linkedin.com"]),
+  googleScholar: optionalUrl(["scholar.google.com", "scholar.google.ca"]),
+  researchGate: optionalUrl(["researchgate.net"]),
+  github: optionalUrl(["github.com"]),
+  orcid: z
+    .string()
+    .trim()
+    .transform((s) => s.replace(/^https?:\/\/(www\.)?orcid\.org\//i, "").toUpperCase())
+    .refine((s) => !s || /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(s), "ORCID iD looks like 0000-0002-1825-0097")
+    .optional()
+    .or(z.literal("")),
+});
+
 export const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address"),
   password: z.string().min(1, "Enter your password"),

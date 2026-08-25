@@ -32,7 +32,7 @@ export interface MailAttachment {
   contentType?: string;
 }
 
-export async function sendMail(opts: { to: string; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) {
+export async function sendMail(opts: { to: string; cc?: string; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) {
   try {
     const t = await getTransport();
     const info = await t.sendMail({ from: process.env.MAIL_FROM ?? "no-reply@batterysocbenchmark.ca", ...opts });
@@ -90,6 +90,32 @@ export function evaluationCompleteEmail(to: string, name: string, modelName: str
     ),
     text: `${ok ? "Evaluation complete" : "Evaluation failed"}: ${href}`,
     attachments: report ? [{ filename: `${modelName.replace(/[^a-z0-9]+/gi, "_")}-soc-benchmark-report.pdf`, content: report, contentType: "application/pdf" }] : undefined,
+  });
+}
+
+/** Invitation to co-author; the owner is CC'd so they have a record of who was invited. */
+export function collaboratorInviteEmail(to: string, name: string, byName: string, modelName: string, submissionId: string, evaluated: boolean, token: string, ccOwner?: string) {
+  const view = `${site()}/submissions/${submissionId}`;
+  const respond = `${site()}/collab/${token}`;
+  return sendMail({
+    to,
+    cc: ccOwner && ccOwner.toLowerCase() !== to.toLowerCase() ? ccOwner : undefined,
+    subject: `${byName} listed you as a co-author on "${modelName}"`,
+    html: layout(
+      "Co-author invitation",
+      `<p>Hi ${name},</p><p><strong>${byName}</strong> listed you as a collaborator on the submission <strong>${modelName}</strong> on the Battery SOC Benchmark. Please confirm: your name and picture are shown publicly beside the model only after you accept. Either way you can view the submission (even while private), and ${evaluated ? "the results and PDF report are ready to view" : "you will receive the results e-mail and PDF report when the evaluation finishes"}.</p>${button(respond, "Accept or decline")}<p style="margin-top:8px"><a href="${view}" style="color:#7a003c">View the submission</a></p><p style="font-size:13px;color:#6d7a84">You will be asked to sign in to your own account to respond. Declining removes you from the submission and lets ${byName} know.</p>`,
+    ),
+    text: `${byName} listed you as a co-author on "${modelName}". Accept or decline: ${respond}\nView: ${view}`,
+  });
+}
+
+export function collaboratorDeclinedEmail(to: string, ownerName: string, collaboratorName: string, modelName: string, submissionId: string) {
+  const href = `${site()}/submissions/${submissionId}`;
+  return sendMail({
+    to,
+    subject: `${collaboratorName} declined co-authorship on "${modelName}"`,
+    html: layout("Invitation declined", `<p>Hi ${ownerName},</p><p><strong>${collaboratorName}</strong> declined to be listed as a collaborator on <strong>${modelName}</strong> and has been removed from the submission.</p>${button(href, "View the submission")}`),
+    text: `${collaboratorName} declined co-authorship on "${modelName}": ${href}`,
   });
 }
 

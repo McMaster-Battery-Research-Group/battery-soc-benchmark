@@ -140,11 +140,12 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 ### 2. Vercel
 1. https://vercel.com → **Add New → Project** → import `AhmadAli137/battery-soc-benchmark`.
 2. Environment variables (Production):
-   `DATABASE_URL`, `DIRECT_URL` (from Supabase) · `AUTH_SECRET` (`openssl rand -base64 32`) · `AUTH_URL` + `NEXT_PUBLIC_SITE_URL` (your Vercel URL) · `STORAGE=blob` · `MAX_UPLOAD_MB=50` · `EVALUATOR=mock` · `MOCK_EVAL_SECONDS=4` · `CRON_SECRET` (`openssl rand -hex 24`) · `SMTP_*` + `MAIL_FROM`.
+   `DATABASE_URL`, `DIRECT_URL` (from Supabase) · `AUTH_SECRET` (`openssl rand -base64 32`) · `AUTH_URL` + `NEXT_PUBLIC_SITE_URL` (your Vercel URL) · `STORAGE=blob` · `MAX_UPLOAD_MB=50` · `CRON_SECRET` (`openssl rand -hex 24`) · `SMTP_*` + `MAIL_FROM` · `ADMIN_EMAILS` (comma-separated administrators: auto-promoted, no dry-run limit, Admin badge) · `ADMIN_NOTIFY_EMAIL` (optional; feedback-form notifications).
+   Only add `EVALUATOR=mock` + `MOCK_EVAL_SECONDS=4` if you use the cron endpoint (option B below); with a real worker the web tier never evaluates anything.
 3. Deploy. Then **Storage → Create → Blob → Connect to project** (adds `BLOB_READ_WRITE_TOKEN`); redeploy once.
 
 ### 3. Evaluation — pick one
-- **Laptop / lab PC worker** — copy the production `DATABASE_URL`, `DIRECT_URL`, `STORAGE=blob`, `BLOB_READ_WRITE_TOKEN`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` into a local `.env.production`, then `npx dotenv -e .env.production -- npm run worker` (or just edit `.env`). Outbound-only; works behind campus VPN. This is the path for MATLAB later.
+- **Laptop / lab PC worker** (run exactly one — a second stale worker with different env will steal jobs) — copy the production `DATABASE_URL`, `DIRECT_URL`, `STORAGE=blob`, `BLOB_READ_WRITE_TOKEN`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` into a local `.env.production`, then `npx dotenv -e .env.production -- npm run worker` (or just edit `.env`). Outbound-only; works behind campus VPN. This is the path for MATLAB later.
 - **Free cron (mock only)** — https://cron-job.org (free) → new job → URL `https://<your-site>/api/jobs/run?secret=<CRON_SECRET>` every 1 minute. Each call drains the queue for up to 45 s. Submissions then complete within ~1 minute with no worker running anywhere.
 
 ### Paid alternative — Render worker
@@ -152,70 +153,6 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 
 ### Ops notes
 - Scaling evaluation: run more worker instances — jobs are claimed atomically.
-- Switching to MATLAB: set `EVALUATOR=matlab` on the worker host and implement `src/evaluator/matlab-evaluator.ts`. The worker calls `storage.materialize()` so the package is always a local file regardless of storage mode. The cron endpoint is not suitable for MATLAB.
+- Real evaluation: set `EVALUATOR=real` on the worker host (needs Python + `socbench_eval`, MATLAB for `.m/.p` packages, and `SOCBENCH_BLIND_DATA` pointing at the blinded `.mat` — see *The evaluator*). The worker calls `storage.materialize()` so the package is always a local file regardless of storage mode. The cron endpoint only works with the mock evaluator.
 - Blob objects are public-but-unguessable URLs (random suffix) and are deleted as soon as evaluation completes; swap `BlobStorage` for S3/R2 if stricter handling is required — only `src/lib/storage.ts` changes.
 - Backups: Supabase free tier has no automatic backups — schedule `pg_dump` (e.g. weekly GitHub Action) or upgrade.
-
-## TODO
-
-- [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
-- [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
-- [x] Parity-tested the CC / EKF / FNN / LSTM example packages: all 21 score columns match the historical `Leaderboard.csv` to 0.000 (2026-08-25).
-- [ ] Decide whether the evaluation host ships PyTorch for Python submissions (three archived Python submissions depend on it).
-- [ ] Import the 13 historical leaderboard entries (`archive/old-evaluation-tool/Models/Leaderboard.csv`) as legacy submissions.
-- [ ] Calibrate `SOCBENCH_CAL_*` on the final evaluation host.
-- [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
-- [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
-- [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
-- [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
-- [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
-
-## Scripts
-
-`dev` · `build` · `start` · `lint` · `typecheck` · `db:up` · `db:push` · `db:migrate` · `db:studio` · `seed` · `worker`
-
-## Dataset archives
-
-The Borealis archives (`0-Documentation.zip` … `4-SOC estimation Model Examples.zip`) are git-ignored; download them from https://doi.org/10.5683/SP3/ZVTR4B.
-
-## Deployment (Vercel + Render)
-
-The app is split in two because the evaluator must run continuously and (later) next to MATLAB, while the website is a good fit for serverless.
-
-| Piece | Where | Why |
-| --- | --- | --- |
-| Next.js web app | **Vercel** | serverless, edge middleware, Blob storage for uploads |
-| PostgreSQL | **Render** (managed) | one database shared by web + worker |
-| Evaluation worker (`npm run worker`) | **Render** background worker | always on; polls the queue; later the MATLAB host |
-| Submission packages | **Vercel Blob** | browser uploads directly (Vercel caps request bodies at ~4.5 MB); worker downloads by URL; deleted after evaluation |
-
-### 1. Render — database + worker
-1. Push the repo to GitHub. In Render choose **New → Blueprint** and point it at the repo; `render.yaml` creates `socbench-db` and `socbench-worker`.
-2. Fill the `sync: false` env vars when prompted (`BLOB_READ_WRITE_TOKEN`, `NEXT_PUBLIC_SITE_URL`, SMTP). You can add the Blob token after step 2 below.
-3. Copy the database's **External connection string** — you need it for Vercel and for the one-off schema push.
-
-### 2. Vercel — web app + Blob
-1. **Add New → Project**, import the repo. Framework: Next.js (auto). `vercel.json` sets `prisma generate && next build`.
-2. **Storage → Create Database → Blob**, attach it to the project; Vercel injects `BLOB_READ_WRITE_TOKEN`. Copy that token into the Render worker's env.
-3. Project **Settings → Environment Variables**:
-   - `DATABASE_URL` = Render external connection string (append `?sslmode=require` if not present)
-   - `AUTH_SECRET` = `openssl rand -base64 32`
-   - `AUTH_URL` and `NEXT_PUBLIC_SITE_URL` = `https://<your-domain>`
-   - `STORAGE=blob`, `MAX_UPLOAD_MB=50`
-   - `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM` — free option: **Brevo** (`smtp-relay.brevo.com:587`, login email + SMTP key, `MAIL_FROM` = a sender you verified in Brevo; 300/day). Later: Resend/Postmark with the domain verified, or the RHPCS relay `mbox.mcmaster.ca`. Without SMTP, production emails go nowhere.
-   - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (only used by the seed)
-4. Deploy. Then add your domain (e.g. `batterysocbenchmark.ca`) under **Domains** and update the two URL vars.
-
-### 3. Schema + first admin
-From your machine, with `DATABASE_URL` pointing at Render:
-```bash
-npx prisma db push
-npm run seed          # or create just the admin and skip sample data
-```
-Remove the sample users/submissions from the seed before running it against production if you don't want demo data on the public leaderboard.
-
-### Ops notes
-- Scaling evaluation: run more worker instances — jobs are claimed atomically.
-- Switching to MATLAB: set `EVALUATOR=matlab` on the worker host and implement `src/evaluator/matlab-evaluator.ts`. The worker calls `storage.materialize()` so the package is always a local file path regardless of storage mode.
-- Blob objects are public-but-unguessable URLs (random suffix) and are deleted as soon as evaluation completes; for stricter handling switch `access` to private once your Blob plan supports it, or swap `BlobStorage` for S3/R2 — only `src/lib/storage.ts` changes.
-- Backups: enable point-in-time recovery on the Render Postgres plan you choose.

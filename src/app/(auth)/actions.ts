@@ -5,8 +5,11 @@ import { redirect } from "next/navigation";
 import { AuthError as NextAuthError } from "next-auth";
 import { db } from "@/lib/db";
 import { hashPassword, signIn, signOut, auth } from "@/lib/auth";
+import { isListedAdmin } from "@/lib/admin-list";
 import { verificationEmail, passwordResetEmail } from "@/lib/mail";
-import { loginSchema, registerSchema, passwordSchema, zodErrors, type FieldErrors } from "@/lib/validation";
+import { loginSchema, registerSchema, passwordSchema, profileSchema, zodErrors, type FieldErrors } from "@/lib/validation";
+import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 
 export interface ActionState {
   ok?: boolean;
@@ -34,7 +37,7 @@ export async function registerAction(_prev: ActionState, fd: FormData): Promise<
   if (existing) return { errors: { email: "An account with this email already exists." }, values: vals };
 
   const user = await db.user.create({
-    data: { email, name: parsed.data.name, affiliation: parsed.data.affiliation, passwordHash: await hashPassword(parsed.data.password) },
+    data: { email, name: parsed.data.name, affiliation: parsed.data.affiliation, passwordHash: await hashPassword(parsed.data.password), role: isListedAdmin(email) ? "ADMIN" : "USER" },
   });
   const token = await issueToken(user.id, "VERIFY_EMAIL", 24 * 3600 * 1000);
   await verificationEmail(user.email, user.name, token);
@@ -107,12 +110,40 @@ export async function resetPasswordAction(_prev: ActionState, fd: FormData): Pro
 export async function updateProfileAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const session = await auth();
   if (!session?.user) return { errors: { form: "Not signed in" } };
-  const name = String(fd.get("name") ?? "").trim();
-  const affiliation = String(fd.get("affiliation") ?? "").trim();
-  if (name.length < 2) return { errors: { name: "Enter your full name" } };
-  if (affiliation.length < 2) return { errors: { affiliation: "Enter your institution" } };
-  await db.user.update({ where: { id: session.user.id }, data: { name, affiliation } });
-  return { ok: true, message: "Profile updated. Changes to your name appear after your next sign-in." };
+  const raw = Object.fromEntries(["name", "affiliation", "occupation", "bio", "website", "linkedin", "googleScholar", "researchGate", "github", "orcid"].map((k) => [k, String(fd.get(k) ?? "")]));
+  const parsed = profileSchema.safeParse(raw);
+  if (!parsed.success) return { errors: zodErrors(parsed.error) };
+  const nul = (s?: string) => (s ? s : null);
+  const d = parsed.data;
+  const data: Prisma.UserUpdateInput = {
+    name: d.name,
+    affiliation: d.affiliation,
+    occupation: nul(d.occupation),
+    bio: nul(d.bio),
+    website: nul(d.website),
+    linkedin: nul(d.linkedin),
+    googleScholar: nul(d.googleScholar),
+    researchGate: nul(d.researchGate),
+    github: nul(d.github),
+    orcid: nul(d.orcid),
+  };
+
+  // Profile picture: the browser resizes to a ≤256 px JPEG and sends it as a data URL.
+  const avatarData = String(fd.get("avatarData") ?? "");
+  if (fd.get("removeAvatar") === "on") {
+    Object.assign(data, { avatar: null, avatarType: null, avatarUpdatedAt: null });
+  } else if (avatarData) {
+    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(avatarData);
+    if (!m) return { errors: { avatar: "The picture could not be read. Try a JPEG or PNG." } };
+    const bytes = Buffer.from(m[2], "base64");
+    if (bytes.length > 400 * 1024) return { errors: { avatar: "Picture is too large after resizing. Try a smaller image." } };
+    Object.assign(data, { avatar: bytes, avatarType: m[1], avatarUpdatedAt: new Date() });
+  }
+
+  await db.user.update({ where: { id: session.user.id }, data });
+  revalidatePath("/profile");
+  revalidatePath(`/users/${session.user.id}`);
+  return { ok: true, message: "Profile updated. Changes to your name appear in the header after your next sign-in." };
 }
 
 export async function changePasswordAction(_prev: ActionState, fd: FormData): Promise<ActionState> {

@@ -10,13 +10,37 @@ export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const session = await auth();
-  const user = await db.user.findUnique({ where: { id: session!.user.id }, include: { _count: { select: { submissions: true, contestEntries: true } } } });
+  const user = await db.user.findUnique({
+    where: { id: session!.user.id },
+    select: {
+      id: true, name: true, affiliation: true, email: true, role: true, createdAt: true,
+      occupation: true, bio: true, website: true, linkedin: true, orcid: true, googleScholar: true, researchGate: true, github: true,
+      avatarUpdatedAt: true,
+      _count: { select: { submissions: true, contestEntries: true } },
+    },
+  });
   if (!user) return null;
   return (
     <>
       <PageHeader eyebrow="Account" title={user.name} description={`${user.affiliation} · member since ${fmtDate(user.createdAt)} · ${user._count.submissions} submissions · ${user._count.contestEntries} contest registrations`} />
       <div className="container-site py-8">
-        <ProfileForms name={user.name} affiliation={user.affiliation} email={user.email} role={user.role} />
+        <ProfileForms
+          id={user.id}
+          name={user.name}
+          affiliation={user.affiliation}
+          email={user.email}
+          role={user.role}
+          occupation={user.occupation ?? ""}
+          bio={user.bio ?? ""}
+          website={user.website ?? ""}
+          linkedin={user.linkedin ?? ""}
+          orcid={user.orcid ?? ""}
+          googleScholar={user.googleScholar ?? ""}
+          researchGate={user.researchGate ?? ""}
+          github={user.github ?? ""}
+          hasAvatar={!!user.avatarUpdatedAt}
+          avatarVersion={user.avatarUpdatedAt?.getTime() ?? null}
+        />
       </div>
     </>
   );

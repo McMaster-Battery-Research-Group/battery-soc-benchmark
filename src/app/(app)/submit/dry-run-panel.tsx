@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/misc";
 import { fmtBytes, cn } from "@/lib/utils";
 import { startDryRunAction } from "./dry-run-actions";
 import { DryRunResult, useDryRunPoll } from "@/components/dry-run-result";
+import { DryRunQuotaLine } from "@/components/dry-run-quota";
 
 /**
  * "Test my package" — runs validation + one OPEN-data cycle through the real
@@ -18,6 +19,7 @@ export function DryRunPanel({ directUpload }: { directUpload: boolean }) {
   const [err, setErr] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [pct, setPct] = React.useState<number | null>(null);
+  const [attempts, setAttempts] = React.useState(0);
   const poll = useDryRunPoll(id);
 
   const start = async () => {
@@ -40,6 +42,7 @@ export function DryRunPanel({ directUpload }: { directUpload: boolean }) {
       const res = await startDryRunAction(fd);
       if (!res.ok) setErr(res.error);
       else setId(res.id);
+      setAttempts((a) => a + 1);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -56,6 +59,7 @@ export function DryRunPanel({ directUpload }: { directUpload: boolean }) {
         <div>
           <h2 className="font-heading text-lg font-semibold text-ink">Test your package first</h2>
           <p className="text-sm text-grey-700">Runs your model through the real evaluator on one <strong>public</strong> drive cycle (m80, REORDERED1, 25 °C, 2 h). Catches format and runtime errors and shows your error and complexity — without using a submission, touching the blinded data, or appearing anywhere. Up to 5 per hour.</p>
+          <DryRunQuotaLine refreshKey={attempts} className="mt-1" />
         </div>
       </div>
       <div className="p-5">

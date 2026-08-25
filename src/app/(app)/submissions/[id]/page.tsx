@@ -16,8 +16,10 @@ import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { SocTracePicker } from "@/components/charts/soc-trace";
 import { PerCycleTable } from "@/components/charts/per-cycle-table";
 import { ModelSchematic, specForModelType } from "@/components/model-schematic";
+import * as React from "react";
 import { StatusPoller } from "./status-poller";
 import { OwnerActions } from "./owner-actions";
+import { Collaborators } from "./collaborators";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const sub = await getSubmissionDetail((await params).id);
@@ -31,6 +33,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
   if (!sub || !canViewSubmission(sub, session?.user)) notFound();
   const isOwner = session?.user?.id === sub.userId;
   const isAdmin = session?.user?.role === "ADMIN";
+  const isCollaborator = !!session?.user && sub.collaborators.some((c) => c.userId === session.user.id);
+  const canSee = isOwner || isAdmin || isCollaborator; // logs, report link
+  const toPerson = (u: { id: string; name: string; affiliation: string; avatarUpdatedAt: Date | null }) => ({ id: u.id, name: u.name, affiliation: u.affiliation, avatarVersion: u.avatarUpdatedAt?.getTime() ?? null });
   const r = sub.result;
   const values = r ? (Object.fromEntries(TEST_CASES.map((t) => [t.key, r[t.key as keyof typeof r] as number])) as Record<MetricKey, number>) : null;
 
@@ -49,7 +54,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             {sub.contest ? <Badge variant="gold"><Trophy className="size-3" /> {sub.contest.title}</Badge> : null}
           </div>
           <p className="mt-1 text-sm text-grey-700">
-            Submission #{sub.seq} · {MODEL_TYPE_LABELS[sub.modelType]} · by <span className="text-ink">{sub.user.name}</span>, {sub.user.affiliation} · {fmtDateTime(sub.submittedAt)}
+            Submission #{sub.seq} · {MODEL_TYPE_LABELS[sub.modelType]} · by <Link href={`/users/${sub.user.id}`} className="text-ink hover:text-maroon hover:underline">{sub.user.name}</Link>
+            {sub.collaborators.filter((c) => c.acceptedAt).map((c) => <React.Fragment key={c.userId}>, <Link href={`/users/${c.user.id}`} className="text-ink hover:text-maroon hover:underline">{c.user.name}</Link></React.Fragment>)}
+            {sub.collaborators.some((c) => c.acceptedAt) ? "" : `, ${sub.user.affiliation}`} · {fmtDateTime(sub.submittedAt)}
           </p>
           <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
         </div>
@@ -58,14 +65,16 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
       {sp.new ? <Alert variant="success" className="mt-6" title="Submission received">Your package passed the structural checks and is queued for blinded evaluation. This page updates automatically; you will also receive an email when it finishes.</Alert> : null}
 
+      <Collaborators submissionId={sub.id} owner={toPerson(sub.user)} list={sub.collaborators.map((c) => ({ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }))} canEdit={isOwner || isAdmin} viewerId={session?.user?.id} />
+
       {sub.status === "QUEUED" || sub.status === "RUNNING" ? (
-        <div className="mt-6"><StatusPoller id={sub.id} status={sub.status} log={isOwner || isAdmin ? sub.job?.log ?? "" : ""} /></div>
+        <div className="mt-6"><StatusPoller id={sub.id} status={sub.status} log={canSee ? sub.job?.log ?? "" : ""} /></div>
       ) : null}
 
       {sub.status === "FAILED" ? (
         <Alert variant="danger" className="mt-6" title="Evaluation failed">
           <p>{sub.failureMessage}</p>
-          {(isOwner || isAdmin) && sub.job?.log ? <pre className="mt-3 max-h-64 overflow-auto rounded-brand bg-grey-900 p-3 text-xs text-white">{sub.job.log}</pre> : null}
+          {canSee && sub.job?.log ? <pre className="mt-3 max-h-64 overflow-auto rounded-brand bg-grey-900 p-3 text-xs text-white">{sub.job.log}</pre> : null}
           <p className="mt-2 text-xs">Tip: use <Link href="/submit" className="underline">Test your package first</Link> on the Submit page before re-submitting. Think the evaluator is wrong? <Link href={`/contact?category=bug&subject=${encodeURIComponent(`Submission #${sub.seq} failed`)}&from=/submissions/${sub.id}`} className="underline">Report it</Link>.</p>
         </Alert>
       ) : null}

@@ -4,8 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, LogOut, User as UserIcon, Shield, FolderKanban, MessageSquare, BookOpen, FlaskConical, Database, ListChecks, BookA, LifeBuoy, Info } from "lucide-react";
-import { cn, initials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/avatar";
 import { Wordmark } from "./logo";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from "@/components/ui/dropdown";
 import { signOutAction } from "@/app/(auth)/actions";
@@ -78,8 +79,9 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger className="ml-1 flex items-center gap-2 rounded-brand px-2 py-1.5 hover:bg-grey-100">
-                <span className="flex size-8 items-center justify-center rounded-full bg-maroon font-heading text-xs font-semibold text-white">{initials(user.name)}</span>
+                <Avatar userId={user.id} name={user.name} size={32} />
                 <span className="max-w-32 truncate font-heading text-sm font-medium text-ink">{user.name}</span>
+                {user.role === "ADMIN" ? <span className="rounded-[3px] bg-maroon px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-white" title="Administrator">Admin</span> : null}
                 <ChevronDown className="size-4 text-grey-600" />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
