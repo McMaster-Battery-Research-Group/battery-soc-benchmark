@@ -92,7 +92,7 @@ The app is split in two because the evaluator must run continuously and (later) 
    - `AUTH_SECRET` = `openssl rand -base64 32`
    - `AUTH_URL` and `NEXT_PUBLIC_SITE_URL` = `https://<your-domain>`
    - `STORAGE=blob`, `MAX_UPLOAD_MB=50`
-   - `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM` (Resend, Postmark, or the McMaster relay — without these emails go nowhere in production)
+   - `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM` — free option: **Brevo** (`smtp-relay.brevo.com:587`, login email + SMTP key, `MAIL_FROM` = a sender you verified in Brevo; 300/day). Later: Resend/Postmark with the domain verified, or the RHPCS relay `mbox.mcmaster.ca`. Without SMTP, production emails go nowhere.
    - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (only used by the seed)
 4. Deploy. Then add your domain (e.g. `batterysocbenchmark.ca`) under **Domains** and update the two URL vars.
 
