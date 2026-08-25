@@ -52,3 +52,6 @@ uploads/
 
 # keep the example env tracked
 !.env.example
+
+# Lab evaluator + BLINDED DATA — never commit
+Standardized Evaluation Tool/
