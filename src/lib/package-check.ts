@@ -5,7 +5,7 @@ import AdmZip from "adm-zip";
  * lab's "Model Submission Test Tool" (Blind Modeling Tool V2, User's Guide steps 2–4):
  *   - plain .zip, no sub-folders
  *   - contains Model.m, Model.p or Model.py
- *   - contains Settings.xlsx with Author Name / Affiliation / Email / Model Name in B1–B4
+ *   - Settings.xlsx is OPTIONAL (legacy of the old e-mail tool; author/model come from the account and form)
  * Returns human-readable problems (empty array = OK) and the parsed settings.
  */
 export interface PackageCheck {
@@ -40,19 +40,12 @@ export function checkSubmissionPackage(bytes: Buffer): PackageCheck {
     const near = names.find((n) => /^model\.(m|p|py)$/i.test(n));
     problems.push(near ? `Found "${near}" — the estimator must be named exactly "Model.m", "Model.p" or "Model.py" (case-sensitive).` : 'Missing "Model.m", "Model.p" or "Model.py". The SOC estimator function must be named Model.');
   }
-  if (!names.includes("Settings.xlsx")) {
-    const near = names.find((n) => /^settings\.xlsx$/i.test(n));
-    problems.push(near ? `Found "${near}" — the settings workbook must be named exactly "Settings.xlsx".` : 'Missing "Settings.xlsx" (Author Name, Affiliation, Email and Model Name in cells B1–B4).');
-  }
-
   let settings: PackageCheck["settings"];
   if (names.includes("Settings.xlsx")) {
     try {
-      settings = readSettings(zip.getEntry("Settings.xlsx")!.getData());
-      const missing = (["authorName", "affiliation", "email", "modelName"] as const).filter((k) => !settings?.[k]);
-      if (missing.length) problems.push(`Settings.xlsx: all four fields must be filled (missing ${missing.join(", ")}).`);
+      settings = readSettings(zip.getEntry("Settings.xlsx")!.getData()); // legacy metadata, informational only
     } catch {
-      warnings.push("Settings.xlsx could not be parsed; the evaluator will validate it again.");
+      /* ignore — not required */
     }
   }
 

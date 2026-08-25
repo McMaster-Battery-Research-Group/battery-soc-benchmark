@@ -68,7 +68,7 @@ export default function DocsPage() {
 
           <section id="test-cases">
             <H2 id="test-cases">The blinded test cases</H2>
-            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the 132 blinded drive cycles. The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
+            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the 144 blinded drive cycles (36 per cell: six cycle types at six temperatures). The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
             {groups.map((g) => (
               <div key={g} className="mt-6">
                 <h3 className="font-heading text-lg font-semibold">{GROUP_LABELS[g]}</h3>
@@ -96,10 +96,9 @@ export default function DocsPage() {
 
           <section id="submission-format">
             <H2 id="submission-format">Submission format</H2>
-            <p className="mt-3">A submission is a single <strong>.zip</strong> file with everything at the top level — no sub-folders. It must contain:</p>
+            <p className="mt-3">A submission is a single <strong>.zip</strong> file with everything at the top level — no sub-folders. It must contain the estimator; author, affiliation and model name come from your account and the submission form (the <code className="rounded bg-grey-100 px-1">Settings.xlsx</code> the old e-mail tool required is no longer needed — it is ignored if present):</p>
             <ul className="mt-3 list-disc space-y-2 pl-6">
               <li><code className="rounded bg-grey-100 px-1">Model.m</code>, <code className="rounded bg-grey-100 px-1">Model.p</code> or <code className="rounded bg-grey-100 px-1">Model.py</code> — the estimator function, named exactly <code className="rounded bg-grey-100 px-1">Model</code>. Use p-code if you need to protect MATLAB source. Python models get the same <code className="rounded bg-grey-100 px-1">Model(X, z)</code> contract (return <code className="rounded bg-grey-100 px-1">(Y_est, z)</code>) and run in an environment with <strong>numpy and scipy only</strong> — ship trained weights as arrays and implement inference with numpy.</li>
-              <li><code className="rounded bg-grey-100 px-1">Settings.xlsx</code> — cells <strong>B1</strong> Author Name, <strong>B2</strong> Author Affiliation, <strong>B3</strong> Author Email, <strong>B4</strong> Model Name. All four are required.</li>
               <li>Any other files the model needs (parameter <code className="rounded bg-grey-100 px-1">.mat</code> files, lookup tables). Toolboxes are <em>not</em> available — implement network layers and filters yourself.</li>
             </ul>
             <h3 className="mt-6 font-heading text-lg font-semibold">Function signature</h3>
@@ -119,7 +118,7 @@ export default function DocsPage() {
           <section id="test-tool">
             <H2 id="test-tool">Testing before you submit</H2>
             <p className="mt-3">You don&apos;t need MATLAB or any local tool. On the <Link href="/submit">Submit</Link> page, <strong>Test your package first</strong> runs your zip through the production evaluator on one <em>public</em> drive cycle (m80, REORDERED1 at 25 °C, first two hours of the open data): the same +0.3 A validation pass, then the cycle with the standard one-hour padding. Within a minute or so you see whether the package loads and runs, the error message if it doesn&apos;t, its RMSE on that cycle, and its complexity bin.</p>
-            <p className="mt-3">A test run never touches the blinded data, is not scored, does not appear on any leaderboard and does not count against contest limits. It is rate-limited to five per hour per account. Structural checks (archive layout, file names, Settings fields, function signature) also run instantly on every upload.</p>
+            <p className="mt-3">A test run never touches the blinded data, is not scored, does not appear on any leaderboard and does not count against contest limits. It is rate-limited to five per hour per account. Structural checks (archive layout, file names, function signature) also run instantly on every upload.</p>
           </section>
 
           <section id="evaluation">

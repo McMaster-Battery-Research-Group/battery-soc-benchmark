@@ -26,7 +26,7 @@ const STEPS = [
   },
   {
     icon: CheckCircle2, title: "Test it on the site (2 min)",
-    body: <>Zip <code className="rounded bg-grey-100 px-1">Model.m</code>/<code className="rounded bg-grey-100 px-1">Model.py</code>, <code className="rounded bg-grey-100 px-1">Settings.xlsx</code> and any parameter files (no folders), then use <strong>Test your package first</strong> on the Submit page. It runs your model through the real evaluator on one public drive cycle and tells you exactly what to fix — no MATLAB or local tooling needed, nothing is scored or recorded.</>,
+    body: <>Zip <code className="rounded bg-grey-100 px-1">Model.m</code>/<code className="rounded bg-grey-100 px-1">Model.py</code> and any parameter files (no folders, no spreadsheet needed), then use <strong>Test your package first</strong> on the Submit page. It runs your model through the real evaluator on one public drive cycle and tells you exactly what to fix — no MATLAB or local tooling needed, nothing is scored or recorded.</>,
     links: [{ href: "/docs#test-tool", label: "How the test run works" }],
   },
   {

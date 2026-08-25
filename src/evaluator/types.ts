@@ -35,7 +35,7 @@ export interface EvaluationOutput extends MetricValues {
 
 export interface EvaluationInput {
   submissionId: string;
-  /** Absolute path to the uploaded submission package (.zip with Model.m/Model.p + Settings.xlsx) */
+  /** Absolute path to the uploaded submission package (.zip with Model.m, Model.p or Model.py at the top level) */
   filePath: string;
   fileType: "ZIP" | "MAT" | "PY";
   modelType: string;

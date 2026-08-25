@@ -37,7 +37,7 @@ Without `SMTP_HOST`, emails go to an auto-created Ethereal inbox and the preview
 | UI kit | `src/components/ui/` |
 | Charts (validated palette) | `src/components/charts/` |
 | Test-case definitions + official weights | `src/lib/test-cases.ts`, `src/lib/scoring.ts` |
-| Submission package checks (zip structure, `Model.m`, `Settings.xlsx`) | `src/lib/package-check.ts` |
+| Submission package checks (zip structure, `Model.m`/`.p`/`.py`, signature) | `src/lib/package-check.ts` |
 | Evaluator seam | `src/evaluator/` |
 | Schema / seed | `prisma/` |
 
