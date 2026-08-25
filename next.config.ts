@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/submissions/[id]/report.pdf": ["./node_modules/pdfkit/**"],
     "/api/jobs/run": ["./node_modules/pdfkit/**"],
+    // Example packages are read from disk (fs.readFile), which the tracer cannot see.
+    "/examples": ["./evaluator/examples/*.zip"],
+    "/examples/download/[file]": ["./evaluator/examples/*.zip"],
   },
 };
 
