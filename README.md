@@ -134,7 +134,7 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 | --- | --- | --- |
 | Next.js web app | **Vercel** (Hobby) | free |
 | PostgreSQL | **Supabase** (free project, 500 MB) | free |
-| Submission packages | **Vercel Blob** (Hobby includes 1 GB) | free |
+| Submission packages | **Supabase Storage** (private bucket, same project; 1 GB free) | free |
 | Evaluation | **either** `npm run worker` on your laptop / a lab PC (required later for MATLAB) **or** a free cron hitting `/api/jobs/run` (mock only) | free |
 
 ### 1. Supabase
@@ -153,13 +153,13 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 ### 2. Vercel
 1. https://vercel.com → **Add New → Project** → import `AhmadAli137/battery-soc-benchmark`.
 2. Environment variables (Production):
-   `DATABASE_URL`, `DIRECT_URL` (from Supabase) · `AUTH_SECRET` (`openssl rand -base64 32`) · `AUTH_URL` + `NEXT_PUBLIC_SITE_URL` (your Vercel URL) · `STORAGE=blob` · `MAX_UPLOAD_MB=50` · `CRON_SECRET` (`openssl rand -hex 24`) · `SMTP_*` + `MAIL_FROM` · `ADMIN_EMAILS` (comma-separated administrators: auto-promoted, no dry-run limit, Admin badge) · `ADMIN_NOTIFY_EMAIL` (optional; feedback-form notifications).
+   `DATABASE_URL`, `DIRECT_URL` (from Supabase) · `AUTH_SECRET` (`openssl rand -base64 32`) · `AUTH_URL` + `NEXT_PUBLIC_SITE_URL` (your Vercel URL) · `STORAGE=supabase` + `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (service-role secret) + `SUPABASE_BUCKET=packages` · `MAX_UPLOAD_MB=50` · `CRON_SECRET` (`openssl rand -hex 24`) · `SMTP_*` + `MAIL_FROM` · `ADMIN_EMAILS` (comma-separated administrators: auto-promoted, no dry-run limit, Admin badge) · `ADMIN_NOTIFY_EMAIL` (optional; feedback-form notifications).
    Only add `EVALUATOR=mock` + `MOCK_EVAL_SECONDS=4` if you use the cron endpoint (option B below); with a real worker the web tier never evaluates anything.
-3. Deploy. Then **Storage → Create → Blob → Connect to project** (adds `BLOB_READ_WRITE_TOKEN`); redeploy once.
+3. Create the private bucket once from your machine: `STORAGE=supabase SUPABASE_URL=… SUPABASE_SERVICE_KEY=… npx tsx scripts/setup-storage.ts` (idempotent; also round-trips a test object). Then deploy.
 
 ### 3. Evaluation — pick one
-- **Laptop / lab PC worker** (run exactly one — a second stale worker with different env will steal jobs) — copy the production `DATABASE_URL`, `DIRECT_URL`, `STORAGE=blob`, `BLOB_READ_WRITE_TOKEN`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` into a local `.env.production`, then `npx dotenv -e .env.production -- npm run worker` (or just edit `.env`). Outbound-only; works behind campus VPN. This is the path for MATLAB later.
-  - **Keeping a Windows laptop worker alive:** `scripts\install-worker-task.ps1` (run once, elevated) registers a Scheduled Task that starts the worker at logon, restarts it on crash, logs to `worker.log`, and sets the power plan to never sleep on AC (lid closed = nothing). The worker writes a heartbeat every 15 s; the Submit page shows **Evaluator online / paused**, and queued submissions show their queue position and "will start automatically when the machine is back". Nothing inbound is required — the laptop only makes outbound connections (Postgres, Blob, SMTP), so any network/VPN works.
+- **Laptop / lab PC worker** (run exactly one — a second stale worker with different env will steal jobs) — copy the production `DATABASE_URL`, `DIRECT_URL`, `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` into a local `.env.production`, then `npx dotenv -e .env.production -- npm run worker` (or just edit `.env`). Outbound-only; works behind campus VPN. This is the path for MATLAB later.
+  - **Keeping a Windows laptop worker alive:** `scripts\install-worker-task.ps1` (run once, elevated) registers a Scheduled Task that starts the worker at logon, restarts it on crash, logs to `worker.log`, and sets the power plan to never sleep on AC (lid closed = nothing). The worker writes a heartbeat every 15 s; the Submit page shows **Evaluator online / paused**, and queued submissions show their queue position and "will start automatically when the machine is back". Nothing inbound is required — the laptop only makes outbound connections (Postgres, Supabase Storage, SMTP), so any network/VPN works.
 - **Free cron (mock only)** — https://cron-job.org (free) → new job → URL `https://<your-site>/api/jobs/run?secret=<CRON_SECRET>` every 1 minute. Each call drains the queue for up to 45 s. Submissions then complete within ~1 minute with no worker running anywhere.
 
 ### Paid alternative — Render worker
@@ -168,5 +168,5 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 ### Ops notes
 - Scaling evaluation: run `npm run worker` on more machines — jobs are claimed atomically, nothing else to configure. `WORKER_CONCURRENCY=n` runs n evaluations in parallel on one machine (CPU-bound; ≤ physical cores / 2). **Admin → Evaluation workers** (`/admin/workers`) lists every machine with live diagnostics (CPU/memory/disk, Python/MATLAB/blinded-data checks, code version, completed/failed counts), the last 200 console lines of each, the queue with lock ages, and pause / resume / stop / release-lock / retry controls.
 - Real evaluation: set `EVALUATOR=real` on the worker host (needs Python + `socbench_eval`, MATLAB for `.m/.p` packages, and `SOCBENCH_BLIND_DATA` pointing at the blinded `.mat` — see *The evaluator*). The worker calls `storage.materialize()` so the package is always a local file regardless of storage mode. The cron endpoint only works with the mock evaluator.
-- Blob objects are public-but-unguessable URLs (random suffix) and are deleted as soon as evaluation completes; swap `BlobStorage` for S3/R2 if stricter handling is required — only `src/lib/storage.ts` changes.
+- Packages live in a **private** Supabase bucket: the browser uploads through a signed URL issued by `/api/upload` (signed-in users only), only the service key can read, and the object is deleted as soon as evaluation completes. Swap `SupabaseStorage` for S3/R2 if ever needed — only `src/lib/storage.ts` changes.
 - Backups: Supabase free tier has no automatic backups — schedule `pg_dump` (e.g. weekly GitHub Action) or upgrade.

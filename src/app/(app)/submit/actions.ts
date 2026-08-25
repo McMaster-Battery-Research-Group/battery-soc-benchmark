@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { storage, MAX_UPLOAD_BYTES } from "@/lib/storage";
+import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage } from "@/lib/package-check";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorDeclinedEmail } from "@/lib/mail";
@@ -32,23 +32,23 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   const parsed = submissionMetaSchema.safeParse(raw);
   if (!parsed.success) return { errors: zodErrors(parsed.error), values };
 
-  // The package arrives either as a multipart file (STORAGE=local) or as a
-  // Vercel Blob URL the browser uploaded to directly (STORAGE=blob).
+  // The package arrives either as a multipart file (STORAGE=local) or as the
+  // object key of a file the browser uploaded directly (STORAGE=supabase).
   let bytes: Buffer;
   let fileName: string;
   let fileSize: number;
   let preUploadedKey: string | null = null;
-  const blobUrl = String(fd.get("fileUrl") ?? "");
-  if (storage.mode === "blob" && blobUrl) {
-    if (!/^https:\/\/[a-z0-9.-]+\.public\.blob\.vercel-storage\.com\//.test(blobUrl)) return { errors: { file: "Invalid upload reference" }, values };
+  const uploadedKey = String(fd.get("fileKey") ?? "");
+  if (storage.mode === "supabase" && uploadedKey) {
+    if (!OBJECT_KEY_RE.test(uploadedKey)) return { errors: { file: "Invalid upload reference" }, values };
     fileName = String(fd.get("fileName") ?? "model.zip");
     try {
-      bytes = await storage.getBytes(blobUrl);
+      bytes = await storage.getBytes(uploadedKey);
     } catch {
       return { errors: { file: "The uploaded package could not be retrieved. Please try again." }, values };
     }
     fileSize = bytes.length;
-    preUploadedKey = blobUrl;
+    preUploadedKey = uploadedKey;
   } else {
     const file = fd.get("file");
     if (!(file instanceof File) || file.size === 0) return { errors: { file: "Upload your submission package (.zip containing Model.m, Model.p or Model.py)" }, values };

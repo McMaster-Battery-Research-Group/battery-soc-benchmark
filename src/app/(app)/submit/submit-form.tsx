@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/misc";
 import { MODEL_TYPES, submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { cn, fmtBytes } from "@/lib/utils";
+import { uploadPackage } from "@/lib/upload-client";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
 import type { UserHit } from "@/app/actions/users";
@@ -90,14 +91,13 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
     fd.set("collaboratorIds", JSON.stringify(collabs.map((c) => c.id)));
     fd.set("file", file!);
 
-    // 3) In blob mode the browser uploads the package first, then posts only metadata + URL.
+    // 3) With cloud storage the browser uploads the package first, then posts only metadata + object key.
     if (directUpload) {
       try {
         setUploadErr(undefined);
         setUploadPct(0);
-        const { upload } = await import("@vercel/blob/client");
-        const blob = await upload(`submissions/${file!.name}`, file!, { access: "public", handleUploadUrl: "/api/upload", onUploadProgress: (p) => setUploadPct(Math.round(p.percentage)) });
-        fd.set("fileUrl", blob.url);
+        const key = await uploadPackage(file!, "submission", setUploadPct);
+        fd.set("fileKey", key);
         fd.set("fileName", file!.name);
       } catch (e) {
         setUploadPct(null);

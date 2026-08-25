@@ -23,9 +23,13 @@ services:
       - key: DIRECT_URL
         sync: false
       - key: STORAGE
-        value: blob
-      - key: BLOB_READ_WRITE_TOKEN
-        sync: false          # paste the same token Vercel generated for the Blob store
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false          # service-role secret from Supabase → Project Settings → API
+      - key: SUPABASE_BUCKET
+        value: packages
       - key: EVALUATOR
         value: mock          # switch to "matlab" on a machine that has MATLAB Runtime
       - key: MOCK_EVAL_SECONDS

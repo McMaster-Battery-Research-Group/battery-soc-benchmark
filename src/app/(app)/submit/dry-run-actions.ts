@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { storage, MAX_UPLOAD_BYTES } from "@/lib/storage";
+import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage } from "@/lib/package-check";
 import { dryRunLimitError } from "@/lib/dry-run-quota";
 
@@ -23,16 +23,16 @@ export async function startDryRunAction(fd: FormData): Promise<DryRunStart> {
   let bytes: Buffer;
   let fileName: string;
   let preUploadedKey: string | null = null;
-  const blobUrl = String(fd.get("fileUrl") ?? "");
-  if (storage.mode === "blob" && blobUrl) {
-    if (!/^https:\/\/[a-z0-9.-]+\.public\.blob\.vercel-storage\.com\//.test(blobUrl)) return { ok: false, error: "Invalid upload reference" };
+  const uploadedKey = String(fd.get("fileKey") ?? "");
+  if (storage.mode === "supabase" && uploadedKey) {
+    if (!OBJECT_KEY_RE.test(uploadedKey)) return { ok: false, error: "Invalid upload reference" };
     fileName = String(fd.get("fileName") ?? "model.zip");
     try {
-      bytes = await storage.getBytes(blobUrl);
+      bytes = await storage.getBytes(uploadedKey);
     } catch {
       return { ok: false, error: "The uploaded package could not be retrieved." };
     }
-    preUploadedKey = blobUrl;
+    preUploadedKey = uploadedKey;
   } else {
     const file = fd.get("file");
     if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose a .zip package first." };
