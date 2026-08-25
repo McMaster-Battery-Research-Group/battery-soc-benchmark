@@ -123,6 +123,16 @@ export function collaboratorInviteEmail(to: string, name: string, byName: string
   });
 }
 
+export function collaboratorAcceptedEmail(to: string, ownerName: string, collaboratorName: string, modelName: string, submissionId: string) {
+  const href = `${site()}/submissions/${submissionId}`;
+  return sendMail({
+    to: addr(ownerName, to),
+    subject: `${collaboratorName} accepted co-authorship on "${modelName}"`,
+    html: layout("Invitation accepted", `<p>Hi ${ownerName},</p><p><strong>${collaboratorName}</strong> accepted your invitation and is now listed as a co-author on <strong>${modelName}</strong> — their name and picture appear beside the model on the leaderboard and on their researcher page.</p>${button(href, "View the submission")}`),
+    text: `${collaboratorName} accepted co-authorship on "${modelName}": ${href}`,
+  });
+}
+
 export function collaboratorDeclinedEmail(to: string, ownerName: string, collaboratorName: string, modelName: string, submissionId: string) {
   const href = `${site()}/submissions/${submissionId}`;
   return sendMail({
