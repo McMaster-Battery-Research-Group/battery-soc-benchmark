@@ -7,6 +7,7 @@ import { hostname } from "os";
 import { db } from "@/lib/db";
 import { storage } from "@/lib/storage";
 import { evaluationCompleteEmail } from "@/lib/mail";
+import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getEvaluator } from "./index";
 import { EvaluationError } from "./types";
 
@@ -117,7 +118,14 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     ]);
     await log(`completed — weighted error ${out.weightedError.toFixed(3)} %`);
     await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
-    await evaluationCompleteEmail(sub.user.email, sub.user.name, sub.modelName, sub.id, true, `All-cells RMSE: ${out.allCells.toFixed(2)} %, weighted error: ${out.weightedError.toFixed(2)} %.`);
+    let report: Buffer | undefined;
+    try {
+      const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true } });
+      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, result: fresh.result as unknown as ReportInput["result"], siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
+    } catch (e) {
+      await log(`report generation failed (email sent without attachment): ${e instanceof Error ? e.message : String(e)}`);
+    }
+    await evaluationCompleteEmail(sub.user.email, sub.user.name, sub.modelName, sub.id, true, `All-cells RMSE: ${out.allCells.toFixed(2)} %, weighted error: ${out.weightedError.toFixed(2)} %.`, report);
     return { submissionId: sub.id, status: "COMPLETED" };
   } catch (err) {
     const message = err instanceof EvaluationError && err.userFacing ? err.message : "The evaluator encountered an internal error. The administrators have been notified.";

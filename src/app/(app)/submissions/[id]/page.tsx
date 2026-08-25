@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Lock, ArrowLeft, Trophy, Download } from "lucide-react";
+import { Lock, ArrowLeft, Trophy, Download, FileText } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getSubmissionDetail, canViewSubmission } from "@/lib/queries";
 import { TEST_CASES, MODEL_TYPE_LABELS, COMPLEXITY_LABELS, type MetricKey } from "@/lib/test-cases";
@@ -72,7 +72,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
       {r && values ? (
         <>
-          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> Download PDF report</a></Button>
+            <span className="text-xs text-grey-600">Summary, all test cases, time-domain traces and per-cycle errors — also attached to your results e-mail.</span>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
             <Stat label="Weighted error" value={<>{fmtPct(r.weightedError)}<span className="text-lg text-grey-600"> %</span></>} sub="Official leaderboard score" />
             <Stat label="All cells RMSE" value={<>{fmtPct(r.allCells)}<span className="text-lg text-grey-600"> %</span></>} sub="Test 1, every blinded cycle" />
             <Stat label="Max error" value={<>{fmtPct(r.maxError, 1)}<span className="text-lg text-grey-600"> %</span></>} sub="Worst instantaneous error" />
@@ -119,8 +123,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
                 <Row k="Submission ID" v={sub.id} />
               </dl>
-              <div className="mt-4">
-                <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> Download results JSON</a></Button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> PDF report</a></Button>
+                <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> Results JSON</a></Button>
               </div>
             </TabsContent>
           </Tabs>
