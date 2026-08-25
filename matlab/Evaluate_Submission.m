@@ -28,7 +28,11 @@ function Evaluate_Submission(zipPath, outDir, toolDir)
     if isfile(errFile), delete(errFile); end
 
     addpath(toolDir);
-    rootfolder = toolDir;
+    if exist('gcp', 'file') ~= 2                      % no Parallel Computing Toolbox → serial fallback
+        addpath(fullfile(fileparts(mfilename('fullpath')), 'shims'));
+        log('Parallel Computing Toolbox not found — running cycles serially (no per-cycle watchdog)');
+    end
+    rootfolder = toolDir; %#ok<NASGU>
     workDir = fullfile(outDir, 'pkg');
     if isfolder(workDir), rmdir(workDir, 's'); end
     mkdir(workDir);
@@ -126,7 +130,8 @@ function Evaluate_Submission(zipPath, outDir, toolDir)
             T = OutputData.(Setups{t});
             names = T.Properties.RowNames;
             for r = 1:height(T)
-                cyc = regexprep(names{r}, '_\d+$', '');
+                cyc = regexprep(names{r}, '_\d+$', '');                 % table row suffix
+                cyc = regexprep(cyc, '^(HWCUST|HWGRADE|REORDERED)\d+$', '$1'); % run number → family (matches Python evaluator)
                 act = double(T{r,5}.Data(:)); est = double(T{r,6}.Data(:));
                 row = struct('cell', cellNames{t}, 'cycle', cyc, 'temperatureC', double(T{r,1}), ...
                     'rmse', double(T{r,2}), 'mae', double(T{r,3}), 'maxErr', double(T{r,4}), 'durationH', numel(act)/3600);
