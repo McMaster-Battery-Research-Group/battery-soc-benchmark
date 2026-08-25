@@ -79,7 +79,7 @@ export default function ExamplesPage() {
             <li>Keep the signature <code className="rounded bg-white px-1">[Y, z] = Model(X, z)</code> and the <code className="rounded bg-white px-1">nargin &lt; 2</code> initialisation block.</li>
             <li>Put every parameter your model needs either inline or in a <code className="rounded bg-white px-1">.mat</code> loaded once at initialisation — never in the per-sample path.</li>
             <li>Return SOC on 0–1 and store <em>all</em> memory in <code className="rounded bg-white px-1">z</code>; the evaluator keeps nothing else between calls.</li>
-            <li>Run the <Link href="/docs#test-tool" className="text-maroon underline">local test tool</Link>, then <Link href="/submit" className="text-maroon underline">submit</Link>.</li>
+            <li>Use <Link href="/docs#test-tool" className="text-maroon underline">Test your package first</Link> on the Submit page, then <Link href="/submit" className="text-maroon underline">submit</Link>.</li>
           </ol>
         </div>
       </div>

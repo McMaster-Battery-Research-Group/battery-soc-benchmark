@@ -48,7 +48,7 @@ def _col(v) -> np.ndarray:
     return np.asarray(v, dtype=float).reshape(-1)
 
 
-def load_blind_data(path: str | Path) -> BlindData:
+def load_blind_data(path: str | Path, require_all: bool = True) -> BlindData:
     m = loadmat(str(path), squeeze_me=True, struct_as_record=False)
     blind = m["blind"]
     cells: dict[str, list[Cycle]] = {}
@@ -71,6 +71,6 @@ def load_blind_data(path: str | Path) -> BlindData:
             )
         cells[name] = cycles
     missing = [k for k in CELL_KEYS if k not in cells]
-    if missing:
+    if missing and require_all:
         raise ValueError(f"blind data is missing cells: {missing}")
     return BlindData(cells=cells)

@@ -75,6 +75,8 @@ npm run worker
 
 Run by hand: `cd evaluator/python && python -m socbench_eval package.zip outDir --data ../../blind-data/blind_data.mat [--runtime python|matlab]`.
 
+**Dry runs ("Test your package first")** — the Submit page lets a signed-in user run a package through the same evaluator on one *open* cycle (`evaluator/python/dryrun_data.mat`: m80 REORDERED1 @ 25 °C, first 2 h, from the public Borealis data): +0.3 A validation, then the padded cycle. Returns pass/fail with the error message, RMSE/MAE/max error on that cycle, complexity bin and a trace. Never touches blinded data, creates no submission, limited to 5/hour/user, and jumps the evaluation queue. CLI: `python -m socbench_eval package.zip outDir --dry-run`. This replaces the old downloadable MATLAB "Model Submission Test Tool".
+
 Complexity is time-per-sample normalised by `SOCBENCH_CAL_PYTHON` / `SOCBENCH_CAL_MATLAB` (seconds per sample of a plain Coulomb counter on that host) so both runtimes bin the same model the same way; recalibrate when the evaluation host changes.
 
 The original tool (daemon, figures, e-mail, `Leaderboard.csv`) and the Borealis download live in `../Battery-SOC-Benchmark-archive/` — nothing in the repo depends on them.

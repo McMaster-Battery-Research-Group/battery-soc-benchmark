@@ -68,6 +68,7 @@ model User {
   contestEntries ContestEntry[]
   tokens         UserToken[]
   messages       ContactMessage[]
+  dryRuns        DryRun[]
 }
 
 enum TokenType {
@@ -207,6 +208,27 @@ model ContestEntry {
   teamName       String?
 
   @@unique([contestId, userId])
+}
+
+/// Pre-submission check on OPEN data (no scores, no leaderboard). Replaces the
+/// old downloadable "Model Submission Test Tool"; works for Python and MATLAB packages.
+model DryRun {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileKey        String
+  fileName       String
+  fileSize       Int
+  status         SubmissionStatus @default(QUEUED)
+  result         Json?
+  failureMessage String?
+  log            String           @default("")
+  lockedAt       DateTime?
+  createdAt      DateTime         @default(now())
+  completedAt    DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status, lockedAt])
 }
 
 model ContactMessage {

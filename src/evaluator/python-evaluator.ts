@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import { mkdtemp, readFile, rm } from "fs/promises";
 import os from "os";
 import path from "path";
-import { EvaluationError, type EvaluationInput, type EvaluationOutput, type Evaluator } from "./types";
+import { EvaluationError, type DryRunOutput, type EvaluationInput, type EvaluationOutput, type Evaluator } from "./types";
 import { parseResultsJson } from "./results";
 
 /**
@@ -15,22 +15,32 @@ import { parseResultsJson } from "./results";
  *   SOCBENCH_BLIND_DATA  blind_data.mat produced by matlab/Export_Blind_Data.m
  *   MATLAB_BIN           matlab executable, only for Model.m/.p packages
  *   SOCBENCH_CAL_PYTHON / SOCBENCH_CAL_MATLAB  complexity calibration (s per sample)
- *   PY_EVAL_TIMEOUT_MIN  hard kill after this many minutes (default 180)
+ *   PY_EVAL_TIMEOUT_MIN  hard kill after this many minutes (default 180; dry runs 10)
  */
 export class PythonEvaluator implements Evaluator {
   readonly name = "real";
 
   async evaluate(input: EvaluationInput): Promise<EvaluationOutput> {
+    return parseResultsJson(await this.spawn(input, false), input.log);
+  }
+
+  async dryRun(input: EvaluationInput): Promise<DryRunOutput> {
+    return JSON.parse(await this.spawn(input, true)) as DryRunOutput;
+  }
+
+  /** Runs socbench_eval and returns the results.json text. */
+  private async spawn(input: EvaluationInput, dry: boolean): Promise<string> {
     const py = process.env.SOCBENCH_PYTHON ?? "python";
     const data = process.env.SOCBENCH_BLIND_DATA;
-    if (!data) throw new EvaluationError("SOCBENCH_BLIND_DATA is not set on the evaluation host.", false);
+    if (!data && !dry) throw new EvaluationError("SOCBENCH_BLIND_DATA is not set on the evaluation host.", false);
     const pkgDir = path.resolve(process.cwd(), "evaluator", "python");
     const outDir = await mkdtemp(path.join(os.tmpdir(), "socbench-pyeval-"));
-    const timeoutMs = Number(process.env.PY_EVAL_TIMEOUT_MIN ?? 180) * 60_000;
-    await input.log(`[python] ${py} -m socbench_eval "${input.filePath}" "${outDir}"`);
+    const timeoutMs = Number(dry ? (process.env.DRY_RUN_TIMEOUT_MIN ?? 10) : (process.env.PY_EVAL_TIMEOUT_MIN ?? 180)) * 60_000;
+    const args = ["-m", "socbench_eval", input.filePath, outDir, ...(data ? ["--data", data] : []), ...(dry ? ["--dry-run"] : [])];
+    await input.log(`[eval] ${py} ${args.join(" ")}`);
     try {
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(py, ["-m", "socbench_eval", input.filePath, outDir, "--data", data], {
+        const child = spawn(py, args, {
           cwd: pkgDir,
           env: { ...process.env, PYTHONPATH: pkgDir, PYTHONUNBUFFERED: "1", PYTHONIOENCODING: "utf-8" },
           windowsHide: true,
@@ -43,7 +53,7 @@ export class PythonEvaluator implements Evaluator {
         const onData = (buf: Buffer) => {
           const text = buf.toString();
           tail = (tail + text).slice(-4000);
-          for (const line of text.split(/\r?\n/).filter(Boolean)) void input.log(`[python] ${line}`);
+          for (const line of text.split(/\r?\n/).filter(Boolean)) void input.log(`[eval] ${line}`);
         };
         child.stdout.on("data", onData);
         child.stderr.on("data", onData);
@@ -58,11 +68,11 @@ export class PythonEvaluator implements Evaluator {
             const err = JSON.parse(await readFile(path.join(outDir, "error.json"), "utf8")) as { code: string; message: string };
             reject(new EvaluationError(`${err.code}: ${err.message}`, ["FORMAT", "VALIDATION", "RUNTIME"].includes(err.code)));
           } catch {
-            reject(new EvaluationError(`Python evaluator exited with code ${code}. ${tail.slice(-500)}`, false));
+            reject(new EvaluationError(`Evaluator exited with code ${code}. ${tail.slice(-500)}`, false));
           }
         });
       });
-      return parseResultsJson(await readFile(path.join(outDir, "results.json"), "utf8"), input.log);
+      return await readFile(path.join(outDir, "results.json"), "utf8");
     } finally {
       await rm(outDir, { recursive: true, force: true }).catch(() => {});
     }

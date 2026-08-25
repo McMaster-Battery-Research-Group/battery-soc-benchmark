@@ -7,7 +7,7 @@
  * zero-infrastructure alternative (mock evaluator only) see /api/jobs/run.
  */
 import "dotenv/config";
-import { claimJob, runJob, workerId } from "./run-job";
+import { claimNext, runNext, workerId } from "./run-job";
 import { getEvaluator } from "./index";
 
 const POLL_MS = 2000;
@@ -16,9 +16,9 @@ async function main() {
   console.log(`[worker] ${workerId()} online — evaluator "${getEvaluator().name}", polling every ${POLL_MS} ms`);
   while (true) {
     try {
-      const job = await claimJob();
-      if (job) {
-        await runJob(job.id);
+      const item = await claimNext();
+      if (item) {
+        await runNext(item);
         continue;
       }
     } catch (err) {

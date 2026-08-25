@@ -21,7 +21,7 @@ function H2({ id, children }: { id: keyof typeof ICONS; children: React.ReactNod
 export const metadata: Metadata = { title: "Methodology" };
 
 const TOC = [
-  ["overview", "Overview"], ["test-cases", "The blinded test cases"], ["metrics", "Metrics & weighted score"], ["submission-format", "Submission format"], ["test-tool", "Local test tool"], ["evaluation", "How evaluation runs"], ["citation", "Citation"],
+  ["overview", "Overview"], ["test-cases", "The blinded test cases"], ["metrics", "Metrics & weighted score"], ["submission-format", "Submission format"], ["test-tool", "Testing before you submit"], ["evaluation", "How evaluation runs"], ["citation", "Citation"],
 ];
 
 const CC_EXAMPLE = `% SOC Estimation Example V2 — online Coulomb counter
@@ -117,9 +117,9 @@ export default function DocsPage() {
           </section>
 
           <section id="test-tool">
-            <H2 id="test-tool">Local test tool</H2>
-            <p className="mt-3">Before uploading, run the <strong>Model Submission Test Tool</strong> from <em>2-Aiding Tools.zip</em>: open the folder in MATLAB, replace <code className="rounded bg-grey-100 px-1">Example_1_Coulomb_Counter.zip</code> with your package, and run <code className="rounded bg-grey-100 px-1">Submission_Test_Script.mlx</code>. It reproduces the evaluator&apos;s loading and iteration on a short profile and reports any structural or runtime error.</p>
-            <p className="mt-3">This site repeats the structural checks (archive layout, file names, Settings fields, function signature) the moment you upload, so most mistakes are caught before a job is queued.</p>
+            <H2 id="test-tool">Testing before you submit</H2>
+            <p className="mt-3">You don&apos;t need MATLAB or any local tool. On the <Link href="/submit">Submit</Link> page, <strong>Test your package first</strong> runs your zip through the production evaluator on one <em>public</em> drive cycle (m80, REORDERED1 at 25 °C, first two hours of the open data): the same +0.3 A validation pass, then the cycle with the standard one-hour padding. Within a minute or so you see whether the package loads and runs, the error message if it doesn&apos;t, its RMSE on that cycle, and its complexity bin.</p>
+            <p className="mt-3">A test run never touches the blinded data, is not scored, does not appear on any leaderboard and does not count against contest limits. It is rate-limited to five per hour per account. Structural checks (archive layout, file names, Settings fields, function signature) also run instantly on every upload.</p>
           </section>
 
           <section id="evaluation">
