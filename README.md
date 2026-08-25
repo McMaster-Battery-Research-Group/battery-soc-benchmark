@@ -43,7 +43,7 @@ Without `SMTP_HOST`, emails go to an auto-created Ethereal inbox and the preview
 
 ## The evaluator (MATLAB **and** Python submissions)
 
-`evaluator/python/socbench_eval` **is** the benchmark: ~450 lines of numpy that reproduce the lab's original Standardized Evaluation Tool exactly (verified identical to 3 decimals on the real blinded data) — 1-hour constant padding, validation on m80 UDDS @ 10 °C with +0.3 A, 144 blinded cycles + charge cycles, positional temperature means, initial-SOC (90/60/30 %) and current-offset (±0.05/0.1/0.3 A) sweeps, the published weights, ⅓-decade complexity bins.
+`evaluator/python/socbench_eval` **is** the benchmark: ~450 lines of numpy that reproduce the lab's original Standardized Evaluation Tool exactly (verified on the real blinded data: the CC, EKF, FNN and LSTM example packages reproduce every column of the lab's historical leaderboard to 0.000) — 1-hour constant padding, validation on m80 UDDS @ 10 °C with +0.3 A, 144 blinded cycles + charge cycles, positional temperature means, initial-SOC (90/60/30 %) and current-offset (±0.05/0.1/0.3 A) sweeps, the published weights, ⅓-decade complexity bins.
 
 The only runtime-specific part is *executing the model*:
 
@@ -89,7 +89,9 @@ Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca) (Heritage Maroon `
 
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
-- [ ] Parity-test the EKF / FNN / LSTM example packages (MATLAB runtime) and decide whether the evaluation host ships PyTorch for Python submissions.
+- [x] Parity-tested the CC / EKF / FNN / LSTM example packages: all 21 score columns match the historical `Leaderboard.csv` to 0.000 (2026-08-25).
+- [ ] Decide whether the evaluation host ships PyTorch for Python submissions (three archived Python submissions depend on it).
+- [ ] Import the 13 historical leaderboard entries (`archive/old-evaluation-tool/Models/Leaderboard.csv`) as legacy submissions.
 - [ ] Calibrate `SOCBENCH_CAL_*` on the final evaluation host.
 - [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
 - [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
@@ -152,7 +154,9 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
-- [ ] Parity-test the EKF / FNN / LSTM example packages (MATLAB runtime) and decide whether the evaluation host ships PyTorch for Python submissions.
+- [x] Parity-tested the CC / EKF / FNN / LSTM example packages: all 21 score columns match the historical `Leaderboard.csv` to 0.000 (2026-08-25).
+- [ ] Decide whether the evaluation host ships PyTorch for Python submissions (three archived Python submissions depend on it).
+- [ ] Import the 13 historical leaderboard entries (`archive/old-evaluation-tool/Models/Leaderboard.csv`) as legacy submissions.
 - [ ] Calibrate `SOCBENCH_CAL_*` on the final evaluation host.
 - [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
 - [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
