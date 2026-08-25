@@ -76,6 +76,65 @@ Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca) (Heritage Maroon `
 
 The Borealis archives (`0-Documentation.zip` … `4-SOC estimation Model Examples.zip`) are git-ignored; download them from https://doi.org/10.5683/SP3/ZVTR4B.
 
+## Deployment
+
+Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in `render.yaml` if you ever want an always-on cloud worker.
+
+| Piece | Where | Cost |
+| --- | --- | --- |
+| Next.js web app | **Vercel** (Hobby) | free |
+| PostgreSQL | **Supabase** (free project, 500 MB) | free |
+| Submission packages | **Vercel Blob** (Hobby includes 1 GB) | free |
+| Evaluation | **either** `npm run worker` on your laptop / a lab PC (required later for MATLAB) **or** a free cron hitting `/api/jobs/run` (mock only) | free |
+
+### 1. Supabase
+1. https://supabase.com → New project (region: Canada Central if offered, else US East). Save the database password.
+2. Project → **Connect** (top bar) → *ORMs → Prisma* shows two URLs:
+   - `DATABASE_URL` = **Transaction pooler** URL (port **6543**) with `?pgbouncer=true` appended
+   - `DIRECT_URL` = **Session/direct** URL (port **5432**)
+   Replace `[YOUR-PASSWORD]` in both.
+3. From your machine (PowerShell):
+   ```powershell
+   $env:DATABASE_URL="<pooler url>?pgbouncer=true"; $env:DIRECT_URL="<direct url>"
+   npx prisma db push
+   npm run seed        # trim demo data in prisma/seed.ts first if you want a clean launch
+   ```
+
+### 2. Vercel
+1. https://vercel.com → **Add New → Project** → import `AhmadAli137/battery-soc-benchmark`.
+2. Environment variables (Production):
+   `DATABASE_URL`, `DIRECT_URL` (from Supabase) · `AUTH_SECRET` (`openssl rand -base64 32`) · `AUTH_URL` + `NEXT_PUBLIC_SITE_URL` (your Vercel URL) · `STORAGE=blob` · `MAX_UPLOAD_MB=50` · `EVALUATOR=mock` · `MOCK_EVAL_SECONDS=4` · `CRON_SECRET` (`openssl rand -hex 24`) · `SMTP_*` + `MAIL_FROM`.
+3. Deploy. Then **Storage → Create → Blob → Connect to project** (adds `BLOB_READ_WRITE_TOKEN`); redeploy once.
+
+### 3. Evaluation — pick one
+- **Laptop / lab PC worker** — copy the production `DATABASE_URL`, `DIRECT_URL`, `STORAGE=blob`, `BLOB_READ_WRITE_TOKEN`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` into a local `.env.production`, then `npx dotenv -e .env.production -- npm run worker` (or just edit `.env`). Outbound-only; works behind campus VPN. This is the path for MATLAB later.
+- **Free cron (mock only)** — https://cron-job.org (free) → new job → URL `https://<your-site>/api/jobs/run?secret=<CRON_SECRET>` every 1 minute. Each call drains the queue for up to 45 s. Submissions then complete within ~1 minute with no worker running anywhere.
+
+### Paid alternative — Render worker
+`render.yaml` defines a $7/mo background worker (and, commented out, Render Postgres). Only worth it if nobody can keep a machine on and the cron endpoint isn't acceptable.
+
+### Ops notes
+- Scaling evaluation: run more worker instances — jobs are claimed atomically.
+- Switching to MATLAB: set `EVALUATOR=matlab` on the worker host and implement `src/evaluator/matlab-evaluator.ts`. The worker calls `storage.materialize()` so the package is always a local file regardless of storage mode. The cron endpoint is not suitable for MATLAB.
+- Blob objects are public-but-unguessable URLs (random suffix) and are deleted as soon as evaluation completes; swap `BlobStorage` for S3/R2 if stricter handling is required — only `src/lib/storage.ts` changes.
+- Backups: Supabase free tier has no automatic backups — schedule `pg_dump` (e.g. weekly GitHub Action) or upgrade.
+
+## TODO
+
+- [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
+- [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
+- [ ] Implement `MatlabEvaluator` when the lab's script arrives; set `EVALUATOR=matlab` on the worker host.
+- [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
+- [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
+
+## Scripts
+
+`dev` · `build` · `start` · `lint` · `typecheck` · `db:up` · `db:push` · `db:migrate` · `db:studio` · `seed` · `worker`
+
+## Dataset archives
+
+The Borealis archives (`0-Documentation.zip` … `4-SOC estimation Model Examples.zip`) are git-ignored; download them from https://doi.org/10.5683/SP3/ZVTR4B.
+
 ## Deployment (Vercel + Render)
 
 The app is split in two because the evaluator must run continuously and (later) next to MATLAB, while the website is a good fit for serverless.

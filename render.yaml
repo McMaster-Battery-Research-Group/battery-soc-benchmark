@@ -1,9 +1,13 @@
-# Render blueprint: managed Postgres + the always-on evaluation worker.
-# The Next.js web app is deployed to Vercel (see README → Deployment).
-databases:
-  - name: socbench-db
-    plan: basic-256mb        # upgrade as submissions grow
-    postgresMajorVersion: "16"
+# OPTIONAL Render blueprint — only if you want a paid, always-on cloud worker
+# (Render has no free background workers). The zero-cost setup is
+# Vercel (web) + Supabase (Postgres) + worker on a lab machine or the
+# /api/jobs/run cron endpoint. See README → Deployment.
+#
+# To also host Postgres on Render, uncomment:
+# databases:
+#   - name: socbench-db
+#     plan: basic-256mb
+#     postgresMajorVersion: "16"
 
 services:
   - type: worker
@@ -15,9 +19,9 @@ services:
     autoDeploy: true
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: socbench-db
-          property: connectionString
+        sync: false          # Supabase pooled URL (or fromDatabase if using Render Postgres)
+      - key: DIRECT_URL
+        sync: false
       - key: STORAGE
         value: blob
       - key: BLOB_READ_WRITE_TOKEN
