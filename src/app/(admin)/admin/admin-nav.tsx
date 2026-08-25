@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderKanban, Trophy, Users, Inbox } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Trophy, Users, Inbox, Server } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/admin/contests", label: "Contests", icon: Trophy },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/messages", label: "Messages", icon: Inbox },
+  { href: "/admin/workers", label: "Evaluation workers", icon: Server },
 ];
 
 export function AdminNav() {

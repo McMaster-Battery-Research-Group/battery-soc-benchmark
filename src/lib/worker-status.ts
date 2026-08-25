@@ -7,7 +7,9 @@ export type EvaluatorStatus = {
   online: boolean;
   /** most recent heartbeat across all workers, null if none ever */
   lastSeenAt: Date | null;
-  workers: { id: string; evaluator: string; busyWith: string | null }[];
+  workers: { id: string; evaluator: string; busyWith: string[]; concurrency: number; paused: boolean }[];
+  /** total parallel slots across online, un-paused workers */
+  capacity: number;
   queued: number;
   running: number;
 };
@@ -15,12 +17,13 @@ export type EvaluatorStatus = {
 export async function getEvaluatorStatus(): Promise<EvaluatorStatus> {
   const since = new Date(Date.now() - ONLINE_WINDOW_MS);
   const [live, latest, queued, running] = await Promise.all([
-    db.workerHeartbeat.findMany({ where: { lastSeenAt: { gte: since } }, select: { id: true, evaluator: true, busyWith: true } }),
+    db.workerHeartbeat.findMany({ where: { lastSeenAt: { gte: since } }, select: { id: true, evaluator: true, busyWith: true, concurrency: true, paused: true } }),
     db.workerHeartbeat.findFirst({ orderBy: { lastSeenAt: "desc" }, select: { lastSeenAt: true } }),
     db.submission.count({ where: { status: "QUEUED" } }),
     db.submission.count({ where: { status: "RUNNING" } }),
   ]);
-  return { online: live.length > 0, lastSeenAt: latest?.lastSeenAt ?? null, workers: live, queued, running };
+  const active = live.filter((w) => !w.paused);
+  return { online: active.length > 0, lastSeenAt: latest?.lastSeenAt ?? null, workers: live, capacity: active.reduce((n, w) => n + w.concurrency, 0), queued, running };
 }
 
 /** 1-based position of a queued submission among all queued submissions (FIFO by job creation). */

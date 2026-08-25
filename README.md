@@ -153,7 +153,7 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 `render.yaml` defines a $7/mo background worker (and, commented out, Render Postgres). Only worth it if nobody can keep a machine on and the cron endpoint isn't acceptable.
 
 ### Ops notes
-- Scaling evaluation: run more worker instances — jobs are claimed atomically.
+- Scaling evaluation: run `npm run worker` on more machines — jobs are claimed atomically, nothing else to configure. `WORKER_CONCURRENCY=n` runs n evaluations in parallel on one machine (CPU-bound; ≤ physical cores / 2). **Admin → Evaluation workers** (`/admin/workers`) lists every machine with live diagnostics (CPU/memory/disk, Python/MATLAB/blinded-data checks, code version, completed/failed counts), the last 200 console lines of each, the queue with lock ages, and pause / resume / stop / release-lock / retry controls.
 - Real evaluation: set `EVALUATOR=real` on the worker host (needs Python + `socbench_eval`, MATLAB for `.m/.p` packages, and `SOCBENCH_BLIND_DATA` pointing at the blinded `.mat` — see *The evaluator*). The worker calls `storage.materialize()` so the package is always a local file regardless of storage mode. The cron endpoint only works with the mock evaluator.
 - Blob objects are public-but-unguessable URLs (random suffix) and are deleted as soon as evaluation completes; swap `BlobStorage` for S3/R2 if stricter handling is required — only `src/lib/storage.ts` changes.
 - Backups: Supabase free tier has no automatic backups — schedule `pg_dump` (e.g. weekly GitHub Action) or upgrade.

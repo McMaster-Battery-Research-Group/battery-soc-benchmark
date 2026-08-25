@@ -204,12 +204,34 @@ model EvaluationResult {
 /// Liveness of evaluation workers (one row per worker process). The site uses
 /// it to tell users whether evaluations are currently running or waiting.
 model WorkerHeartbeat {
-  id         String   @id // hostname-pid
-  hostname   String
-  evaluator  String
-  startedAt  DateTime @default(now())
-  lastSeenAt DateTime @default(now())
-  busyWith   String? // submission or dry-run id currently being evaluated
+  id          String   @id // hostname-pid
+  hostname    String
+  evaluator   String
+  startedAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  /// ids of submissions / dry runs currently being evaluated (parallel slots)
+  busyWith    String[] @default([])
+  concurrency Int      @default(1)
+  /// admin command picked up at the next heartbeat: "pause" | "resume" | "stop"
+  command     String?
+  paused      Boolean  @default(false)
+  // diagnostics (refreshed every heartbeat)
+  platform    String   @default("")
+  nodeVersion String   @default("")
+  cpus        Int      @default(0)
+  loadAvg     Float    @default(0)
+  memTotalMb  Int      @default(0)
+  memFreeMb   Int      @default(0)
+  diskFreeMb  Int?
+  pythonInfo  String   @default("") // e.g. "Python 3.12.4 · numpy 2.1 · scipy 1.14 · torch 2.4"
+  matlabInfo  String   @default("") // e.g. "R2026a at C:\Program Files\MATLAB\R2026a" or "not configured"
+  blindData   Boolean  @default(false) // SOCBENCH_BLIND_DATA present and readable
+  gitSha      String   @default("")
+  completed   Int      @default(0)
+  failed      Int      @default(0)
+  lastError   String?
+  /// last ~200 console lines of this worker (ring buffer) for the admin panel
+  log         String   @default("")
 }
 
 model EvaluationJob {

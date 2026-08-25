@@ -17,9 +17,10 @@ export async function EvaluatorStatusLine({ className }: { className?: string })
           <Activity className="size-4 text-forest" aria-hidden />
           <span className="font-heading font-medium text-ink">Evaluator online</span>
           <span className="text-grey-700">
+            {s.workers.length > 1 ? `${s.workers.length} machines · ` : ""}
             {s.running ? `evaluating ${s.running} now` : "idle"}
             {s.queued ? ` · ${s.queued} queued` : ""}
-            {backlog ? " · new submissions start after those finish (≈30–60 min each for a full run)" : " · new submissions start within seconds"}
+            {s.running >= s.capacity ? " · new submissions start after those finish (≈30–60 min each for a full run)" : " · new submissions start within seconds"}
           </span>
         </>
       ) : (
