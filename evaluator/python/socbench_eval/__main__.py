@@ -24,17 +24,6 @@ def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def read_settings(pkg: Path) -> dict:
-    try:
-        import openpyxl  # optional
-
-        ws = openpyxl.load_workbook(pkg / "Settings.xlsx", read_only=True).worksheets[0]
-        cell = lambda r: str(ws.cell(row=r, column=2).value or "")  # noqa: E731
-        return {"authorName": cell(1), "affiliation": cell(2), "email": cell(3), "modelName": cell(4)}
-    except Exception:  # noqa: BLE001
-        return {}
-
-
 def fail(out: Path, code: str, message: str) -> None:
     (out / "error.json").write_text(json.dumps({"code": code, "message": message}), encoding="utf-8")
     print(f"EVALUATION FAILED [{code}]: {message}", file=sys.stderr, flush=True)
@@ -75,7 +64,6 @@ def main(argv=None) -> None:
             runtime = "python" if has_py else "matlab" if has_m else ""
         if not runtime:
             fail(out, "FORMAT", "No Model.py, Model.m or Model.p at the top level of the archive.")
-        settings = read_settings(work)
 
         log(f"runtime: {runtime}")
         try:
@@ -84,7 +72,7 @@ def main(argv=None) -> None:
             fail(out, "FORMAT", str(e))
 
         if args.dry_run:
-            dry_run(args, out, backend, runtime, settings, calibration, t0)
+            dry_run(args, out, backend, runtime, calibration, t0)
             return
 
         log("loading blinded data")
@@ -109,7 +97,6 @@ def main(argv=None) -> None:
         result = {
             "evaluatorVersion": f"socbench-eval-{__version__}/{runtime}",
             "runtime": runtime,
-            "settings": settings,
             **s,
             "complexity": cat,
             "complexityUncertainty": 1,
@@ -126,7 +113,7 @@ def main(argv=None) -> None:
         shutil.rmtree(work, ignore_errors=True)
 
 
-def dry_run(args, out: Path, backend, runtime: str, settings: dict, calibration: dict, t0: float) -> None:
+def dry_run(args, out: Path, backend, runtime: str, calibration: dict, t0: float) -> None:
     """Pre-submission check on OPEN data: does the package run, what error does it make on
     one public cycle, how expensive is it. Mirrors the real pipeline (offset validation, then
     a padded cycle) so a package that passes here will run on the blinded data."""
@@ -153,7 +140,7 @@ def dry_run(args, out: Path, backend, runtime: str, settings: dict, calibration:
         ratio /= step; cat += 1
     idx = np.unique(np.round(np.linspace(0, len(a) - 1, min(240, len(a)))).astype(int))
     result = {
-        "dryRun": True, "runtime": runtime, "settings": settings,
+        "dryRun": True, "runtime": runtime,
         "cycle": {"cell": "m80", "cycle": cyc.name, "temperatureC": cyc.temp_c, "samples": int(len(a))},
         "rmse": round(rmse(a, p.soc), 3), "mae": round(float(100 * np.mean(np.abs(a - p.soc))), 3), "maxErr": round(float(100 * np.max(np.abs(a - p.soc))), 3),
         "secondsPerSample": t_sample, "complexity": max(1, min(10, cat)),

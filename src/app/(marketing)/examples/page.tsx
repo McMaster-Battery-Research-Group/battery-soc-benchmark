@@ -45,7 +45,7 @@ export default function ExamplesPage() {
                   <ul className="mt-2 divide-y divide-border">
                     {e.files.map((fl) => <li key={fl.name} className="py-1.5"><code className="text-xs text-ink">{fl.name}</code><span className="block text-xs text-grey-600">{fl.note}</span></li>)}
                   </ul>
-                  <p className="mt-2 text-xs text-grey-600">Zip these at the top level — no folder inside the archive. <code>Settings.xlsx</code> was for the old e-mail tool; you can leave it out.</p>
+                  <p className="mt-2 text-xs text-grey-600">Zip these at the top level — no folder inside the archive.</p>
                 </div>
               </div>
 

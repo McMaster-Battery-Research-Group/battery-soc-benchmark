@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { PageHeader } from "@/components/ui/misc";
 import { SubmitForm } from "./submit-form";
 import { DryRunPanel } from "./dry-run-panel";
-import { FileArchive, FileCode2, FileSpreadsheet, ShieldCheck } from "lucide-react";
+import { FileArchive, FileCode2, FileBox, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = { title: "Submit a model" };
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             <ul className="mt-3 space-y-3 text-sm text-grey-800">
               <li className="flex gap-3"><FileArchive className="mt-0.5 size-4 shrink-0 text-maroon" /><span>A single <strong>.zip</strong> with files at the top level — no sub-folders.</span></li>
               <li className="flex gap-3"><FileCode2 className="mt-0.5 size-4 shrink-0 text-maroon" /><span><code className="rounded bg-grey-100 px-1">Model.m</code>, <code className="rounded bg-grey-100 px-1">Model.p</code> or <code className="rounded bg-grey-100 px-1">Model.py</code> defining <code className="rounded bg-grey-100 px-1">[Y, z] = Model(X, z)</code>. <code className="rounded bg-grey-100 px-1">X = [I, V, T]</code>, <code className="rounded bg-grey-100 px-1">Y</code> is SOC in 0–1.</span></li>
-              <li className="flex gap-3"><FileSpreadsheet className="mt-0.5 size-4 shrink-0 text-maroon" /><span>Any parameter files the model loads (<code className="rounded bg-grey-100 px-1">.mat</code>, <code className="rounded bg-grey-100 px-1">.npz</code>, …). No <code className="rounded bg-grey-100 px-1">Settings.xlsx</code> needed — your name, affiliation and model name come from your account and this form.</span></li>
+              <li className="flex gap-3"><FileBox className="mt-0.5 size-4 shrink-0 text-maroon" /><span>Any parameter files the model loads (<code className="rounded bg-grey-100 px-1">.mat</code>, <code className="rounded bg-grey-100 px-1">.npz</code>, …). Your name, affiliation and model name come from your account and this form.</span></li>
               <li className="flex gap-3"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-maroon" /><span>Use <strong>Test your package first</strong> above — it runs your model on a public cycle through the real evaluator and catches format and runtime errors before you spend a submission.</span></li>
             </ul>
             <Link href="/docs#submission-format" className="mt-4 inline-block text-sm font-medium text-maroon underline">Full submission format guide →</Link>
