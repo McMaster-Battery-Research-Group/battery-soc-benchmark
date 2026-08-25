@@ -96,7 +96,7 @@ export default function DocsPage() {
 
           <section id="submission-format">
             <H2 id="submission-format">Submission format</H2>
-            <p className="mt-3">A submission is a single <strong>.zip</strong> file with everything at the top level — no sub-folders. It must contain the estimator; author, affiliation and model name come from your account and the submission form (the <code className="rounded bg-grey-100 px-1">Settings.xlsx</code> the old e-mail tool required is no longer needed — it is ignored if present):</p>
+            <p className="mt-3">A submission is a single <strong>.zip</strong> file with everything at the top level — no sub-folders. It must contain the estimator; author, affiliation and model name come from your account and the submission form:</p>
             <ul className="mt-3 list-disc space-y-2 pl-6">
               <li><code className="rounded bg-grey-100 px-1">Model.m</code>, <code className="rounded bg-grey-100 px-1">Model.p</code> or <code className="rounded bg-grey-100 px-1">Model.py</code> — the estimator function, named exactly <code className="rounded bg-grey-100 px-1">Model</code>. Use p-code if you need to protect MATLAB source. Python models get the same <code className="rounded bg-grey-100 px-1">Model(X, z)</code> contract (return <code className="rounded bg-grey-100 px-1">(Y_est, z)</code>) and run in an environment with <strong>numpy and scipy only</strong> — ship trained weights as arrays and implement inference with numpy.</li>
               <li>Any other files the model needs (parameter <code className="rounded bg-grey-100 px-1">.mat</code> files, lookup tables). Toolboxes are <em>not</em> available — implement network layers and filters yourself.</li>

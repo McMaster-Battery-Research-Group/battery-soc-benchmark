@@ -31,7 +31,7 @@ export const EXAMPLES: ExampleModel[] = [
       "The simplest possible estimator: charge in and out of the cell is counted by integrating current at the 1 Hz sample rate and dividing by a fixed nominal capacity. The previous SOC is carried between calls in z.",
       "It assumes the battery always starts full, ignores temperature-dependent capacity, and has no way to correct itself — so any current-sensor offset accumulates without bound. That is exactly why the robustness test cases exist.",
     ],
-    files: [{ name: "Model.m", note: "the estimator" }, { name: "Settings.xlsx", note: "legacy metadata — not required by this site" }],
+    files: [{ name: "Model.m", note: "the estimator" }],
     code: `% SOC Estimation Example V2
 % Online Coulomb Counting SOC Estimator - McMaster University 2024
 function [Y_est, z] = Model(X, z)
@@ -81,7 +81,6 @@ end`,
       { name: "ECM_parameters.mat", note: "R0, R1–R3, τ1–τ3 vs SOC for each temperature" },
       { name: "OCV_table.mat", note: "OCV–SOC curves per temperature" },
       { name: "EKF_parameters.mat", note: "process (Q) and measurement (R) noise covariances" },
-      { name: "Settings.xlsx", note: "legacy metadata — not required by this site" },
     ],
     code: `% SOC Estimation Example V2 — Extended Kalman Filter (3RC ECM)
 function [SOC_Pred, z] = Model(X, z)
@@ -173,7 +172,7 @@ end`,
       "A small feedforward network (3 → 23 → 18 → 1, ReLU) maps normalised current, voltage and temperature to SOC. To give it some memory without recurrence, each input is the mean over the last 300 samples; the rolling window is stored in z and seeded by replicating the first sample.",
       "The network was exported from MATLAB's training tools by writing the weights, biases and min-max normalisation constants into the file, so the estimator needs no toolbox at run time. This is the pattern to copy for any trained model.",
     ],
-    files: [{ name: "Model.m", note: "estimator with embedded weights (IW1_1, LW2_1, LW3_2, biases)" }, { name: "Settings.xlsx", note: "legacy metadata — not required by this site" }],
+    files: [{ name: "Model.m", note: "estimator with embedded weights (IW1_1, LW2_1, LW3_2, biases)" }],
     code: `% SOC Estimation Example V2 — Feedforward NN (3 → 23 → 18 → 1, ReLU)
 function [y1, z] = Model(x1, z)
 if nargin < 2
@@ -235,7 +234,7 @@ end`,
       "The recurrent estimator from the ITEC 2022 paper family: inputs are normalised voltage, current and temperature; a single LSTM layer with 10 hidden units feeds a fully-connected output clipped to 0–1. Hidden and cell states live in z, so the network sees the whole history through its memory rather than an explicit window.",
       "Because toolboxes are not available inside the evaluator, the LSTM step (input/forget/cell/output gates) is implemented explicitly with the exported weight matrices. Training scripts for this model are in 3-Neural Network Training Example.zip.",
     ],
-    files: [{ name: "Model.m", note: "estimator with embedded lstmWeights, lstmRecurrentWeights, lstmBias, fcWeights" }, { name: "Settings.xlsx", note: "legacy metadata — not required by this site" }],
+    files: [{ name: "Model.m", note: "estimator with embedded lstmWeights, lstmRecurrentWeights, lstmBias, fcWeights" }],
     code: `% SOC Estimation Example V2 — LSTM (10 units) — McMaster University 2024
 function [Y_est, z] = Model(X, z)
 

@@ -11,7 +11,7 @@ import { parseResultsJson } from "./results";
  * Model.m/.p is executed by MATLAB through matlab/Run_Model.m.
  *
  * Environment (evaluation host):
- *   SOCBENCH_PYTHON      python with numpy, scipy, openpyxl (default "python")
+ *   SOCBENCH_PYTHON      python with numpy and scipy (default "python")
  *   SOCBENCH_BLIND_DATA  blind_data.mat produced by matlab/Export_Blind_Data.m
  *   MATLAB_BIN           matlab executable, only for Model.m/.p packages
  *   SOCBENCH_CAL_PYTHON / SOCBENCH_CAL_MATLAB  complexity calibration (s per sample)
