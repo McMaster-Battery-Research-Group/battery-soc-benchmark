@@ -4,6 +4,7 @@ import { Trophy, CalendarDays, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { fmtDate } from "@/lib/utils";
 import { PageHeader, EmptyState } from "@/components/ui/misc";
+import { ResultsNav } from "@/components/layout/results-nav";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -16,8 +17,9 @@ export default async function ContestIndex() {
   const past = contests.filter((c) => c.status !== "OPEN");
   return (
     <>
+      <ResultsNav />
       <PageHeader eyebrow="Competitions" title="SOC estimation contests" description="Time-boxed challenges with cash prizes, judged on a frozen snapshot of the blinded evaluation at the deadline. Register, submit up to the entry limit, and track your standing on the contest leaderboard." />
-      <div className="container-site space-y-10 py-8">
+      <div className="container-site space-y-10 py-10">
         {open.length ? (
           <section>
             <h2 className="mb-4 font-heading text-xl font-bold">Open now</h2>

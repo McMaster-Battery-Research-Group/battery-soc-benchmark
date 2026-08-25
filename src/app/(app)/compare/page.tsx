@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getLeaderboardRows } from "@/lib/queries";
 import { PageHeader } from "@/components/ui/misc";
+import { ResultsNav } from "@/components/layout/results-nav";
 import { CompareClient } from "./compare-client";
 import type { TimeSeriesTrace } from "@/evaluator/types";
 
@@ -21,8 +22,9 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
 
   return (
     <>
+      <ResultsNav />
       <PageHeader eyebrow="Side by side" title="Compare models" description="Pick two to four evaluated models to overlay their test-case errors, temperature sensitivity and time-domain SOC traces on the same blinded cycles." />
-      <div className="container-site py-8">
+      <div className="container-site py-10">
         <CompareClient rows={rows} initialIds={ids} tracesById={tracesById} />
       </div>
     </>

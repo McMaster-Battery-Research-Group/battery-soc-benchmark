@@ -76,34 +76,32 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Newcomer explainer */}
+      {/* Newcomer explainer — one compact card */}
       <section className="container-site pt-16">
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="card grid gap-6 p-6 md:grid-cols-[1fr_2fr] md:p-8">
           <div>
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">New to battery SOC?</p>
-            <h2 className="mt-2 font-heading text-3xl font-bold">The problem in plain terms</h2>
-            <p className="mt-3 text-grey-700">You don&apos;t need a battery background to take part. Here is what the benchmark is actually measuring.</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold">The problem in four lines</h2>
             <Button asChild variant="secondary" className="mt-5"><Link href="/getting-started">Read the get-started guide <ArrowRight /></Link></Button>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
+          <ul className="grid gap-3 sm:grid-cols-2">
             {[
-              { icon: Gauge, t: "What is state of charge?", d: "How full the battery is, 0–100 %. A car can't measure it directly — it only sees current, voltage and temperature — so it has to be estimated. Get it wrong and the driver is stranded or range is wasted." },
-              { icon: ThermometerSnowflake, t: "Why is it hard?", d: "Voltage barely changes across the middle of the charge, internal resistance grows ten-fold at −20 °C, the starting SOC is often unknown, and current sensors drift. Simple methods break under exactly these conditions." },
-              { icon: FileCode2, t: "What does a submission look like?", d: "One MATLAB function, ~20 lines for the simplest version: it receives current, voltage and temperature once a second and returns SOC. Filters and neural networks fit the same interface." },
-              { icon: Target, t: "What does the score mean?", d: "Weighted error, in % SOC, averaged over hidden test cycles at six temperatures and three vehicle loads, plus robustness tests. Lower is better; today's best models are around 3 %." },
+              { icon: Gauge, t: "State of charge", d: "How full the battery is. It can't be measured — only estimated from current, voltage and temperature." },
+              { icon: ThermometerSnowflake, t: "Why it's hard", d: "Flat voltage curves, 10× resistance at −20 °C, unknown starting charge, drifting sensors." },
+              { icon: FileCode2, t: "A submission", d: "One function, MATLAB or Python: it gets one sample per second and returns SOC." },
+              { icon: Target, t: "The score", d: "Weighted error in % SOC over hidden cycles at six temperatures. Lower is better; the best are near 3 %." },
             ].map((c) => (
-              <div key={c.t} className="card p-5">
-                <span className="mb-3 flex size-10 items-center justify-center rounded-brand bg-maroon-100 text-maroon"><c.icon className="size-5" /></span>
-                <h3 className="font-heading text-[15px] font-semibold text-ink">{c.t}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-grey-700">{c.d}</p>
-              </div>
+              <li key={c.t} className="flex gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-brand bg-maroon-100 text-maroon"><c.icon className="size-4" /></span>
+                <span><span className="block font-heading text-sm font-semibold text-ink">{c.t}</span><span className="block text-sm leading-relaxed text-grey-700">{c.d}</span></span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="container-site py-16">
+      <section className="container-site py-20">
         <div className="max-w-2xl">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">How it works</p>
           <h2 className="mt-2 font-heading text-3xl font-bold">Three steps from data to a standardized score</h2>

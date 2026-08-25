@@ -51,11 +51,11 @@ export function PageHeader({
 }) {
   return (
     <div className={cn("border-b border-border bg-grey-100/60", className)}>
-      <div className="container-site flex flex-col gap-4 py-8 md:flex-row md:items-end md:justify-between md:py-10">
+      <div className="container-site flex flex-col gap-5 py-10 md:flex-row md:items-end md:justify-between md:py-14">
         <div className="max-w-3xl">
           {eyebrow ? <p className="mb-2 font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">{eyebrow}</p> : null}
-          <h1 className="font-heading text-3xl font-bold leading-tight md:text-4xl">{title}</h1>
-          {description ? <p className="mt-3 text-[17px] leading-relaxed text-grey-700">{description}</p> : null}
+          <h1 className="font-heading text-3xl font-bold leading-tight md:text-[40px] md:leading-[46px]">{title}</h1>
+          {description ? <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-grey-700">{description}</p> : null}
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
       </div>
