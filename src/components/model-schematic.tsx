@@ -5,6 +5,7 @@
  * the leaderboard can be understood at a glance regardless of who wrote them.
  */
 import { cn } from "@/lib/utils";
+import { MathBlock } from "@/components/math";
 
 export type ModelSpec =
   | { kind: "coulomb"; capacityAh?: number }
@@ -49,7 +50,7 @@ export function ModelSchematic({ spec, title, className, compact = false }: { sp
         <div className="space-y-3 text-sm">
           <div>
             <p className="font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Governing equation</p>
-            <div className="mt-1 rounded-brand bg-grey-100 px-3 py-2 font-mono text-[13px] leading-relaxed text-ink">{meta.equation}</div>
+            <div className="mt-1 rounded-brand bg-grey-100 px-3 py-2 text-[15px] text-ink">{meta.equation.map((tex, i) => <MathBlock key={i} tex={tex} />)}{meta.equationNote ? <p className="mt-1 text-xs text-grey-600">{meta.equationNote}</p> : null}</div>
           </div>
           <div>
             <p className="font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">State carried in z</p>
@@ -69,24 +70,24 @@ export function ModelSchematic({ spec, title, className, compact = false }: { sp
   );
 }
 
-function describe(s: ModelSpec): { title: string; family: string; equation: React.ReactNode; state: string; uses: ("Current" | "Voltage" | "Temperature")[] } {
+function describe(s: ModelSpec): { title: string; family: string; equation: string[]; equationNote?: string; state: string; uses: ("Current" | "Voltage" | "Temperature")[] } {
   switch (s.kind) {
     case "coulomb":
-      return { title: "Coulomb counter", family: "Open-loop current integration", equation: <>SOC<sub>k</sub> = SOC<sub>k−1</sub> + I<sub>k</sub>·Δt / (3600 · C<sub>n</sub>){s.capacityAh ? <span className="text-grey-600">,  C<sub>n</sub> = {s.capacityAh} Ah</span> : null}</>, state: "Previous SOC only.", uses: ["Current"] };
+      return { title: "Coulomb counter", family: "Open-loop current integration", equation: [String.raw`\mathrm{SOC}_k = \mathrm{SOC}_{k-1} + \frac{I_k\,\Delta t}{3600\, C_n}`], equationNote: s.capacityAh ? `C_n = ${s.capacityAh} Ah, Δt = 1 s` : "Δt = 1 s", state: "Previous SOC only.", uses: ["Current"] };
     case "ecm":
-      return { title: `${s.rcPairs}RC equivalent circuit + ${s.filter === "none" ? "open loop" : s.filter}`, family: "Model-based state estimation", equation: <>V<sub>t</sub> = OCV(SOC) − R<sub>0</sub>I − Σ V<sub>RC,i</sub><br />V̇<sub>RC,i</sub> = −V<sub>RC,i</sub>/(R<sub>i</sub>C<sub>i</sub>) + I/C<sub>i</sub><br />{s.filter !== "none" ? <>x̂ ← x̂ + K (V<sub>meas</sub> − V<sub>t</sub>)</> : null}</>, state: `${s.states?.join(", ") ?? `${s.rcPairs} RC voltages + SOC`}; covariance P; current ECM parameters.`, uses: ["Current", "Voltage", "Temperature"] };
+      return { title: `${s.rcPairs}RC equivalent circuit + ${s.filter === "none" ? "open loop" : s.filter}`, family: "Model-based state estimation", equation: [String.raw`V_t = \mathrm{OCV}(\mathrm{SOC}) - R_0 I - \sum_{i=1}^{${s.rcPairs}} V_{RC,i}`, String.raw`\dot V_{RC,i} = -\frac{V_{RC,i}}{R_i C_i} + \frac{I}{C_i}`, ...(s.filter !== "none" ? [String.raw`\hat{x}_k = \hat{x}_k^- + K_k\,(V_{\mathrm{meas}} - V_t)`] : [])], state: `${s.states?.join(", ") ?? `${s.rcPairs} RC voltages + SOC`}; covariance P; current ECM parameters.`, uses: ["Current", "Voltage", "Temperature"] };
     case "fnn":
-      return { title: `Feedforward NN ${s.layers.join(" → ")}`, family: "Data-driven, non-recurrent", equation: <>SOC = f<sub>θ</sub>( norm([{(s.inputs ?? ["I", "V", "T"]).join(", ")}]) ){s.window ? <span className="text-grey-600">,  inputs averaged over {s.window} s</span> : null}<br />a<sub>l+1</sub> = {s.activation ?? "σ"}(W<sub>l</sub> a<sub>l</sub> + b<sub>l</sub>)</>, state: s.window ? `Rolling window of the last ${s.window} samples.` : "None (stateless).", uses: ["Current", "Voltage", "Temperature"] };
+      return { title: `Feedforward NN ${s.layers.join(" → ")}`, family: "Data-driven, non-recurrent", equation: [String.raw`\mathrm{SOC} = f_\theta\big(\operatorname{norm}([\bar I, \bar V, \bar T])\big)`, s.activation === "ReLU" ? String.raw`a_{l+1} = \max(0,\; W_l a_l + b_l)` : String.raw`a_{l+1} = \sigma(W_l a_l + b_l)`], equationNote: s.window ? `Inputs averaged over the last ${s.window} samples.` : undefined, state: s.window ? `Rolling window of the last ${s.window} samples.` : "None (stateless).", uses: ["Current", "Voltage", "Temperature"] };
     case "rnn":
-      return { title: `${s.cell} · ${s.units} units`, family: "Data-driven, recurrent", equation: s.cell === "LSTM" ? <>i, f, o = σ(W x<sub>t</sub> + U h<sub>t−1</sub> + b)<br />c<sub>t</sub> = f⊙c<sub>t−1</sub> + i⊙tanh(W<sub>c</sub>x<sub>t</sub> + U<sub>c</sub>h<sub>t−1</sub>)<br />h<sub>t</sub> = o⊙tanh(c<sub>t</sub>),  SOC = clip(w·h<sub>t</sub> + b)</> : <>h<sub>t</sub> = {s.cell}(x<sub>t</sub>, h<sub>t−1</sub>),  SOC = w·h<sub>t</sub> + b</>, state: `Hidden state h (${s.units})${s.cell === "LSTM" ? ` and cell state c (${s.units})` : ""}.`, uses: ["Current", "Voltage", "Temperature"] };
+      return { title: `${s.cell} · ${s.units} units`, family: "Data-driven, recurrent", equation: s.cell === "LSTM" ? [String.raw`i_t, f_t, o_t = \sigma(W x_t + U h_{t-1} + b)`, String.raw`c_t = f_t \odot c_{t-1} + i_t \odot \tanh(W_c x_t + U_c h_{t-1} + b_c)`, String.raw`h_t = o_t \odot \tanh(c_t), \qquad \mathrm{SOC} = \operatorname{clip}(w^\top h_t + b,\,0,\,1)`] : [String.raw`h_t = \mathrm{${s.cell}}(x_t, h_{t-1}), \qquad \mathrm{SOC} = w^\top h_t + b`], state: `Hidden state h (${s.units})${s.cell === "LSTM" ? ` and cell state c (${s.units})` : ""}.`, uses: ["Current", "Voltage", "Temperature"] };
     case "transformer":
-      return { title: "Transformer encoder", family: "Data-driven, attention over a window", equation: <>SOC = MLP( Attn(Q, K, V) over the last {s.window ?? "N"} samples )</>, state: `Rolling window of the last ${s.window ?? "N"} samples.`, uses: ["Current", "Voltage", "Temperature"] };
+      return { title: "Transformer encoder", family: "Data-driven, attention over a window", equation: [String.raw`\mathrm{SOC} = \mathrm{MLP}\big(\operatorname{Attn}(Q, K, V)\big), \quad \text{window of } ${s.window ?? "N"} \text{ samples}`], state: `Rolling window of the last ${s.window ?? "N"} samples.`, uses: ["Current", "Voltage", "Temperature"] };
     case "physics":
-      return { title: s.model ?? "Electrochemical model", family: "Physics-based state estimation", equation: <>∂c/∂t = D ∇²c (solid diffusion), V = U<sub>p</sub>(c<sub>s,p</sub>) − U<sub>n</sub>(c<sub>s,n</sub>) − η − R I{s.filter ? <><br />corrected by {s.filter}</> : null}</>, state: "Electrode concentrations (discretised), filter covariance.", uses: ["Current", "Voltage", "Temperature"] };
+      return { title: s.model ?? "Electrochemical model", family: "Physics-based state estimation", equation: [String.raw`\frac{\partial c}{\partial t} = D\,\nabla^2 c`, String.raw`V = U_p(c_{s,p}) - U_n(c_{s,n}) - \eta - R\,I`], equationNote: s.filter ? `Corrected by ${s.filter}.` : undefined, state: "Electrode concentrations (discretised), filter covariance.", uses: ["Current", "Voltage", "Temperature"] };
     case "hybrid":
-      return { title: "Hybrid estimator", family: `${s.backbone ?? "Model-based"} backbone + ${s.correction ?? "learned"} correction`, equation: <>SOC = SOC<sub>backbone</sub> + g<sub>θ</sub>(I, V, T, history)</>, state: "Backbone state plus the correction model's memory.", uses: ["Current", "Voltage", "Temperature"] };
+      return { title: "Hybrid estimator", family: `${s.backbone ?? "Model-based"} backbone + ${s.correction ?? "learned"} correction`, equation: [String.raw`\mathrm{SOC} = \mathrm{SOC}_{\text{backbone}} + g_\theta(I, V, T, \text{history})`], state: "Backbone state plus the correction model's memory.", uses: ["Current", "Voltage", "Temperature"] };
     default:
-      return { title: "Estimator", family: "Unspecified", equation: <>[Y, z] = Model(X, z)</>, state: "As chosen by the author.", uses: ["Current", "Voltage", "Temperature"] };
+      return { title: "Estimator", family: "Unspecified", equation: [String.raw`[Y, z] = \mathrm{Model}(X, z)`], state: "As chosen by the author.", uses: ["Current", "Voltage", "Temperature"] };
   }
 }
 

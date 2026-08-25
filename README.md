@@ -36,6 +36,7 @@ Without `SMTP_HOST`, emails go to an auto-created Ethereal inbox and the preview
 | Brand tokens (McMaster maroon/gold/grey, Poppins/Arial) | `src/app/globals.css` |
 | UI kit | `src/components/ui/` |
 | Charts (validated palette) | `src/components/charts/` |
+| LaTeX equations (KaTeX, server-rendered) | `src/components/math.tsx`, used by the model schematic and Methodology |
 | Test-case definitions + official weights | `src/lib/test-cases.ts`, `src/lib/scoring.ts` |
 | Submission package checks (zip structure, `Model.m`/`.p`/`.py`, signature) | `src/lib/package-check.ts` |
 | Evaluator seam | `src/evaluator/` |
@@ -74,6 +75,8 @@ npm run worker
 ```
 
 Run by hand: `cd evaluator/python && python -m socbench_eval package.zip outDir --data ../../blind-data/blind_data.mat [--runtime python|matlab]`.
+
+**Example packages** — `evaluator/examples/<slug>.{matlab,python}.zip` are runnable reference submissions (Coulomb counter, EKF, FNN, LSTM; the Python FNN/LSTM carry weights extracted from the lab's MATLAB sources into `weights.npz`). The Examples page shows both listings with a MATLAB/Python toggle, offers the zips for download (`/examples/download/<file>`), and can queue a dry run of any of them with one click. Rebuild them with the script in the session scratchpad (`build_examples.py`) if the sources change. All eight give identical open-cycle RMSE across runtimes (0.172 / 0.076 / 1.463 / 2.009 %).
 
 **Dry runs ("Test your package first")** — the Submit page lets a signed-in user run a package through the same evaluator on one *open* cycle (`evaluator/python/dryrun_data.mat`: m80 REORDERED1 @ 25 °C, first 2 h, from the public Borealis data): +0.3 A validation, then the padded cycle. Returns pass/fail with the error message, RMSE/MAE/max error on that cycle, complexity bin and a trace. Never touches blinded data, creates no submission, limited to 5/hour/user, and jumps the evaluation queue. CLI: `python -m socbench_eval package.zip outDir --dry-run`. This replaces the old downloadable MATLAB "Model Submission Test Tool".
 
