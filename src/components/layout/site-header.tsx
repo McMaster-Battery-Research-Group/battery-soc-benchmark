@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronDown, LogOut, User as UserIcon, Shield, FolderKanban } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, User as UserIcon, Shield, FolderKanban, MessageSquare } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "./logo";
@@ -69,6 +69,7 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
                   <DropdownMenuItem asChild><Link href="/submissions"><FolderKanban className="size-4" /> My submissions</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/profile"><UserIcon className="size-4" /> Profile</Link></DropdownMenuItem>
                   {user.role === "ADMIN" ? <DropdownMenuItem asChild><Link href="/admin"><Shield className="size-4" /> Admin</Link></DropdownMenuItem> : null}
+                  <DropdownMenuItem asChild><Link href="/contact"><MessageSquare className="size-4" /> Feedback &amp; support</Link></DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={() => signOutAction()}><LogOut className="size-4" /> Sign out</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -99,6 +100,7 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
                 <Link href="/submit" className="rounded-brand px-3 py-3 font-heading font-medium text-maroon">Submit a model</Link>
                 <Link href="/submissions" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">My submissions</Link>
                 <Link href="/profile" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Profile</Link>
+                <Link href="/contact" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Feedback &amp; support</Link>
                 {user.role === "ADMIN" ? <Link href="/admin" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Admin</Link> : null}
                 <button onClick={() => signOutAction()} className="rounded-brand px-3 py-3 text-left font-heading font-medium text-grey-900">Sign out</button>
               </>

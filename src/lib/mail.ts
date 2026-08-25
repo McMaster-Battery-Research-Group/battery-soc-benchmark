@@ -85,3 +85,17 @@ export function evaluationCompleteEmail(to: string, name: string, modelName: str
     text: `${ok ? "Evaluation complete" : "Evaluation failed"}: ${href}`,
   });
 }
+
+export function feedbackNotificationEmail(to: string, msg: { id: string; name: string; email: string; category: string; subject: string; body: string; pageUrl?: string | null }) {
+  const href = `${site()}/admin/messages`;
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return sendMail({
+    to,
+    subject: `[SOC Benchmark] ${msg.category}: ${msg.subject}`,
+    html: layout(
+      `New ${esc(msg.category)} from ${esc(msg.name)}`,
+      `<p><strong>${esc(msg.subject)}</strong></p><p style="white-space:pre-wrap">${esc(msg.body)}</p><p style="font-size:13px;color:#6d7a84">From ${esc(msg.name)} &lt;${esc(msg.email)}&gt;${msg.pageUrl ? ` · on ${esc(msg.pageUrl)}` : ""}</p>${button(href, "Open the inbox")}`,
+    ),
+    text: `${msg.category}: ${msg.subject}\n\n${msg.body}\n\nFrom ${msg.name} <${msg.email}>\n${href}`,
+  });
+}

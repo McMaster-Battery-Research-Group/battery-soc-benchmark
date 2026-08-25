@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Alert } from "@/components/ui/misc";
 import { fmtPct } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
           <p>{poll.failureMessage}</p>
           {poll.log ? <pre className="mt-3 max-h-48 overflow-auto rounded-brand bg-grey-900 p-3 text-xs text-white">{poll.log}</pre> : null}
         </Alert>
-        <p className="flex items-center gap-2 text-sm text-grey-700"><XCircle className="size-4 text-danger" /> Fix the package and run the test again.</p>
+        <p className="flex items-center gap-2 text-sm text-grey-700"><XCircle className="size-4 text-danger" /> Fix the package and run the test again — or <Link href="/contact?category=bug&subject=Dry%20run%20failed" className="text-maroon underline">report a problem</Link> if you think the evaluator is at fault.</p>
       </div>
     );
   }
