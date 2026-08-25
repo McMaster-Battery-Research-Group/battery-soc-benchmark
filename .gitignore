@@ -49,3 +49,6 @@ dataset/
 # runtime
 uploads/
 .env
+
+# keep the example env tracked
+!.env.example
