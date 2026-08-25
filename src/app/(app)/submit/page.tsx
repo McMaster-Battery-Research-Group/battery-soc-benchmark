@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { PageHeader } from "@/components/ui/misc";
 import { SubmitForm } from "./submit-form";
 import { DryRunPanel } from "./dry-run-panel";
+import { EvaluatorStatusLine } from "@/components/evaluator-status";
 import { FileArchive, FileCode2, FileBox, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = { title: "Submit a model" };
@@ -26,6 +27,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
       <PageHeader eyebrow="Blinded evaluation" title="Submit a model" description="Upload your submission package. It is checked for structure immediately, queued for evaluation on the blinded dataset, and deleted as soon as the evaluation finishes." />
       <div className="container-site grid gap-8 py-10 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          <EvaluatorStatusLine className="rounded-brand border border-border bg-white px-4 py-3" />
           <DryRunPanel directUpload={(process.env.STORAGE ?? "local") === "blob"} />
           <SubmitForm contests={contests.map((c) => ({ id: c.id, title: c.title, remaining: c.maxSubmissionsPerUser - c._count.submissions }))} preselectContest={sp.contest} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} directUpload={(process.env.STORAGE ?? "local") === "blob"} />
         </div>

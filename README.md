@@ -146,6 +146,7 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 
 ### 3. Evaluation — pick one
 - **Laptop / lab PC worker** (run exactly one — a second stale worker with different env will steal jobs) — copy the production `DATABASE_URL`, `DIRECT_URL`, `STORAGE=blob`, `BLOB_READ_WRITE_TOKEN`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` into a local `.env.production`, then `npx dotenv -e .env.production -- npm run worker` (or just edit `.env`). Outbound-only; works behind campus VPN. This is the path for MATLAB later.
+  - **Keeping a Windows laptop worker alive:** `scripts\install-worker-task.ps1` (run once, elevated) registers a Scheduled Task that starts the worker at logon, restarts it on crash, logs to `worker.log`, and sets the power plan to never sleep on AC (lid closed = nothing). The worker writes a heartbeat every 15 s; the Submit page shows **Evaluator online / paused**, and queued submissions show their queue position and "will start automatically when the machine is back". Nothing inbound is required — the laptop only makes outbound connections (Postgres, Blob, SMTP), so any network/VPN works.
 - **Free cron (mock only)** — https://cron-job.org (free) → new job → URL `https://<your-site>/api/jobs/run?secret=<CRON_SECRET>` every 1 minute. Each call drains the queue for up to 45 s. Submissions then complete within ~1 minute with no worker running anywhere.
 
 ### Paid alternative — Render worker
