@@ -26,7 +26,13 @@ async function getTransport(): Promise<Transporter> {
   return transporter;
 }
 
-export async function sendMail(opts: { to: string; subject: string; html: string; text?: string }) {
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
+export async function sendMail(opts: { to: string; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) {
   try {
     const t = await getTransport();
     const info = await t.sendMail({ from: process.env.MAIL_FROM ?? "no-reply@batterysocbenchmark.ca", ...opts });
@@ -73,16 +79,17 @@ export function passwordResetEmail(to: string, name: string, token: string) {
   });
 }
 
-export function evaluationCompleteEmail(to: string, name: string, modelName: string, submissionId: string, ok: boolean, summary?: string) {
+export function evaluationCompleteEmail(to: string, name: string, modelName: string, submissionId: string, ok: boolean, summary?: string, report?: Buffer) {
   const href = `${site()}/submissions/${submissionId}`;
   return sendMail({
     to,
     subject: ok ? `Evaluation complete: ${modelName}` : `Evaluation failed: ${modelName}`,
     html: layout(
       ok ? "Your model has been evaluated" : "Your evaluation could not be completed",
-      `<p>Hi ${name},</p><p>${ok ? `<strong>${modelName}</strong> finished blinded evaluation. ${summary ?? ""}` : `<strong>${modelName}</strong> failed during evaluation. ${summary ?? ""}`}</p>${button(href, "View results")}`,
+      `<p>Hi ${name},</p><p>${ok ? `<strong>${modelName}</strong> finished blinded evaluation. ${summary ?? ""}` : `<strong>${modelName}</strong> failed during evaluation. ${summary ?? ""}`}</p>${button(href, "View results")}${report ? `<p style="font-size:13px;color:#6d7a84">The full report (summary, all test cases, time-domain traces and per-cycle errors) is attached as a PDF.</p>` : ""}`,
     ),
     text: `${ok ? "Evaluation complete" : "Evaluation failed"}: ${href}`,
+    attachments: report ? [{ filename: `${modelName.replace(/[^a-z0-9]+/gi, "_")}-soc-benchmark-report.pdf`, content: report, contentType: "application/pdf" }] : undefined,
   });
 }
 

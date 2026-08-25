@@ -51,41 +51,78 @@ export function SocTrace({
     navInitial.current = [0, Math.max(0, n - 1)];
     setRange([0, Math.max(0, n - 1)]);
     setNavKey((k) => k + 1);
+    clearYZoom();
   };
-  // Drag-select on either plot → zoom to that time span.
-  const [sel, setSel] = React.useState<{ from: number; to: number } | null>(null);
+  // Drag a rectangle on either plot: time span zooms both plots, the value span zooms that plot's axis.
+  type Plot = "soc" | "err";
+  const [sel, setSel] = React.useState<{ plot: Plot; from: number; to: number; y1: number; y2: number } | null>(null);
+  const [yZoom, setYZoom] = React.useState<{ soc?: [number, number]; err?: [number, number] }>({});
+  const domainsRef = React.useRef<{ soc: [number, number]; err: [number, number] }>({ soc: [0, 100], err: [-20, 20] });
+  const PLOT = { soc: { height: 240, top: 8, xAxis: 30 }, err: { height: 170, top: 8, xAxis: 30 } } as const;
   const zoomTo = (t1: number, t2: number) => {
     const lo = Math.min(t1, t2);
     const hi = Math.max(t1, t2);
     const times = ref?.t ?? [];
-    let s = times.findIndex((t) => t >= lo);
-    let e = times.findIndex((t) => t > hi);
-    if (s < 0) s = 0;
-    e = e < 0 ? times.length - 1 : Math.max(s, e - 1);
-    if (e - s < 3) return; // too small to be a deliberate selection
-    navInitial.current = [s, e];
-    setRange([s, e]);
+    let st = times.findIndex((t) => t >= lo);
+    let en = times.findIndex((t) => t > hi);
+    if (st < 0) st = 0;
+    en = en < 0 ? times.length - 1 : Math.max(st, en - 1);
+    if (en - st < 3) return false; // too small to be a deliberate selection
+    navInitial.current = [st, en];
+    setRange([st, en]);
     setNavKey((k) => k + 1); // remount the strip at the new window
+    return true;
   };
-  const label = (e: unknown) => {
-    const v = (e as { activeLabel?: unknown } | null)?.activeLabel;
-    return typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  const clearYZoom = () => setYZoom({});
+  /** Pixel → axis value for a plot, using its fixed margins and current domain. */
+  const yValue = (plot: Plot, chartY: number) => {
+    const { height, top, xAxis } = PLOT[plot];
+    const [lo, hi] = domainsRef.current[plot];
+    const frac = Math.min(1, Math.max(0, (chartY - top) / (height - top - xAxis)));
+    return hi - frac * (hi - lo);
   };
-  const dragHandlers = {
+  const readEvent = (plot: Plot, e: unknown) => {
+    const ev = e as { activeLabel?: unknown; chartY?: number } | null;
+    const v = ev?.activeLabel;
+    const t = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+    const y = typeof ev?.chartY === "number" ? yValue(plot, ev.chartY) : NaN;
+    return { t, y };
+  };
+  const handlersFor = (plot: Plot) => ({
     onMouseDown: (e: unknown) => {
-      const t = label(e);
-      if (Number.isFinite(t)) setSel({ from: t, to: t });
+      const { t, y } = readEvent(plot, e);
+      if (Number.isFinite(t)) setSel({ plot, from: t, to: t, y1: y, y2: y });
     },
     onMouseMove: (e: unknown) => {
-      const t = label(e);
-      if (sel && Number.isFinite(t)) setSel({ from: sel.from, to: t });
+      const { t, y } = readEvent(plot, e);
+      if (sel && sel.plot === plot && Number.isFinite(t)) setSel({ ...sel, to: t, y2: Number.isFinite(y) ? y : sel.y2 });
     },
     onMouseUp: () => {
-      if (sel && sel.from !== sel.to) zoomTo(sel.from, sel.to);
+      if (sel && sel.plot === plot && sel.from !== sel.to) {
+        const ok = zoomTo(sel.from, sel.to);
+        const [lo, hi] = domainsRef.current[plot];
+        const dy = Math.abs(sel.y1 - sel.y2);
+        // A tall enough box (≥ 8 % of the visible axis) also zooms this plot's value axis.
+        if (ok && Number.isFinite(dy) && dy >= 0.08 * (hi - lo)) {
+          setYZoom((z) => ({ ...z, [plot]: [round3(Math.min(sel.y1, sel.y2)), round3(Math.max(sel.y1, sel.y2))] }));
+        }
+      }
       setSel(null);
     },
     onMouseLeave: () => setSel(null),
-  };
+  });
+  const selBox = (plot: Plot) =>
+    sel && sel.plot === plot && sel.from !== sel.to ? (
+      <ReferenceArea
+        x1={Math.min(sel.from, sel.to)}
+        x2={Math.max(sel.from, sel.to)}
+        {...(Math.abs(sel.y1 - sel.y2) >= 0.08 * Math.abs(domainsRef.current[plot][1] - domainsRef.current[plot][0]) ? { y1: Math.min(sel.y1, sel.y2), y2: Math.max(sel.y1, sel.y2) } : {})}
+        fill={CHART.primary}
+        fillOpacity={0.12}
+        stroke={CHART.primary}
+        strokeOpacity={0.5}
+      />
+    ) : null;
   if (!ref) return null;
 
   const data = ref.t.map((t, i) => {
@@ -110,10 +147,12 @@ export function SocTrace({
     return { rmse, maxAbs };
   });
   const errMax = Math.max(0.5, ...stats.map((s) => s.maxAbs)) * 1.15;
-  const errDomain: [number, number] = errScale === "fixed" ? [-20, 20] : [-round2(errMax), round2(errMax)];
+  const errDomain: [number, number] = yZoom.err ?? (errScale === "fixed" ? [-20, 20] : [-round2(errMax), round2(errMax)]);
   const socMin = Math.min(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
   const socMax = Math.max(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
-  const socDomain: [number, number] = fitSoc ? [Math.max(0, Math.floor(socMin - 2)), Math.min(100, Math.ceil(socMax + 2))] : [0, 100];
+  const socDomain: [number, number] = yZoom.soc ?? (fitSoc ? [Math.max(0, Math.floor(socMin - 2)), Math.min(100, Math.ceil(socMax + 2))] : [0, 100]);
+  domainsRef.current = { soc: socDomain, err: errDomain };
+  const zoomedY = !!(yZoom.soc || yZoom.err);
   const legend = [{ label: "Actual SOC", color: CHART.actual }, ...traces.map((_, k) => ({ label: names[k] ?? `Model ${k + 1}`, color: color(k) }))];
   const tFmt = (v: number) => `${Number(v).toFixed(view.length < 60 ? 2 : 1)}h`;
 
@@ -150,8 +189,8 @@ export function SocTrace({
         <label className="inline-flex items-center gap-1.5">
           <input type="checkbox" checked={fitSoc} onChange={(e) => setFitSoc(e.target.checked)} className="accent-maroon" /> Fit SOC axis to data
         </label>
-        <span className="text-grey-500">Drag across a plot to zoom to that span, or use the strip below.</span>
-        {zoomed ? (
+        <span className="text-grey-500">Drag a box on a plot: its width zooms time on both plots, its height zooms that plot&apos;s axis. Or use the strip below.</span>
+        {zoomed || zoomedY ? (
           <button onClick={resetZoom} className="ml-auto inline-flex items-center gap-1 font-heading font-medium text-maroon hover:underline">
             <ZoomOut className="size-3.5" /> Reset zoom
           </button>
@@ -160,10 +199,10 @@ export function SocTrace({
 
       {/* SOC */}
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...dragHandlers} className="cursor-crosshair select-none">
+        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...handlersFor("soc")} className="cursor-crosshair select-none">
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} />
-          {sel && sel.from !== sel.to ? <ReferenceArea x1={Math.min(sel.from, sel.to)} x2={Math.max(sel.from, sel.to)} fill={CHART.primary} fillOpacity={0.12} stroke={CHART.primary} strokeOpacity={0.5} /> : null}
+          {selBox("soc")}
           <YAxis {...axisProps} width={48} unit="%" domain={socDomain} allowDataOverflow />
           <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
           <Line type="monotone" dataKey="actual" name="Actual" stroke={CHART.actual} strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -175,10 +214,10 @@ export function SocTrace({
 
       {/* Error */}
       <ResponsiveContainer width="100%" height={170}>
-        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...dragHandlers} className="cursor-crosshair select-none">
+        <LineChart data={view} margin={{ top: 8, right: 12, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...handlersFor("err")} className="cursor-crosshair select-none">
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} />
-          {sel && sel.from !== sel.to ? <ReferenceArea x1={Math.min(sel.from, sel.to)} x2={Math.max(sel.from, sel.to)} fill={CHART.primary} fillOpacity={0.12} stroke={CHART.primary} strokeOpacity={0.5} /> : null}
+          {selBox("err")}
           <YAxis {...axisProps} width={48} unit="%" domain={errDomain} allowDataOverflow tickFormatter={(v) => (Math.abs(v) < 1 ? Number(v).toFixed(2) : Number(v).toFixed(0))} />
           <ReferenceLine y={0} stroke={CHART.axis} />
           <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${Number(p.value) >= 0 ? "+" : ""}${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
@@ -223,6 +262,10 @@ const Navigator = React.memo(function Navigator({ data, onRange, initialRef }: {
     </div>
   );
 }, (prev, next) => prev.data === next.data && prev.onRange === next.onRange); // ignore initialRef changes
+
+function round3(v: number) {
+  return Math.round(v * 1000) / 1000;
+}
 
 function round2(v: number) {
   // pleasant axis limit: 1–2–5 progression

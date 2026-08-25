@@ -37,6 +37,7 @@ Without `SMTP_HOST`, emails go to an auto-created Ethereal inbox and the preview
 | UI kit | `src/components/ui/` |
 | Charts (validated palette) | `src/components/charts/` |
 | LaTeX equations (KaTeX, server-rendered) | `src/components/math.tsx`, used by the model schematic and Methodology |
+| PDF report (pdfkit, vector charts; download + e-mail attachment) | `src/lib/report.ts`, `src/app/api/submissions/[id]/report.pdf/route.ts` |
 | Test-case definitions + official weights | `src/lib/test-cases.ts`, `src/lib/scoring.ts` |
 | Submission package checks (zip structure, `Model.m`/`.p`/`.py`, signature) | `src/lib/package-check.ts` |
 | Evaluator seam | `src/evaluator/` |
