@@ -4,7 +4,7 @@ import AdmZip from "adm-zip";
  * Structural validation of a submission package, mirroring the checks in the
  * lab's "Model Submission Test Tool" (Blind Modeling Tool V2, User's Guide steps 2–4):
  *   - plain .zip, no sub-folders
- *   - contains Model.m or Model.p
+ *   - contains Model.m, Model.p or Model.py
  *   - contains Settings.xlsx with Author Name / Affiliation / Email / Model Name in B1–B4
  * Returns human-readable problems (empty array = OK) and the parsed settings.
  */
@@ -13,7 +13,7 @@ export interface PackageCheck {
   problems: string[];
   warnings: string[];
   files: string[];
-  modelFile?: "Model.m" | "Model.p";
+  modelFile?: "Model.m" | "Model.p" | "Model.py";
   settings?: { authorName?: string; affiliation?: string; email?: string; modelName?: string };
 }
 
@@ -35,10 +35,10 @@ export function checkSubmissionPackage(bytes: Buffer): PackageCheck {
   }
 
   const names = entries.map((e) => e.entryName);
-  const modelFile = names.includes("Model.m") ? "Model.m" : names.includes("Model.p") ? "Model.p" : undefined;
+  const modelFile = names.includes("Model.m") ? "Model.m" : names.includes("Model.p") ? "Model.p" : names.includes("Model.py") ? "Model.py" : undefined;
   if (!modelFile) {
-    const near = names.find((n) => /^model\.(m|p)$/i.test(n));
-    problems.push(near ? `Found "${near}" — the estimator must be named exactly "Model.m" or "Model.p" (case-sensitive).` : 'Missing "Model.m" or "Model.p". The SOC estimator function must be named Model.');
+    const near = names.find((n) => /^model\.(m|p|py)$/i.test(n));
+    problems.push(near ? `Found "${near}" — the estimator must be named exactly "Model.m", "Model.p" or "Model.py" (case-sensitive).` : 'Missing "Model.m", "Model.p" or "Model.py". The SOC estimator function must be named Model.');
   }
   if (!names.includes("Settings.xlsx")) {
     const near = names.find((n) => /^settings\.xlsx$/i.test(n));
@@ -64,6 +64,11 @@ export function checkSubmissionPackage(bytes: Buffer): PackageCheck {
     if (/\bload\s*\(/.test(src)) warnings.push('Model.m calls load(); this is allowed but the guidelines advise avoiding it to reduce runtime.');
   }
 
+  if (modelFile === "Model.py") {
+    const src = zip.getEntry("Model.py")!.getData().toString("utf8");
+    if (!/^\s*def\s+Model\s*\(/m.test(src)) problems.push('Model.py must define "def Model(X, z=None)" returning (Y_est, z).');
+    if (/^\s*(import|from)\s+(torch|tensorflow|keras|sklearn|jax)/m.test(src)) warnings.push("Model.py imports a deep-learning framework; the evaluator's Python environment provides numpy and scipy only — bundle weights and implement inference with numpy, or confirm the framework is installed on the evaluation host.");
+  }
   return { ok: problems.length === 0, problems, warnings, files, modelFile, settings };
 }
 
