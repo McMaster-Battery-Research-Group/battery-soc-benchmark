@@ -41,36 +41,43 @@ Without `SMTP_HOST`, emails go to an auto-created Ethereal inbox and the preview
 | Evaluator seam | `src/evaluator/` |
 | Schema / seed | `prisma/` |
 
-## Evaluators (MATLAB **and** Python submissions)
+## The evaluator (MATLAB **and** Python submissions)
 
-The web app never runs models. The worker hands each job to an evaluator chosen by `EVALUATOR`:
+`evaluator/python/socbench_eval` **is** the benchmark: ~450 lines of numpy that reproduce the lab's original Standardized Evaluation Tool exactly (verified identical to 3 decimals on the real blinded data) — 1-hour constant padding, validation on m80 UDDS @ 10 °C with +0.3 A, 144 blinded cycles + charge cycles, positional temperature means, initial-SOC (90/60/30 %) and current-offset (±0.05/0.1/0.3 A) sweeps, the published weights, ⅓-decade complexity bins.
 
-| `EVALUATOR` | What runs | Needs |
+The only runtime-specific part is *executing the model*:
+
+| Package contains | Executed by | Needs |
 | --- | --- | --- |
-| `mock` | deterministic fake numbers | nothing (dev/demo) |
-| `auto` (production) | `Model.py` → **Python evaluator**; `Model.m`/`Model.p` → **MATLAB evaluator** | see below |
-| `python` / `matlab` | force one runtime | |
+| `Model.py` | Python, in-process | numpy/scipy only |
+| `Model.m` / `Model.p` | one MATLAB session via `matlab/Run_Model.m` (~40 lines) | MATLAB on the evaluation host |
 
-Both real evaluators reproduce the lab's *Standardized Evaluation Tool* pipeline — 1-hour constant padding before every cycle, validation on m80 UDDS @ 10 °C with +0.3 A, 144 blinded cycles, charge cycles, temperature means, initial-SOC (90/60/30 %) and current-offset (±0.05/0.1/0.3 A) sweeps, the published weights, and the FLOPS-normalised complexity bins — and write the same `results.json`, which `src/evaluator/results.ts` parses. Packages are deleted after evaluation.
+Layout:
 
-**One-time setup on the evaluation host** (lab PC / Alliance VM — the only place the blinded data lives):
-
-1. Put the lab's `Standardized Evaluation Tool` folder there (`Data_m*.mat` + `.m` files). Never commit it (it is gitignored).
-2. MATLAB path — `matlab/Evaluate_Submission.m` calls the lab's functions unchanged and emits JSON instead of emails/CSV. Env: `SOCBENCH_TOOL_DIR=<that folder>`, `MATLAB_BIN` if not on PATH.
-3. Python path — export the blinded tables to plain arrays **once** (MATLAB can't be avoided for this step because the data is stored as MATLAB `table` objects):
-   ```matlab
-   addpath('<repo>/matlab'); Export_Blind_Data('<Standardized Evaluation Tool>', '<somewhere private>/blind_data.mat')
-   ```
-   then `pip install -r evaluator/python/requirements.txt` and set `SOCBENCH_PYTHON`, `SOCBENCH_BLIND_DATA=<that file>`.
-4. `EVALUATOR=auto`, `npm run worker`.
-
-Run either evaluator by hand for debugging:
-```bash
-cd evaluator/python && python -m socbench_eval package.zip outDir --data blind_data.mat
-matlab -batch "addpath('matlab'); Evaluate_Submission('package.zip','outDir','<tool dir>')"
+```
+evaluator/python/socbench_eval/   the benchmark (data.py, runner.py, pipeline.py, __main__.py)
+matlab/Run_Model.m                executes a MATLAB model on a batch of inputs — nothing else
+matlab/Export_Blind_Data.m        one-time export of the lab's Data_m*.mat tables → blind_data.mat
+blind-data/                       blind_data.mat (gitignored; evaluation host only)
 ```
 
-**Parity check before switching production to `auto`:** evaluate the four example packages with both runtimes (the LSTM/FNN examples exist as `.m`; write the same models as `.py`) and confirm identical test-case scores. Complexity bins may differ between runtimes because the FLOPS proxy is language-speed dependent — calibrate `SOCBENCH_COMPLEXITY_SCALE` or, better, replace the proxy (README TODO).
+**Set up an evaluation host**
+
+```bash
+pip install -r evaluator/python/requirements.txt
+# .env on the worker host
+EVALUATOR=real
+SOCBENCH_BLIND_DATA=<path>/blind-data/blind_data.mat
+SOCBENCH_PYTHON=python
+MATLAB_BIN="C:/Program Files/MATLAB/R2026a/bin/matlab.exe"   # only for Model.m/.p
+npm run worker
+```
+
+Run by hand: `cd evaluator/python && python -m socbench_eval package.zip outDir --data ../../blind-data/blind_data.mat [--runtime python|matlab]`.
+
+Complexity is time-per-sample normalised by `SOCBENCH_CAL_PYTHON` / `SOCBENCH_CAL_MATLAB` (seconds per sample of a plain Coulomb counter on that host) so both runtimes bin the same model the same way; recalibrate when the evaluation host changes.
+
+The original tool (daemon, figures, e-mail, `Leaderboard.csv`) and the Borealis download live in `../Battery-SOC-Benchmark-archive/` — nothing in the repo depends on them.
 
 ## Branding
 
@@ -82,8 +89,8 @@ Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca) (Heritage Maroon `
 
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
-- [ ] First real run of `matlab/Evaluate_Submission.m` and `Export_Blind_Data.m` on the lab PC (written without MATLAB available — expect small fixes); parity-test Python vs MATLAB evaluators on the example models; then `EVALUATOR=auto`.
-- [ ] Replace the FLOPS-proxy complexity metric with something runtime-independent (e.g. wall-time per sample on a reference machine, or static op counts).
+- [ ] Parity-test the EKF / FNN / LSTM example packages (MATLAB runtime) and decide whether the evaluation host ships PyTorch for Python submissions.
+- [ ] Calibrate `SOCBENCH_CAL_*` on the final evaluation host.
 - [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
 - [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
 - [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
@@ -145,8 +152,8 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
-- [ ] First real run of `matlab/Evaluate_Submission.m` and `Export_Blind_Data.m` on the lab PC (written without MATLAB available — expect small fixes); parity-test Python vs MATLAB evaluators on the example models; then `EVALUATOR=auto`.
-- [ ] Replace the FLOPS-proxy complexity metric with something runtime-independent (e.g. wall-time per sample on a reference machine, or static op counts).
+- [ ] Parity-test the EKF / FNN / LSTM example packages (MATLAB runtime) and decide whether the evaluation host ships PyTorch for Python submissions.
+- [ ] Calibrate `SOCBENCH_CAL_*` on the final evaluation host.
 - [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
 - [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
 - [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/

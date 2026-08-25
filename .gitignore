@@ -53,5 +53,9 @@ uploads/
 # keep the example env tracked
 !.env.example
 
-# Lab evaluator + BLINDED DATA — never commit
+# BLINDED DATA — never commit
+blind-data/
 Standardized Evaluation Tool/
+!blind-data/README.md
+__pycache__/
+*.pyc
