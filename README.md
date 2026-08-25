@@ -41,18 +41,36 @@ Without `SMTP_HOST`, emails go to an auto-created Ethereal inbox and the preview
 | Evaluator seam | `src/evaluator/` |
 | Schema / seed | `prisma/` |
 
-## Swapping in the MATLAB evaluator
+## Evaluators (MATLAB **and** Python submissions)
 
-The web app never runs models itself. `src/evaluator/worker.ts` polls the `EvaluationJob` table and hands each job to whatever `getEvaluator()` returns (`EVALUATOR=mock|matlab`).
+The web app never runs models. The worker hands each job to an evaluator chosen by `EVALUATOR`:
 
-1. Implement `MatlabEvaluator.evaluate()` in `src/evaluator/matlab-evaluator.ts`:
-   - unzip the package at `input.filePath` into the evaluator's working directory;
-   - spawn MATLAB / MATLAB Runtime with the lab's blind evaluation script, streaming stdout to `input.log()`;
-   - parse the produced leaderboard row, per-cycle error summary (RMSE/MAE/MAXE + time series) and map to `EvaluationOutput` (`src/evaluator/types.ts`). Compute `weightedError` with `lib/scoring.ts` so the site and the script agree.
-2. Set `EVALUATOR=matlab` in the worker's environment and run `npm run worker` on the machine that has MATLAB.
-3. Throw `EvaluationError(message)` for user-facing failures (bad model output, runtime exceeded); anything else is retried once, then marked failed.
+| `EVALUATOR` | What runs | Needs |
+| --- | --- | --- |
+| `mock` | deterministic fake numbers | nothing (dev/demo) |
+| `auto` (production) | `Model.py` → **Python evaluator**; `Model.m`/`Model.p` → **MATLAB evaluator** | see below |
+| `python` / `matlab` | force one runtime | |
 
-The per-test-case columns on `EvaluationResult` follow Table IV of the ITEC 2022 paper and the V2 "Output Data" weights (`src/lib/test-cases.ts`). If the lab's script emits additional cases, add a column + a `TEST_CASES` entry and everything (leaderboard, charts, docs, CSV/JSON export) picks it up.
+Both real evaluators reproduce the lab's *Standardized Evaluation Tool* pipeline — 1-hour constant padding before every cycle, validation on m80 UDDS @ 10 °C with +0.3 A, 144 blinded cycles, charge cycles, temperature means, initial-SOC (90/60/30 %) and current-offset (±0.05/0.1/0.3 A) sweeps, the published weights, and the FLOPS-normalised complexity bins — and write the same `results.json`, which `src/evaluator/results.ts` parses. Packages are deleted after evaluation.
+
+**One-time setup on the evaluation host** (lab PC / Alliance VM — the only place the blinded data lives):
+
+1. Put the lab's `Standardized Evaluation Tool` folder there (`Data_m*.mat` + `.m` files). Never commit it (it is gitignored).
+2. MATLAB path — `matlab/Evaluate_Submission.m` calls the lab's functions unchanged and emits JSON instead of emails/CSV. Env: `SOCBENCH_TOOL_DIR=<that folder>`, `MATLAB_BIN` if not on PATH.
+3. Python path — export the blinded tables to plain arrays **once** (MATLAB can't be avoided for this step because the data is stored as MATLAB `table` objects):
+   ```matlab
+   addpath('<repo>/matlab'); Export_Blind_Data('<Standardized Evaluation Tool>', '<somewhere private>/blind_data.mat')
+   ```
+   then `pip install -r evaluator/python/requirements.txt` and set `SOCBENCH_PYTHON`, `SOCBENCH_BLIND_DATA=<that file>`.
+4. `EVALUATOR=auto`, `npm run worker`.
+
+Run either evaluator by hand for debugging:
+```bash
+cd evaluator/python && python -m socbench_eval package.zip outDir --data blind_data.mat
+matlab -batch "addpath('matlab'); Evaluate_Submission('package.zip','outDir','<tool dir>')"
+```
+
+**Parity check before switching production to `auto`:** evaluate the four example packages with both runtimes (the LSTM/FNN examples exist as `.m`; write the same models as `.py`) and confirm identical test-case scores. Complexity bins may differ between runtimes because the FLOPS proxy is language-speed dependent — calibrate `SOCBENCH_COMPLEXITY_SCALE` or, better, replace the proxy (README TODO).
 
 ## Branding
 
@@ -64,7 +82,10 @@ Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca) (Heritage Maroon `
 
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
-- [ ] Implement `MatlabEvaluator` when the lab's script arrives; set `EVALUATOR=matlab` on the worker host.
+- [ ] First real run of `matlab/Evaluate_Submission.m` and `Export_Blind_Data.m` on the lab PC (written without MATLAB available — expect small fixes); parity-test Python vs MATLAB evaluators on the example models; then `EVALUATOR=auto`.
+- [ ] Replace the FLOPS-proxy complexity metric with something runtime-independent (e.g. wall-time per sample on a reference machine, or static op counts).
+- [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
+- [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
 - [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
 - [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
 - [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
@@ -124,7 +145,10 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 
 - [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
 - [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
-- [ ] Implement `MatlabEvaluator` when the lab's script arrives; set `EVALUATOR=matlab` on the worker host.
+- [ ] First real run of `matlab/Evaluate_Submission.m` and `Export_Blind_Data.m` on the lab PC (written without MATLAB available — expect small fixes); parity-test Python vs MATLAB evaluators on the example models; then `EVALUATOR=auto`.
+- [ ] Replace the FLOPS-proxy complexity metric with something runtime-independent (e.g. wall-time per sample on a reference machine, or static op counts).
+- [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
+- [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
 - [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
 - [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
 - [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
