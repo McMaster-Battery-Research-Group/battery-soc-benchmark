@@ -9,23 +9,32 @@ import { cn } from "@/lib/utils";
  * tokenizer (no external highlighter dependency). Colours are chosen to sit
  * on the grey-900 surface with ≥4.5:1 contrast.
  */
-const KEYWORDS = new Set(["function", "end", "if", "elseif", "else", "for", "while", "return", "break", "continue", "switch", "case", "otherwise", "try", "catch", "nargin", "nargout", "true", "false"]);
-const BUILTINS = new Set(["zeros", "ones", "eye", "size", "length", "numel", "interp1", "load", "max", "min", "abs", "exp", "tanh", "diag", "repmat", "mean", "sqrt", "isnan", "bsxfun", "struct", "cell", "sum"]);
+const KW: Record<"matlab" | "python", Set<string>> = {
+  matlab: new Set(["function", "end", "if", "elseif", "else", "for", "while", "return", "break", "continue", "switch", "case", "otherwise", "try", "catch", "nargin", "nargout", "true", "false"]),
+  python: new Set(["def", "return", "if", "elif", "else", "for", "while", "in", "not", "and", "or", "import", "from", "as", "None", "True", "False", "class", "lambda", "with", "try", "except", "raise", "pass", "global"]),
+};
+const FN: Record<"matlab" | "python", Set<string>> = {
+  matlab: new Set(["zeros", "ones", "eye", "size", "length", "numel", "interp1", "load", "max", "min", "abs", "exp", "tanh", "diag", "repmat", "mean", "sqrt", "isnan", "bsxfun", "struct", "cell", "sum"]),
+  python: new Set(["float", "int", "min", "max", "abs", "range", "len", "getattr", "index", "zeros", "array", "diag", "exp", "tanh", "clip", "split", "vstack", "repeat", "mean", "maximum", "interp", "gradient", "outer", "eye", "asarray", "loadmat", "resolve", "print"]),
+};
 
 type Tok = { t: "kw" | "fn" | "num" | "str" | "cm" | "op" | "id" | "ws"; v: string };
 
-function tokenize(line: string): Tok[] {
+function tokenize(line: string, lang: "matlab" | "python"): Tok[] {
   const out: Tok[] = [];
+  const comment = lang === "python" ? "#" : "%";
+  const KEYWORDS = KW[lang];
+  const BUILTINS = FN[lang];
   let i = 0;
   while (i < line.length) {
     const ch = line[i];
-    if (ch === "%") {
+    if (ch === comment) {
       out.push({ t: "cm", v: line.slice(i) });
       break;
     }
-    if (ch === "'" && (i === 0 || /[\s(,=\[+\-*/]/.test(line[i - 1]))) {
+    if ((ch === '"' && lang === "python") || (ch === "'" && (lang === "python" || i === 0 || /[\s(,=\[+\-*/]/.test(line[i - 1])))) {
       let j = i + 1;
-      while (j < line.length && line[j] !== "'") j++;
+      while (j < line.length && line[j] !== ch) j++;
       out.push({ t: "str", v: line.slice(i, j + 1) });
       i = j + 1;
       continue;
@@ -79,7 +88,7 @@ export function CodeBlock({
 }: {
   code: string;
   filename?: string;
-  language?: "matlab" | "text";
+  language?: "matlab" | "python" | "text";
   className?: string;
   collapsible?: boolean;
   maxLines?: number;
@@ -111,7 +120,7 @@ export function CodeBlock({
             <div key={i} className="flex">
               <span className="w-10 shrink-0 select-none pr-3 text-right text-white/35">{i + 1}</span>
               <code className="flex-1 pr-4 whitespace-pre">
-                {language === "matlab" ? tokenize(ln).map((tk, k) => <span key={k} style={{ color: COLORS[tk.t], fontStyle: tk.t === "cm" ? "italic" : undefined }}>{tk.v}</span>) : ln}
+                {language !== "text" ? tokenize(ln, language).map((tk, k) => <span key={k} style={{ color: COLORS[tk.t], fontStyle: tk.t === "cm" ? "italic" : undefined }}>{tk.v}</span>) : ln}
               </code>
             </div>
           ))}
