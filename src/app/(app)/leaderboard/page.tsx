@@ -6,7 +6,7 @@ import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { HowToRead } from "@/components/leaderboard/how-to-read";
 import { PageHeader } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
-import { Trophy } from "lucide-react";
+import { Trophy, MessageSquare } from "lucide-react";
 
 export const metadata: Metadata = { title: "Leaderboard" };
 export const dynamic = "force-dynamic";
@@ -29,6 +29,7 @@ export default async function LeaderboardPage() {
             {contest ? (
               <Button asChild variant="secondary"><Link href={`/contest/${contest.slug}`}><Trophy /> Contest leaderboard</Link></Button>
             ) : null}
+            <Button asChild variant="outline"><Link href="/contact?from=/leaderboard"><MessageSquare /> Contact administrator</Link></Button>
             <Button asChild><Link href="/submit">Submit a model</Link></Button>
           </>
         }

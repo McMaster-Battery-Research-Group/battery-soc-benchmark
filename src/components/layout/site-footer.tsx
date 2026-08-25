@@ -30,7 +30,7 @@ const COLS = [
       { href: "/about", label: "About the project" },
       { href: "https://battery.mcmaster.ca/", label: "McMaster Battery Lab", external: true },
       { href: "https://www.eng.mcmaster.ca/ece/faculty/dr-phil-kollmeyer/", label: "Dr. Phillip Kollmeyer", external: true },
-      { href: "/contact", label: "Contact" },
+      { href: "/contact", label: "Contact & feedback" },
     ],
   },
 ];

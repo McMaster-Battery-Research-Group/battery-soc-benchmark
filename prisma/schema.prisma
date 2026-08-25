@@ -237,8 +237,12 @@ model ContactMessage {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   name      String
   email     String
+  category  String   @default("question") // question | bug | feature | contest | data | other
   subject   String
   body      String
+  pageUrl   String?  // where the user was when they wrote it
   resolved  Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([resolved, createdAt])
 }

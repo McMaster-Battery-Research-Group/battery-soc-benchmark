@@ -44,11 +44,22 @@ export const contestSchema = z.object({
   maxSubmissionsPerUser: z.coerce.number().int().min(1).max(100),
 }).refine((c) => c.endsAt > c.startsAt, { message: "End date must be after start date", path: ["endsAt"] });
 
+export const FEEDBACK_CATEGORIES = [
+  ["question", "Question"],
+  ["bug", "Bug report / something broke"],
+  ["feature", "Feature request or idea"],
+  ["contest", "Contest / eligibility"],
+  ["data", "Dataset or evaluation"],
+  ["other", "Other"],
+] as const;
+
 export const contactSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: z.string().trim().email(),
+  category: z.enum(FEEDBACK_CATEGORIES.map((c) => c[0]) as [string, ...string[]]).default("question"),
   subject: z.string().trim().min(3).max(120),
   body: z.string().trim().min(10).max(4000),
+  pageUrl: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 export type FieldErrors = Record<string, string | undefined>;

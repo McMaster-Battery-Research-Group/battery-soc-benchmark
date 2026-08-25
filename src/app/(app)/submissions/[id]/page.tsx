@@ -66,7 +66,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         <Alert variant="danger" className="mt-6" title="Evaluation failed">
           <p>{sub.failureMessage}</p>
           {(isOwner || isAdmin) && sub.job?.log ? <pre className="mt-3 max-h-64 overflow-auto rounded-brand bg-grey-900 p-3 text-xs text-white">{sub.job.log}</pre> : null}
-          <p className="mt-2 text-xs">Tip: use <Link href="/submit" className="underline">Test your package first</Link> on the Submit page before re-submitting.</p>
+          <p className="mt-2 text-xs">Tip: use <Link href="/submit" className="underline">Test your package first</Link> on the Submit page before re-submitting. Think the evaluator is wrong? <Link href={`/contact?category=bug&subject=${encodeURIComponent(`Submission #${sub.seq} failed`)}&from=/submissions/${sub.id}`} className="underline">Report it</Link>.</p>
         </Alert>
       ) : null}
 
