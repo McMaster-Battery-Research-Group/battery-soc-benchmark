@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage } from "@/lib/package-check";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
-import { collaboratorInviteEmail, collaboratorDeclinedEmail } from "@/lib/mail";
+import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail } from "@/lib/mail";
 import { randomBytes } from "crypto";
 
 export interface SubmitState {
@@ -210,7 +210,10 @@ export async function respondToInviteAction(input: { submissionId: string } | { 
   if (session.user.id !== row.userId) return { ok: false, error: `This invitation is addressed to ${row.user.name}, not to your account.` };
   const { submission } = row;
   if (accept) {
-    if (!row.acceptedAt) await db.submissionCollaborator.update({ where: { submissionId_userId: { submissionId: row.submissionId, userId: row.userId } }, data: { acceptedAt: new Date(), inviteToken: null } });
+    if (!row.acceptedAt) {
+      await db.submissionCollaborator.update({ where: { submissionId_userId: { submissionId: row.submissionId, userId: row.userId } }, data: { acceptedAt: new Date(), inviteToken: null } });
+      await collaboratorAcceptedEmail(submission.user.email, submission.user.name, row.user.name, submission.modelName, submission.id);
+    }
   } else {
     await db.submissionCollaborator.delete({ where: { submissionId_userId: { submissionId: row.submissionId, userId: row.userId } } });
     await collaboratorDeclinedEmail(submission.user.email, submission.user.name, row.user.name, submission.modelName, submission.id);
