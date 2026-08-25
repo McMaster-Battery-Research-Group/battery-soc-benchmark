@@ -6,16 +6,19 @@ import { EvaluationError, type EvaluationInput, type EvaluationOutput, type Eval
 import { parseResultsJson } from "./results";
 
 /**
- * Evaluates Model.py packages with evaluator/python/socbench_eval — a numpy/scipy
- * port of the lab's Standardized Evaluation Tool. No MATLAB required.
+ * Runs evaluator/python/socbench_eval — the benchmark implementation (verified
+ * identical to the lab's original MATLAB tool). Model.py runs in-process;
+ * Model.m/.p is executed by MATLAB through matlab/Run_Model.m.
  *
  * Environment (evaluation host):
- *   SOCBENCH_PYTHON      python executable with numpy, scipy, openpyxl (default "python")
+ *   SOCBENCH_PYTHON      python with numpy, scipy, openpyxl (default "python")
  *   SOCBENCH_BLIND_DATA  blind_data.mat produced by matlab/Export_Blind_Data.m
+ *   MATLAB_BIN           matlab executable, only for Model.m/.p packages
+ *   SOCBENCH_CAL_PYTHON / SOCBENCH_CAL_MATLAB  complexity calibration (s per sample)
  *   PY_EVAL_TIMEOUT_MIN  hard kill after this many minutes (default 180)
  */
 export class PythonEvaluator implements Evaluator {
-  readonly name = "python";
+  readonly name = "real";
 
   async evaluate(input: EvaluationInput): Promise<EvaluationOutput> {
     const py = process.env.SOCBENCH_PYTHON ?? "python";

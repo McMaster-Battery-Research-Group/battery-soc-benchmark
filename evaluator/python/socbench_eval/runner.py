@@ -1,23 +1,97 @@
-"""Load a submitted Model.py and iterate it sample-by-sample, exactly like
-IterateAll.m / PythonModelRunner.py do in the MATLAB tool."""
+"""Model execution backends.
+
+The evaluator prepares every input matrix up front (padding, offsets, initial-SOC
+restarts), hands the whole batch to a backend, and scores the predictions. Two
+backends implement the same interface:
+
+  PythonBackend  imports Model.py and iterates Model(X[i], z) in-process
+  MatlabBackend  writes the batch to a .mat, runs matlab/Run_Model.m once, reads
+                 the predictions back — MATLAB does nothing but execute the model
+"""
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
 import sys
+import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
+from typing import Callable
 
 import numpy as np
+from scipy.io import loadmat, savemat
 
-PAD_SAMPLES = 3600  # one hour of constant data prepended to every cycle (Predict_SOC.m)
+PAD_SAMPLES = 3600  # one hour of constant data prepended to every cycle (as in the original tool)
 
 
 class ModelError(RuntimeError):
     """Raised when the submitted model misbehaves; message is shown to the submitter."""
 
 
-def load_model(pkg_dir: Path) -> ModuleType:
+@dataclass
+class Job:
+    key: str
+    X: np.ndarray  # padded N x 3 [I, V, T]
+    pad: int
+
+
+@dataclass
+class Prediction:
+    key: str
+    soc: np.ndarray  # padding removed, NaN -> 0
+    secs: float
+    n_samples: int  # including padding (for time-per-sample)
+
+
+def build_input(cycle_X: np.ndarray, offset: float = 0.0, isoc_idx: int = 0) -> np.ndarray:
+    """Port of the input preparation in Predict_SOC.m.
+    offset:   constant added to the current column.
+    isoc_idx: 0-based start index for the initial-SOC test; then the padded
+              current is zero (MATLAB: zeros(3600,1)) instead of the first sample.
+    """
+    X1 = cycle_X[isoc_idx:, :].copy()
+    X1[:, 0] += offset
+    pad = np.repeat(X1[:1, :], PAD_SAMPLES, axis=0)
+    if isoc_idx > 0:
+        pad[:, 0] = 0.0
+    return np.vstack([pad, X1])
+
+
+def _finish(key: str, raw: np.ndarray, pad: int, secs: float) -> Prediction:
+    soc = np.asarray(raw, dtype=float).reshape(-1)[pad:]
+    soc = np.where(np.isnan(soc), 0.0, soc)
+    return Prediction(key, soc, secs, int(raw.size))
+
+
+class Backend:
+    name = "?"
+
+    def run(self, jobs: list[Job], log: Callable[[str], None]) -> list[Prediction]:  # pragma: no cover - interface
+        raise NotImplementedError
+
+
+# ---------------------------------------------------------------- Python
+
+class PythonBackend(Backend):
+    name = "python"
+
+    def __init__(self, pkg_dir: Path):
+        self.model = _load_py_model(pkg_dir)
+
+    def run(self, jobs: list[Job], log: Callable[[str], None]) -> list[Prediction]:
+        out = []
+        for i, j in enumerate(jobs):
+            log(f"{100 * (i + 1) / len(jobs):5.1f}% | {j.key}")
+            t0 = time.perf_counter()
+            raw = _iterate_py(self.model, j.X)
+            out.append(_finish(j.key, raw, j.pad, time.perf_counter() - t0))
+        return out
+
+
+def _load_py_model(pkg_dir: Path) -> ModuleType:
     model_file = pkg_dir / "Model.py"
     if not model_file.is_file():
         raise ModelError("Model.py not found at the top level of the package.")
@@ -46,10 +120,9 @@ def _scalar(y) -> float:
     return v
 
 
-def iterate(model: ModuleType, X: np.ndarray) -> np.ndarray:
-    """Call Model(X[0]) then Model(X[i], z) for i>=1; returns SOC predictions (len == rows of X)."""
+def _iterate_py(model: ModuleType, X: np.ndarray) -> np.ndarray:
     n = X.shape[0]
-    out = np.zeros(n, dtype=float)
+    out = np.zeros(n)
     try:
         res = model.Model(X[0, :].copy())
         if not (isinstance(res, tuple) and len(res) == 2):
@@ -69,23 +142,46 @@ def iterate(model: ModuleType, X: np.ndarray) -> np.ndarray:
     return out
 
 
-def predict_soc(model: ModuleType, cycle_X: np.ndarray, offset: float = 0.0, isoc_idx: int = 0):
-    """Port of Predict_SOC.m.
+# ---------------------------------------------------------------- MATLAB
 
-    cycle_X: N x 3 [I, V, T]. Returns (SOC_Pred without padding, seconds, n_samples_incl_padding).
-    offset:  constant added to current.
-    isoc_idx: 0-based start index for the initial-SOC test; when > 0 the padding
-              current is ZERO (MATLAB: zeros(3600,1).*X1(1,1)) rather than the first sample.
-    """
-    X1 = cycle_X[isoc_idx:, :].copy()
-    X1[:, 0] = X1[:, 0] + offset
-    pad = np.repeat(X1[:1, :], PAD_SAMPLES, axis=0)
-    if isoc_idx > 0:
-        pad[:, 0] = 0.0
-    X = np.vstack([pad, X1])
-    t0 = time.perf_counter()
-    pred = iterate(model, X)
-    secs = time.perf_counter() - t0
-    pred = pred[PAD_SAMPLES:]
-    pred = np.where(np.isnan(pred), 0.0, pred)
-    return pred, secs, X.shape[0]
+class MatlabBackend(Backend):
+    name = "matlab"
+
+    def __init__(self, pkg_dir: Path, matlab_bin: str | None = None, timeout_min: float = 180):
+        if not ((pkg_dir / "Model.m").is_file() or (pkg_dir / "Model.p").is_file()):
+            raise ModelError("Model.m or Model.p not found at the top level of the package.")
+        self.pkg_dir = pkg_dir
+        self.matlab = matlab_bin or os.environ.get("MATLAB_BIN", "matlab")
+        self.timeout = timeout_min * 60
+        self.script_dir = Path(__file__).resolve().parents[3] / "matlab"
+
+    def run(self, jobs: list[Job], log: Callable[[str], None]) -> list[Prediction]:
+        with tempfile.TemporaryDirectory(prefix="socbench-ml-") as td:
+            inp, outp = Path(td) / "in.mat", Path(td) / "out.mat"
+            cell = np.empty(len(jobs), dtype=object)
+            for i, j in enumerate(jobs):
+                cell[i] = j.X
+            savemat(inp, {"X": cell}, do_compression=False)
+            q = lambda p: str(p).replace("\\", "/").replace("'", "''")  # noqa: E731
+            cmd = f"addpath('{q(self.script_dir)}'); Run_Model('{q(self.pkg_dir)}','{q(inp)}','{q(outp)}')"
+            log(f"matlab -batch (1 session, {len(jobs)} input matrices)")
+            try:
+                proc = subprocess.run([self.matlab, "-batch", cmd], capture_output=True, text=True, timeout=self.timeout)
+            except FileNotFoundError as e:
+                raise ModelError(f"Could not start MATLAB ({e}). Set MATLAB_BIN.") from e
+            except subprocess.TimeoutExpired as e:
+                raise ModelError(f"MATLAB evaluation exceeded {self.timeout / 60:.0f} minutes.") from e
+            for line in (proc.stdout + proc.stderr).splitlines():
+                if line.strip():
+                    log(line.strip())
+            if not outp.is_file():
+                raise ModelError(f"MATLAB produced no output (exit {proc.returncode}): {proc.stderr[-500:]}")
+            res = loadmat(outp, squeeze_me=False)
+            err = str(res.get("err", np.array([""]))).strip("[]' ")
+            if err and err != "":
+                raise ModelError(f"MATLAB model error: {err}")
+            preds = res["preds"].reshape(-1)
+            secs = np.asarray(res["secs"], dtype=float).reshape(-1)
+            if len(preds) != len(jobs):
+                raise ModelError("MATLAB returned the wrong number of predictions.")
+            return [_finish(j.key, preds[i], j.pad, float(secs[i])) for i, j in enumerate(jobs)]
