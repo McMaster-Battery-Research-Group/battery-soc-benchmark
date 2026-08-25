@@ -60,6 +60,14 @@ Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca) (Heritage Maroon `
 
 `public/logos/mcmaster.svg` and `public/logos/nserc.svg` are **text-only wordmarks** in brand typography — McMaster's terms allow the institutional logo only with files and approval from Brand Marketing (brandmrk@mcmaster.ca), so no crest/Marauder is reproduced. Drop the official assets over these two files when the lab supplies them; nothing else needs to change.
 
+## TODO
+
+- [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
+- [ ] Replace text-only wordmarks in `public/logos/` with official McMaster and NSERC assets once approved.
+- [ ] Implement `MatlabEvaluator` when the lab's script arrives; set `EVALUATOR=matlab` on the worker host.
+- [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
+- [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
+
 ## Scripts
 
 `dev` · `build` · `start` · `lint` · `typecheck` · `db:up` · `db:push` · `db:migrate` · `db:studio` · `seed` · `worker`
