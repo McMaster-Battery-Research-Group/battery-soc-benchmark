@@ -4,8 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES } from "@/lib/storage";
 import { checkSubmissionPackage } from "@/lib/package-check";
-
-const DRY_RUNS_PER_HOUR = 5;
+import { dryRunLimitError } from "@/lib/dry-run-quota";
 
 export type DryRunStart = { ok: true; id: string } | { ok: false; error: string };
 
@@ -18,9 +17,8 @@ export async function startDryRunAction(fd: FormData): Promise<DryRunStart> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Sign in to test a package." };
 
-  const since = new Date(Date.now() - 3600_000);
-  const recent = await db.dryRun.count({ where: { userId: session.user.id, createdAt: { gt: since } } });
-  if (recent >= DRY_RUNS_PER_HOUR) return { ok: false, error: `Limit reached: ${DRY_RUNS_PER_HOUR} test runs per hour. Try again later.` };
+  const limit = await dryRunLimitError(session.user);
+  if (limit) return { ok: false, error: limit };
 
   let bytes: Buffer;
   let fileName: string;

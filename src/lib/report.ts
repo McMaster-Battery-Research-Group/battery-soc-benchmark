@@ -12,6 +12,7 @@ const SERIES = ["#8f2555", "#1f7fb5", "#c98a2e", "#6b62b8"];
 export interface ReportInput {
   submission: { id: string; seq: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean };
   user: { name: string; affiliation: string };
+  collaborators?: { name: string; affiliation: string }[];
   result: Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string; perCycle: PerCycleRow[]; timeSeries: TimeSeriesTrace[] };
   siteUrl: string;
 }
@@ -20,6 +21,12 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const { submission: s, user, result: r, siteUrl } = input;
     const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true, info: { Title: `${s.modelName} — Battery SOC Benchmark report`, Author: "Battery SOC Benchmark, McMaster University" } });
+    // The standard Helvetica fonts only cover WinAnsi: map typographic characters
+    // that would otherwise print as garbage (− Σ ⱼ … → ≥ ≤).
+    const rawText = doc.text.bind(doc);
+    (doc as unknown as { text: unknown }).text = ((t: unknown, ...rest: unknown[]) => (rawText as (...a: unknown[]) => PDFKit.PDFDocument)(typeof t === "string" ? pdfSafe(t) : t, ...rest)) as typeof doc.text;
+    const rawHeight = doc.heightOfString.bind(doc);
+    doc.heightOfString = ((t: string, o?: object) => rawHeight(pdfSafe(t), o)) as typeof doc.heightOfString;
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -34,7 +41,9 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     doc.rect(0, 0, doc.page.width, 6).fill(M);
     doc.fillColor(M).font("Helvetica-Bold").fontSize(10).text("BATTERY SOC BENCHMARK  ·  McMaster Automotive Resource Centre", X0, 28);
     doc.fillColor(INK).font("Helvetica-Bold").fontSize(22).text(s.modelName, X0, 48, { width: W });
-    doc.fillColor(GREY).font("Helvetica").fontSize(10).text(`Submission #${s.seq}  ·  ${MODEL_TYPE_LABELS[s.modelType] ?? s.modelType}  ·  ${user.name}, ${user.affiliation}`, { width: W });
+    const authors = [user, ...(input.collaborators ?? [])];
+    const authorLine = authors.length === 1 ? `${user.name}, ${user.affiliation}` : authors.map((a) => `${a.name} (${a.affiliation})`).join(", ");
+    doc.fillColor(GREY).font("Helvetica").fontSize(10).text(`Submission #${s.seq}  ·  ${MODEL_TYPE_LABELS[s.modelType] ?? s.modelType}  ·  ${authorLine}`, { width: W });
     doc.text(`Submitted ${date(s.submittedAt)}  ·  Evaluated ${date(s.completedAt)}  ·  Evaluator ${r.evaluatorVersion}${s.isPrivate ? "  ·  PRIVATE" : ""}`, { width: W });
     doc.moveDown(0.6);
     doc.fillColor(INK).fontSize(10).text(s.description, { width: W, lineGap: 1 });
@@ -62,7 +71,8 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     const order: MetricKey[] = ["allCells", "blindedCell", "nonBlindedCells", "charging", "massM80", "massM448", "massM448N", "massM1000", "standardCycles", "nonStandardCycles", "initialSocError", "currentSensorOffset"];
     sectionTitle(doc, "Error by test case", "Average RMSE (% SOC) per blinded test case. Lower is better.", X0, y);
     y = doc.y + 6;
-    barChart(doc, X0, y, W, 170, order.map((k) => ({ label: TEST_CASES.find((t) => t.key === k)!.short, value: r[k] })), M);
+    const BAR_LABELS: Partial<Record<MetricKey, string>> = { massM448: "448 kg\nHVAC on", massM448N: "448 kg\nHVAC off", nonStandardCycles: "Non-std\ncycles", nonBlindedCells: "Non-\nblinded", currentSensorOffset: "Current\noffset" };
+    barChart(doc, X0, y, W, 170, order.map((k) => ({ label: BAR_LABELS[k] ?? TEST_CASES.find((t) => t.key === k)!.short, value: r[k] })), M);
     y += 190;
 
     // ---------- temperature chart
@@ -94,11 +104,19 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       doc.fillColor(INK).font("Helvetica-Bold").text(fmt(r[t.key]), X0 + cols[0] + cols[1] + cols[2] + cols[3], y + 4, { width: cols[4] - 6, align: "right" });
       y += h;
     }
-    doc.fillColor(GREY).font("Helvetica").fontSize(8.5).text(`Weighted error = Σ wⱼ · RMSEⱼ = ${fmt(r.weightedError)} %`, X0, y + 10);
+    doc.fillColor(GREY).font("Helvetica").fontSize(8.5).text(`Weighted error = sum over tests of (weight × RMSE) = ${fmt(r.weightedError)} %`, X0, y + 10);
 
     // ---------- page 3: time-domain traces
     doc.addPage();
     sectionTitle(doc, "Time-domain results", "Estimated vs. reference SOC on representative blinded cycles (down-sampled). One hour of padding precedes every cycle and is excluded from the metrics.", X0, 48);
+    // shared legend
+    {
+      const ly = doc.y + 4;
+      doc.fontSize(7);
+      doc.rect(X0, ly + 3, 10, 1.6).fill(INK).fillColor(GREY).text("Reference SOC", X0 + 14, ly, { lineBreak: false });
+      doc.rect(X0 + 80, ly + 3, 10, 1.6).fill(SERIES[0]).fillColor(GREY).text("Estimated SOC", X0 + 94, ly, { lineBreak: false });
+      doc.y = ly + 10;
+    }
     y = doc.y + 8;
     const traces = r.timeSeries.slice(0, 8);
     const tw = (W - 12) / 2;
@@ -186,15 +204,17 @@ function barChart(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: n
     const by = y + padT + plotH - bh;
     doc.roundedRect(bx, by, bw, bh, 2).fill(color);
     doc.fillColor(INK).font("Helvetica").fontSize(7).text(b.value.toFixed(1), bx - 6, by - 9, { width: bw + 12, align: "center" });
-    doc.fillColor(GREY).fontSize(6.5).text(b.label, bx - 14, y + padT + plotH + 4, { width: bw + 28, align: "center" });
+    // label gets the whole slot so neighbours never overlap
+    doc.fillColor(GREY).fontSize(6.2).text(b.label, x + padL + i * slot + 1, y + padT + plotH + 4, { width: slot - 2, align: "center", lineGap: -0.5 });
   });
 }
 
 function lineChart(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, tr: TimeSeriesTrace) {
   const padL = 30, padB = 16, padT = 16;
-  doc.fillColor(INK).font("Helvetica-Bold").fontSize(8.5).text(tr.label, x, y);
   const rmse = Math.sqrt(tr.estimated.reduce((a, e, i) => a + (e - tr.actual[i]) ** 2, 0) / tr.estimated.length);
-  doc.fillColor(GREY).font("Helvetica").fontSize(7).text(`RMSE ${rmse.toFixed(2)} %`, x, y, { width: w, align: "right" });
+  // Title row: label on the left, RMSE on the right. The legend is shared (section subtitle).
+  doc.fillColor(INK).font("Helvetica-Bold").fontSize(8.5).text(tr.label, x, y, { width: w - 66, height: 12, lineBreak: false, ellipsis: true });
+  doc.fillColor(GREY).font("Helvetica").fontSize(7).text(`RMSE ${rmse.toFixed(2)} %`, x + w - 60, y + 1, { width: 60, align: "right" });
   const py = y + padT, plotH = h - padT - padB, plotW = w - padL;
   const tMax = tr.t[tr.t.length - 1] || 1;
   for (let i = 0; i <= 4; i++) {
@@ -212,8 +232,19 @@ function lineChart(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: 
   draw(tr.actual, INK, 1.1);
   draw(tr.estimated, SERIES[0], 0.9);
   doc.fillColor(GREY).fontSize(6.5).text("0h", x + padL, py + plotH + 4).text(`${tMax.toFixed(1)}h`, x + w - 30, py + plotH + 4, { width: 30, align: "right" });
-  // legend
-  doc.rect(x + padL, y + 2, 8, 2).fill(INK).fillColor(GREY).text("actual", x + padL + 11, y - 1);
-  doc.rect(x + padL + 44, y + 2, 8, 2).fill(SERIES[0]).fillColor(GREY).text("estimated", x + padL + 55, y - 1);
   void G; void SOFT;
+}
+
+/** Replace characters outside WinAnsi (unsupported by the built-in Helvetica) with safe equivalents. */
+function pdfSafe(s: string) {
+  return s
+    .replace(/\u2212/g, "-") // minus sign
+    .replace(/[\u03A3\u2211]/g, "sum")
+    .replace(/\u2C7C/g, "j")
+    .replace(/\u2265/g, ">=")
+    .replace(/\u2264/g, "<=")
+    .replace(/\u2192/g, "->")
+    .replace(/\u2248/g, "~")
+    .replace(/[\u00A0\u2000-\u200B\u202F]/g, " ") // exotic spaces
+    .replace(/[^\u0020-\u00FF\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026\u20AC\u2122\n\t]/g, "?"); // anything else WinAnsi lacks
 }

@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { isListedAdmin } from "./admin-list";
 
 /**
  * Edge-safe part of the Auth.js config (no Prisma import) — used by middleware.
@@ -25,7 +26,8 @@ export const authConfig = {
     },
     session({ session, token }) {
       session.user.id = token.id as string;
-      session.user.role = token.role as "USER" | "ADMIN";
+      // Accounts listed in ADMIN_EMAILS are admins immediately, even with an older session token.
+      session.user.role = token.email && isListedAdmin(token.email) ? "ADMIN" : (token.role as "USER" | "ADMIN");
       session.user.affiliation = token.affiliation as string;
       session.user.name = token.name as string;
       return session;

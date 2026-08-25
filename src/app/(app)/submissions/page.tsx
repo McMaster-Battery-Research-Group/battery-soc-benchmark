@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FolderKanban, Lock, Trophy } from "lucide-react";
+import { FolderKanban, Lock, Trophy, Users } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
@@ -15,9 +15,9 @@ export const dynamic = "force-dynamic";
 export default async function MySubmissionsPage() {
   const session = await auth();
   const subs = await db.submission.findMany({
-    where: { userId: session!.user.id },
+    where: { OR: [{ userId: session!.user.id }, { collaborators: { some: { userId: session!.user.id } } }] },
     orderBy: { submittedAt: "desc" },
-    include: { result: { select: { weightedError: true, allCells: true, tempM20: true, complexity: true } }, contest: { select: { title: true, slug: true } } },
+    include: { result: { select: { weightedError: true, allCells: true, tempM20: true, complexity: true } }, contest: { select: { title: true, slug: true } }, user: { select: { name: true } }, collaborators: { where: { userId: session!.user.id }, select: { acceptedAt: true, notifiedAt: true } } },
   });
   const active = subs.filter((s) => s.status === "QUEUED" || s.status === "RUNNING").length;
 
@@ -44,6 +44,13 @@ export default async function MySubmissionsPage() {
                       <Link href={`/submissions/${s.id}`} className="font-heading font-semibold text-ink hover:text-maroon hover:underline">{s.modelName}</Link>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-grey-600">
                         <span>#{s.seq} · {MODEL_TYPE_LABELS[s.modelType]}</span>
+                        {s.userId !== session!.user.id ? (
+                          s.collaborators[0]?.acceptedAt ? (
+                            <Badge variant="neutral"><Users className="size-3" /> Co-author with {s.user.name}</Badge>
+                          ) : (
+                            <Badge variant="gold"><Users className="size-3" /> Invitation from {s.user.name} — respond on the submission page</Badge>
+                          )
+                        ) : null}
                         {s.isPrivate ? <Badge variant="neutral"><Lock className="size-3" /> Private</Badge> : null}
                         {s.contest ? <Badge variant="gold"><Trophy className="size-3" /> {s.contest.title}</Badge> : null}
                       </div>

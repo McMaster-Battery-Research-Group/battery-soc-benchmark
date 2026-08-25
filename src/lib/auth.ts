@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "./db";
 import { authConfig } from "./auth.config";
+import { isListedAdmin } from "./admin-list";
 
 const credentialsSchema = z.object({ email: z.string().email(), password: z.string().min(1) });
 
@@ -23,7 +24,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!ok) return null;
         if (!user.emailVerified) throw new UnverifiedEmailError("EMAIL_NOT_VERIFIED");
-        return { id: user.id, email: user.email, name: user.name, role: user.role, affiliation: user.affiliation };
+        let role = user.role;
+        if (role !== "ADMIN" && isListedAdmin(email)) {
+          role = "ADMIN"; // listed in ADMIN_EMAILS after the account was created
+          await db.user.update({ where: { id: user.id }, data: { role } });
+        }
+        return { id: user.id, email: user.email, name: user.name, role, affiliation: user.affiliation };
       },
     }),
   ],

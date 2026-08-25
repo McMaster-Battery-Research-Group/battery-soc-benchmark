@@ -64,11 +64,25 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Public researcher profile (all optional)
+  occupation      String?
+  bio             String?
+  website         String?
+  linkedin        String?
+  orcid           String?
+  googleScholar   String?
+  researchGate    String?
+  github          String?
+  avatar          Bytes?    // small JPEG (≤256 px), resized in the browser before upload
+  avatarType      String?
+  avatarUpdatedAt DateTime?
+
   submissions    Submission[]
   contestEntries ContestEntry[]
   tokens         UserToken[]
   messages       ContactMessage[]
   dryRuns        DryRun[]
+  collaborations SubmissionCollaborator[]
 }
 
 enum TokenType {
@@ -110,12 +124,34 @@ model Submission {
   contestId       String?
   contest         Contest?         @relation(fields: [contestId], references: [id], onDelete: SetNull)
 
-  result EvaluationResult?
-  job    EvaluationJob?
+  result        EvaluationResult?
+  job           EvaluationJob?
+  collaborators SubmissionCollaborator[]
 
   @@index([userId])
   @@index([contestId])
   @@index([status])
+}
+
+/// Co-authors on a submission (must have an account). They can view it even when
+/// private and appear beside the owner on the leaderboard; only the owner edits.
+model SubmissionCollaborator {
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+  /// Set once the owner confirmed and the "you were added" e-mail went out.
+  /// Unconfirmed collaborators are listed but receive no e-mails.
+  notifiedAt   DateTime?
+  /// Set when the collaborator accepted the invitation. Only accepted
+  /// collaborators are shown publicly (leaderboard, researcher pages).
+  acceptedAt   DateTime?
+  /// One-time token for the Accept / Decline links in the invitation e-mail.
+  inviteToken  String?    @unique
+
+  @@id([submissionId, userId])
+  @@index([userId])
 }
 
 /// One row per completed evaluation. Test-case fields map to Table IV of

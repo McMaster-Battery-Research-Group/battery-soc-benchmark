@@ -15,8 +15,8 @@ const PAGES: Record<string, { title: string; body: { h: string; p: string[] }[] 
   privacy: {
     title: "Privacy",
     body: [
-      { h: "What we store", p: ["Your name, email address, affiliation and a salted password hash; the metadata and results of your submissions; messages you send through the contact form; and server logs used for security and troubleshooting."] },
-      { h: "What is public", p: ["For public submissions: model name, description, model type, author name, affiliation, submission date and evaluation results. Private submissions and your email address are never shown to other users."] },
+      { h: "What we store", p: ["Your name, email address, affiliation and a salted password hash; any optional profile details you choose to add (position, short bio, profile picture, and links such as LinkedIn, ORCID, Google Scholar, ResearchGate, GitHub or a website); the metadata and results of your submissions; messages you send through the contact form; and server logs used for security and troubleshooting."] },
+      { h: "What is public", p: ["For public submissions: model name, description, model type, author name, affiliation, submission date and evaluation results. Optional profile details and your picture appear on your public researcher page and next to your public submissions; you can remove them at any time from your profile. Private submissions and your email address are never shown to other users."] },
       { h: "Model files", p: ["Uploaded submission packages are stored only until the evaluation has run and are then deleted. They are not shared with third parties."] },
       { h: "Email", p: ["We email you only for account verification, password resets, evaluation results and contest administration."] },
       { h: "Contact", p: ["For questions or deletion requests use the contact form or email the McMaster Automotive Resource Centre."] },

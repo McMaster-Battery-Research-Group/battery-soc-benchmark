@@ -15,6 +15,9 @@ export type LeaderboardRow = {
   author: string;
   affiliation: string;
   userId: string;
+  /** avatarUpdatedAt epoch ms, null when the author has no picture */
+  avatarVersion: number | null;
+  collaborators: { id: string; name: string; avatarVersion: number | null }[];
   contestId: string | null;
   weightedError: number;
   complexity: number;
@@ -46,7 +49,12 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
   };
   const subs = await db.submission.findMany({
     where,
-    include: { user: { select: { name: true, affiliation: true } }, result: { select: resultSelect } },
+    include: {
+      user: { select: { name: true, affiliation: true, avatarUpdatedAt: true } },
+      // only accepted co-authors are public
+      collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { id: true, name: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
+      result: { select: resultSelect },
+    },
     orderBy: { submittedAt: "desc" },
   });
   return subs
@@ -64,6 +72,8 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       author: s.user.name,
       affiliation: s.user.affiliation,
       userId: s.userId,
+      avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null,
+      collaborators: s.collaborators.map((c) => ({ id: c.user.id, name: c.user.name, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null })),
       contestId: s.contestId,
       ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number }),
     }));
@@ -73,7 +83,8 @@ export async function getSubmissionDetail(id: string) {
   return db.submission.findUnique({
     where: { id },
     include: {
-      user: { select: { id: true, name: true, affiliation: true } },
+      user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } },
+      collaborators: { include: { user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
       result: true,
       job: { select: { log: true, attempts: true } },
       contest: { select: { id: true, slug: true, title: true, status: true } },
@@ -81,9 +92,10 @@ export async function getSubmissionDetail(id: string) {
   });
 }
 
-export function canViewSubmission(sub: { userId: string; isPrivate: boolean; isHidden: boolean }, viewer?: { id: string; role: string } | null) {
+export function canViewSubmission(sub: { userId: string; isPrivate: boolean; isHidden: boolean; collaborators?: { userId: string }[] }, viewer?: { id: string; role: string } | null) {
   if (viewer?.role === "ADMIN") return true;
   if (viewer?.id === sub.userId) return true;
+  if (viewer && sub.collaborators?.some((c) => c.userId === viewer.id)) return true;
   return !sub.isPrivate && !sub.isHidden;
 }
 
