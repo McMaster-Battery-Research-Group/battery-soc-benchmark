@@ -20,7 +20,9 @@ $npm = (Get-Command npm.cmd).Source
 
 # Environment: the worker reads .env from the repo (production values: DATABASE_URL,
 # DIRECT_URL, STORAGE=supabase, SUPABASE_URL, SUPABASE_SERVICE_KEY, EVALUATOR=real, SMTP_*, ...).
-$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"$npm`" run worker >> `"$repo\worker.log`" 2>&1" -WorkingDirectory $repo
+# Uses .env.production when present (the live site), else .env (local dev).
+$script = if (Test-Path (Join-Path $repo ".env.production")) { "worker:prod" } else { "worker" }
+$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"$npm`" run $script >> `"$repo\worker.log`" 2>&1" -WorkingDirectory $repo
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet `
   -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
