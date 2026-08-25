@@ -6,6 +6,44 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { contestSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 
+// ---- evaluation workers
+
+/** Queue a command for a worker; it is picked up at its next heartbeat (≤ 15 s). */
+export async function workerCommandAction(workerId: string, command: "pause" | "resume" | "stop") {
+  await requireAdmin();
+  await db.workerHeartbeat.update({ where: { id: workerId }, data: { command } });
+  revalidatePath("/admin/workers");
+}
+
+/** Remove the row of a worker that is no longer running (crashed / machine off without a clean exit). */
+export async function forgetWorkerAction(workerId: string) {
+  await requireAdmin();
+  await db.workerHeartbeat.delete({ where: { id: workerId } });
+  revalidatePath("/admin/workers");
+}
+
+/** Release a job lock so another worker can claim it (e.g. the machine died mid-evaluation). */
+export async function releaseJobAction(submissionId: string) {
+  await requireAdmin();
+  await db.$transaction([
+    db.evaluationJob.update({ where: { submissionId }, data: { lockedAt: null, lockedBy: null } }),
+    db.submission.update({ where: { id: submissionId }, data: { status: "QUEUED" } }),
+  ]);
+  revalidatePath("/admin/workers");
+  revalidatePath(`/submissions/${submissionId}`);
+}
+
+/** Give a failed / exhausted job another full set of attempts. */
+export async function retryJobAction(submissionId: string) {
+  await requireAdmin();
+  await db.$transaction([
+    db.evaluationJob.upsert({ where: { submissionId }, create: { submissionId }, update: { attempts: 0, lockedAt: null, lockedBy: null } }),
+    db.submission.update({ where: { id: submissionId }, data: { status: "QUEUED", failureMessage: null, completedAt: null } }),
+  ]);
+  revalidatePath("/admin/workers");
+  revalidatePath(`/submissions/${submissionId}`);
+}
+
 export async function toggleHiddenAction(id: string, isHidden: boolean) {
   await requireAdmin();
   await db.submission.update({ where: { id }, data: { isHidden } });
