@@ -40,11 +40,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# dataset archives from Borealis (large; download separately)
+# dataset archives from Borealis (large; download separately) — root folder only,
+# NOT src/app/(marketing)/dataset (the Dataset page)
 *.zip
 MANIFEST.TXT
 Readme_V2.txt
-dataset/
+/dataset/
+# the runnable example packages are small (≈60 KB total) and needed on the server
+!evaluator/examples/*.zip
 
 # runtime
 uploads/
