@@ -1,0 +1,40 @@
+# Render blueprint: managed Postgres + the always-on evaluation worker.
+# The Next.js web app is deployed to Vercel (see README → Deployment).
+databases:
+  - name: socbench-db
+    plan: basic-256mb        # upgrade as submissions grow
+    postgresMajorVersion: "16"
+
+services:
+  - type: worker
+    name: socbench-worker
+    runtime: node
+    plan: starter            # needs to stay awake to poll the queue
+    buildCommand: npm ci && npx prisma generate
+    startCommand: npm run worker
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: socbench-db
+          property: connectionString
+      - key: STORAGE
+        value: blob
+      - key: BLOB_READ_WRITE_TOKEN
+        sync: false          # paste the same token Vercel generated for the Blob store
+      - key: EVALUATOR
+        value: mock          # switch to "matlab" on a machine that has MATLAB Runtime
+      - key: MOCK_EVAL_SECONDS
+        value: "8"
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false          # https://your-vercel-domain — used in result emails
+      - key: MAIL_FROM
+        value: Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false

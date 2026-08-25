@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ModelType {
+  COULOMB_COUNTER
+  EKF
+  UKF
+  LSTM
+  GRU
+  FNN
+  TRANSFORMER
+  PHYSICS
+  HYBRID
+  OTHER
+}
+
+enum EvaluationLevel {
+  DYNAMIC
+  STATIC
+}
+
+enum FileType {
+  ZIP
+  MAT
+  PY
+}
+
+enum SubmissionStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ContestStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  JUDGED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  affiliation   String
+  role          Role      @default(USER)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  submissions    Submission[]
+  contestEntries ContestEntry[]
+  tokens         UserToken[]
+  messages       ContactMessage[]
+}
+
+enum TokenType {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+model UserToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      TokenType
+  token     String    @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
+}
+
+model Submission {
+  id              String           @id @default(cuid())
+  seq             Int              @unique @default(autoincrement())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modelName       String
+  description     String
+  modelType       ModelType
+  evaluationLevel EvaluationLevel  @default(DYNAMIC)
+  isPrivate       Boolean          @default(false)
+  isHidden        Boolean          @default(false)
+  fileKey         String
+  fileName        String
+  fileType        FileType
+  fileSize        Int
+  status          SubmissionStatus @default(QUEUED)
+  failureMessage  String?
+  submittedAt     DateTime         @default(now())
+  completedAt     DateTime?
+  contestId       String?
+  contest         Contest?         @relation(fields: [contestId], references: [id], onDelete: SetNull)
+
+  result EvaluationResult?
+  job    EvaluationJob?
+
+  @@index([userId])
+  @@index([contestId])
+  @@index([status])
+}
+
+/// One row per completed evaluation. Test-case fields map to Table IV of
+/// Kollmeyer et al., ITEC 2022. All errors are average RMSE in % SOC.
+model EvaluationResult {
+  id           String     @id @default(cuid())
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  weightedError         Float
+  complexity            Int
+  complexityUncertainty Int   @default(1)
+
+  // Test cases 1–3
+  allCells        Float
+  blindedCell     Float
+  nonBlindedCells Float
+  // 4
+  charging Float
+  // 5/6 — range of loads (payload + HVAC)
+  massM80   Float
+  massM448  Float
+  massM448N Float
+  massM1000 Float
+  // 7–8 — drive cycle type
+  standardCycles    Float
+  nonStandardCycles Float
+  // 9 — temperature
+  tempM20 Float
+  tempM10 Float
+  temp0   Float
+  temp10  Float
+  temp25  Float
+  temp40  Float
+  // 10–11 — robustness
+  initialSocError     Float
+  currentSensorOffset Float
+
+  maxError Float
+
+  /// Array of { cell, cycle, temperatureC, rmse, mae, maxErr, durationH }
+  perCycle Json
+  /// Array of { key, label, cell, cycle, temperatureC, t: number[], actual: number[], estimated: number[] }
+  timeSeries Json
+
+  evaluatorVersion String   @default("mock-1")
+  createdAt        DateTime @default(now())
+}
+
+model EvaluationJob {
+  id           String     @id @default(cuid())
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  attempts     Int        @default(0)
+  lockedAt     DateTime?
+  lockedBy     String?
+  log          String     @default("")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([lockedAt])
+}
+
+model Contest {
+  id                    String        @id @default(cuid())
+  slug                  String        @unique
+  title                 String
+  summary               String
+  description           String
+  rules                 String
+  prizeText             String
+  startsAt              DateTime
+  endsAt                DateTime
+  status                ContestStatus @default(DRAFT)
+  maxSubmissionsPerUser Int           @default(5)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  entries     ContestEntry[]
+  submissions Submission[]
+}
+
+model ContestEntry {
+  id             String   @id @default(cuid())
+  contestId      String
+  contest        Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acceptedTerms  DateTime @default(now())
+  teamName       String?
+
+  @@unique([contestId, userId])
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  subject   String
+  body      String
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

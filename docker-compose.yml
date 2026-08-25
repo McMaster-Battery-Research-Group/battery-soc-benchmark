@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: socbench-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: socbench
+      POSTGRES_PASSWORD: socbench
+      POSTGRES_DB: socbench
+    ports:
+      - "5433:5432"
+    volumes:
+      - socbench-pgdata:/var/lib/postgresql/data
+
+volumes:
+  socbench-pgdata:
