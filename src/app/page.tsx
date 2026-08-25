@@ -27,7 +27,7 @@ export default async function HomePage() {
               The standardized benchmark for battery state-of-charge estimation.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
-              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 132 blinded drive cycles across −20 °C to 40 °C — the same test for every algorithm, from Coulomb counting to transformers.
+              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles across −20 °C to 40 °C — the same test for every algorithm, from Coulomb counting to transformers.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild variant="gold" size="lg"><Link href="/submit">Submit a model <ArrowRight /></Link></Button>
@@ -66,7 +66,7 @@ export default async function HomePage() {
             { v: stats.submissions, l: "Evaluated models" },
             { v: stats.institutions, l: "Institutions" },
             { v: stats.best ? `${fmtPct(stats.best.allCells)}%` : "—", l: "Best all-cells RMSE" },
-            { v: "132", l: "Blinded drive cycles" },
+            { v: "144", l: "Blinded drive cycles" },
           ].map((s) => (
             <div key={s.l} className="px-4 py-2 text-center md:text-left">
               <p className="font-heading text-3xl font-bold tabular text-ink">{s.v}</p>
@@ -112,7 +112,7 @@ export default async function HomePage() {
         <ol className="mt-8 grid gap-6 md:grid-cols-3">
           {[
             { icon: Download, t: "Download the open data", d: "Characterization tests (HPPC, C/20, C/3, C/2, 1C) and reordered drive cycles for three cells at six temperatures. Everything you need to parameterize a filter or train a network.", href: "/dataset", cta: "Get the dataset" },
-            { icon: FlaskConical, t: "Build your estimator", d: "Any method: Coulomb counting, Kalman filters, physics-based models, neural networks. Package it as Model.m or Model.p with a Settings.xlsx and check it with the local test tool.", href: "/docs#submission-format", cta: "Submission format" },
+            { icon: FlaskConical, t: "Build your estimator", d: "Any method: Coulomb counting, Kalman filters, physics-based models, neural networks. Package it as Model.m, Model.p or Model.py, then test it on the site before submitting.", href: "/docs#submission-format", cta: "Submission format" },
             { icon: UploadCloud, t: "Submit for blinded evaluation", d: "Your model runs against cycles and a cell you have never seen, plus robustness cases with initial-SOC and current-sensor errors. Results land on the leaderboard with full time-domain plots.", href: "/submit", cta: "Submit a model" },
           ].map((s, i) => (
             <li key={s.t} className="card flex flex-col p-6">
