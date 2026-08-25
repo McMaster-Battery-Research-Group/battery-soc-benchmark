@@ -8,20 +8,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExampleCode } from "./example-code";
 import { ModelSchematic } from "@/components/model-schematic";
 import { EXAMPLES } from "@/lib/examples";
+import { auth } from "@/lib/auth";
 import { MODEL_TYPE_LABELS, COMPLEXITY_LABELS } from "@/lib/test-cases";
 
 export const metadata: Metadata = { title: "Example models" };
 
 const DOI = "https://doi.org/10.5683/SP3/ZVTR4B";
 
-export default function ExamplesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ExamplesPage() {
+  const session = await auth();
   return (
     <>
       <PageHeader
         eyebrow="Reference implementations"
         title="Example models"
-        description="The four complete submission packages shipped with the dataset, from a 20-line Coulomb counter to an LSTM stepped by hand. Each one is shown three ways — a standardized schematic, the package contents, and the annotated source — so you can copy the pattern that matches your method."
-        actions={<Button asChild><a href={DOI} target="_blank" rel="noreferrer"><Download /> Download the packages</a></Button>}
+        description="Four reference estimators — a Coulomb counter, an EKF, a feedforward network and an LSTM — each as a MATLAB and a Python package. Read the schematic and the annotated source, download the package, or run it on a public drive cycle with one click to see what a result looks like."
+        actions={<Button asChild variant="secondary"><a href={DOI} target="_blank" rel="noreferrer"><Download /> Original packages on Borealis</a></Button>}
       />
       <div className="container-site py-8">
         <Tabs defaultValue={EXAMPLES[0].slug}>
@@ -56,6 +60,9 @@ export default function ExamplesPage() {
               </div>
 
               <ExampleCode
+                slug={e.slug}
+                modelName={e.name.replace(/^Example \d — /, "")}
+                signedIn={!!session?.user}
                 matlab={{ code: e.code, files: e.files, note: e.codeNote }}
                 python={{ code: e.codePy, files: e.filesPy, note: e.codePyNote }}
               />

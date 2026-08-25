@@ -5,6 +5,7 @@ import { TEST_CASES, GROUP_LABELS, type TestCaseGroup } from "@/lib/test-cases";
 import { Alert } from "@/components/ui/misc";
 import { ModelLoopDiagram, PipelineDiagram } from "@/components/diagrams";
 import { CodeBlock } from "@/components/code-block";
+import { MathBlock } from "@/components/math";
 import { Eye, ListChecks, Calculator, FileArchive, FlaskConical, PlayCircle, Quote } from "lucide-react";
 
 const ICONS = { overview: Eye, "test-cases": ListChecks, metrics: Calculator, "submission-format": FileArchive, "test-tool": FlaskConical, evaluation: PlayCircle, citation: Quote } as const;
@@ -90,6 +91,7 @@ export default function DocsPage() {
           <section id="metrics">
             <H2 id="metrics">Metrics &amp; weighted score</H2>
             <p className="mt-3">For every blinded cycle the evaluator reports <strong>RMSE</strong>, <strong>MAE</strong> and <strong>maximum error</strong> (all in % SOC), and returns the predicted and actual SOC time series. Each test case above is the mean RMSE over its cycles.</p>
+            <MathBlock className="mt-4" tex={String.raw`\mathrm{RMSE}_c = 100\sqrt{\frac{1}{N}\sum_{k=1}^{N}\big(\mathrm{SOC}_k - \widehat{\mathrm{SOC}}_k\big)^2}, \qquad E_{\text{weighted}} = \sum_{j=1}^{18} w_j\,\overline{\mathrm{RMSE}}_j, \quad \sum_j w_j = 1`} />
             <p className="mt-3">The leaderboard ranks by <strong>weighted error</strong>: the weighted sum of the test-case values using the weights in the tables above. Weights are equal per test <em>type</em> (0.1 each), split evenly where a type has several cases (loads, temperatures), and test 1 is weighted 0 because every other test is a subset of it. Weights sum to 1, so the score is itself a percentage-point SOC error.</p>
             <p className="mt-3">Two further columns appear on the leaderboard: <strong>Max error</strong> (worst instantaneous error anywhere) and a <strong>Complexity</strong> classification from 1 (trivial) to 10 (extreme, ±1) reflecting the computational cost of the model in the evaluator.</p>
           </section>

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import traceback
 import subprocess
 import sys
 import tempfile
@@ -104,7 +105,7 @@ def _load_py_model(pkg_dir: Path) -> ModuleType:
     try:
         spec.loader.exec_module(mod)
     except Exception as e:  # noqa: BLE001
-        raise ModelError(f"Model.py failed to import: {type(e).__name__}: {e}") from e
+        raise ModelError(f"Model.py failed to import: {type(e).__name__}: {e}\n{_user_frames()}") from e
     if not callable(getattr(mod, "Model", None)):
         raise ModelError("Model.py must define a callable named Model(X, z).")
     return mod
@@ -138,8 +139,15 @@ def _iterate_py(model: ModuleType, X: np.ndarray) -> np.ndarray:
     except ModelError:
         raise
     except Exception as e:  # noqa: BLE001
-        raise ModelError(f"Model raised {type(e).__name__}: {e}") from e
+        raise ModelError(f"Model raised {type(e).__name__}: {e}\n{_user_frames()}") from e
     return out
+
+
+def _user_frames(limit: int = 6) -> str:
+    """Traceback frames from the submitted code only (evaluator internals filtered out)."""
+    frames = [f for f in traceback.extract_tb(sys.exc_info()[2]) if "socbench_eval" not in f.filename.replace("\\", "/")]
+    lines = [f'  File "{Path(f.filename).name}", line {f.lineno}, in {f.name}\n    {f.line}' for f in frames[-limit:]]
+    return "Traceback (most recent call last):\n" + "\n".join(lines) if lines else ""
 
 
 # ---------------------------------------------------------------- MATLAB

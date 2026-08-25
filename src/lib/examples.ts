@@ -314,19 +314,14 @@ function x = mapminmax_reverse(y, s)
   x = bsxfun(@plus, bsxfun(@rdivide, bsxfun(@minus, y, s.ymin), s.gain), s.xoffset);
 end`,
     codeNote: "Weight matrices elided for readability — the shipped file contains the full numeric arrays.",
-    filesPy: [{ name: "Model.py", note: "estimator with embedded weights" }],
+    filesPy: [{ name: "Model.py", note: "the estimator" }, { name: "weights.npz", note: "weights + normalisation exported from the trained network" }],
     codePy: `# SOC Estimation Example — feedforward NN 3 -> 23 -> 18 -> 1, ReLU (Python)
+# Weights exported from the trained MATLAB network into weights.npz
 import numpy as np
+from pathlib import Path
 
+W = np.load(Path(__file__).resolve().parent / "weights.npz")
 WINDOW = 300                                   # inputs are averaged over the last 300 samples
-
-# normalisation constants and weights exported from the trained network
-X_OFFSET = np.array([-9.6462010537939, 2.63342918099023, -21.353])
-X_GAIN   = np.array([0.129061466569397, 1.1238956119858, 0.027994663883052])
-B1, W1 = np.array([...]), np.array([...])      # 23,   23x3
-B2, W2 = np.array([...]), np.array([...])      # 18,   18x23
-B3, W3 = -0.59133424287317581935, np.array([...])   # 1x18
-Y_GAIN, Y_OFFSET = 2.00515437730162, 0.0120263568795789
 
 
 def Model(X, z=None):
@@ -337,14 +332,14 @@ def Model(X, z=None):
         z = np.vstack([z[1:], x])                  # slide the window
     xin = z.mean(axis=0)
 
-    xp = (xin - X_OFFSET) * X_GAIN - 1             # mapminmax to [-1, 1]
-    a1 = np.maximum(0, W1 @ xp + B1)               # ReLU
-    a2 = np.maximum(0, W2 @ a1 + B2)
-    a3 = W3 @ a2 + B3
-    y = (a3 + 1) / Y_GAIN + Y_OFFSET               # mapminmax reverse
+    xp = (xin - W["x_offset"]) * W["x_gain"] - 1   # mapminmax to [-1, 1]
+    a1 = np.maximum(0, W["W1"] @ xp + W["b1"])     # ReLU
+    a2 = np.maximum(0, W["W2"] @ a1 + W["b2"])
+    a3 = W["W3"] @ a2 + float(W["b3"])
+    y = (a3 + 1) / float(W["y_gain"]) + float(W["y_offset"])   # mapminmax reverse
     return float(y), z
 `,
-    codePyNote: "Weight arrays elided — paste them from the trained network (or load an .npz).",
+    codePyNote: "Runnable as shipped: weights.npz holds the arrays exported from the MATLAB network.",
     spec: { kind: "fnn", layers: [3, 23, 18, 1], activation: "ReLU", inputs: ["Ī", "V̄", "T̄"], window: 300 },
     strengths: ["Learns non-linear temperature effects directly from data", "Cheap inference (two small matrix products)", "No battery model or parameter fitting needed"],
     weaknesses: ["Only as good as the training coverage — new cell / cycles hurt", "Averaging window lags fast transients", "No physical constraint: can produce jumpy estimates"],
@@ -405,18 +400,15 @@ end
     end
 end`,
     codeNote: "Weight matrices elided for readability — the shipped file contains the full numeric arrays.",
-    filesPy: [{ name: "Model.py", note: "estimator with embedded LSTM weights" }],
+    filesPy: [{ name: "Model.py", note: "the estimator" }, { name: "weights.npz", note: "LSTM + dense weights exported from the trained network" }],
     codePy: `# SOC Estimation Example — LSTM (10 units) stepped one sample at a time (Python)
+# Weights exported from the trained MATLAB network into weights.npz
 import numpy as np
+from pathlib import Path
 
+W = np.load(Path(__file__).resolve().parent / "weights.npz")
 MAX = np.array([15.0, 4.5, 51.0])              # normalisation ranges used in training: [I, V, T]
 MIN = np.array([-19.0, 2.5, -27.0])
-
-# weights exported from the trained network (gate order: input, forget, cell, output)
-W  = np.array([...])                           # 40 x 3
-U  = np.array([...])                           # 40 x 10
-B  = np.array([...])                           # 40
-FC_W, FC_B = np.array([...]), 1.0632563        # 1 x 10
 
 
 def _sigmoid(v):
@@ -430,14 +422,14 @@ def Model(X, z=None):
     if z is None:
         z = {"h": np.zeros(10), "c": np.zeros(10)}
 
-    gates = W @ x + U @ z["h"] + B
+    gates = W["W"] @ x + W["U"] @ z["h"] + W["b"]        # gate order: input, forget, cell, output
     i, f, g, o = np.split(gates, 4)
     c = _sigmoid(f) * z["c"] + _sigmoid(i) * np.tanh(g)
     h = _sigmoid(o) * np.tanh(c)
-    y = float(np.clip(FC_W @ h + FC_B, 0, 1))      # clipped ReLU on the output
+    y = float(np.clip(W["fc_w"] @ h + float(W["fc_b"]), 0, 1))   # clipped ReLU on the output
     return y, {"h": h, "c": c}
 `,
-    codePyNote: "Weight arrays elided — export them from the trained network.",
+    codePyNote: "Runnable as shipped: weights.npz holds the arrays exported from the MATLAB network.",
     spec: { kind: "rnn", cell: "LSTM", units: 10, inputs: ["V", "I", "T"], output: "clipped ReLU" },
     strengths: ["Memory of the full history — no explicit window", "Recovers from initial-SOC error as the state settles", "Best accuracy of the four examples across temperatures"],
     weaknesses: ["Needs careful training on the open cycles", "Higher compute per step than FNN", "Behaviour outside the training envelope is unpredictable"],

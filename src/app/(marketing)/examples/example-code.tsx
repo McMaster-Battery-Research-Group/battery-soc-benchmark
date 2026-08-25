@@ -4,13 +4,15 @@ import * as React from "react";
 import { FileArchive } from "lucide-react";
 import { CodeBlock } from "@/components/code-block";
 import { cn } from "@/lib/utils";
+import { Download } from "lucide-react";
+import { RunExample } from "./run-example";
 
 type Variant = { code: string; files: { name: string; note: string }[]; note?: string };
 
 const STORAGE_KEY = "socbench.examples.runtime";
 
 /** MATLAB / Python toggle for an example: package contents + annotated source. Remembers the choice. */
-export function ExampleCode({ matlab, python }: { matlab: Variant; python: Variant }) {
+export function ExampleCode({ slug, modelName, signedIn, matlab, python }: { slug: string; modelName: string; signedIn: boolean; matlab: Variant; python: Variant }) {
   const [rt, setRt] = React.useState<"matlab" | "python">("matlab");
   React.useEffect(() => {
     try {
@@ -59,7 +61,11 @@ export function ExampleCode({ matlab, python }: { matlab: Variant; python: Varia
           ))}
         </ul>
         <p className="mt-2 text-xs text-grey-600">Zip these at the top level — no folder inside the archive.</p>
+        <a href={`/examples/download/${slug}.${rt}.zip`} className="mt-3 inline-flex items-center gap-1.5 font-heading text-sm font-semibold text-maroon hover:underline"><Download className="size-4" /> Download {rt === "matlab" ? "MATLAB" : "Python"} package</a>
       </aside>
+      <div className="lg:col-span-2">
+        <RunExample slug={slug} runtime={rt} modelName={modelName} signedIn={signedIn} />
+      </div>
     </div>
   );
 }
