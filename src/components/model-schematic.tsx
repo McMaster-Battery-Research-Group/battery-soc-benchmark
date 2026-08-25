@@ -213,20 +213,29 @@ function FnnSvg({ layers, inputs }: { layers: number[]; inputs?: string[] }) {
 
 function RnnSvg({ cell, units }: { cell: string; units: number }) {
   return (
-    <svg viewBox="0 0 420 160" className="h-auto w-full" role="img" aria-label={`${cell} recurrent cell with ${units} units`}>
-      <Box x={10} y={55} w={80} h={50} label="x_t" sub="[V, I, T]" />
-      <Arrow x1={92} y1={80} x2={138} y2={80} />
-      <rect x="140" y="30" width="150" height="100" rx="6" fill={M} />
-      <text x="215" y="66" textAnchor="middle" fontSize="18" fontWeight="600" fill="#fff" style={f}>{cell}</text>
-      <text x="215" y="86" textAnchor="middle" fontSize="11" fill={G} style={f}>{units} hidden units</text>
-      {cell === "LSTM" ? <text x="215" y="106" textAnchor="middle" fontSize="10" fill="#fff" opacity="0.85" style={f}>gates: input · forget · cell · output</text> : <text x="215" y="106" textAnchor="middle" fontSize="10" fill="#fff" opacity="0.85" style={f}>gates: reset · update</text>}
-      <Arrow x1={292} y1={80} x2={338} y2={80} />
-      <rect x="340" y="55" width="70" height="50" rx="4" fill="#fff" stroke={LINE} />
-      <text x="375" y="75" textAnchor="middle" fontSize="11" fill={INK} style={f}>dense</text>
-      <text x="375" y="92" textAnchor="middle" fontSize="12" fontWeight="600" fill={M} style={f}>SOC</text>
+    <svg viewBox="0 0 460 165" className="h-auto w-full" role="img" aria-label={`${cell} recurrent cell with ${units} units`}>
+      {/* input */}
+      <rect x="10" y="55" width="80" height="50" rx="4" fill="#fff" stroke={LINE} />
+      <text x="50" y="77" textAnchor="middle" fontSize="13" fontWeight="600" fill={INK} style={f}>x<tspan fontSize="9" dy="3">t</tspan></text>
+      <text x="50" y="94" textAnchor="middle" fontSize="10" fill={GREY} style={f}>[V, I, T]</text>
+      <Arrow x1={92} y1={80} x2={128} y2={80} />
+      {/* cell */}
+      <rect x="130" y="28" width="200" height="104" rx="6" fill={M} />
+      <text x="230" y="64" textAnchor="middle" fontSize="18" fontWeight="600" fill="#fff" style={f}>{cell}</text>
+      <text x="230" y="84" textAnchor="middle" fontSize="11" fill={G} style={f}>{units} hidden units</text>
+      <text x="230" y="106" textAnchor="middle" fontSize="9.5" fill="#fff" opacity="0.9" style={f}>{cell === "LSTM" ? "gates: input · forget · cell · output" : "gates: reset · update"}</text>
+      <Arrow x1={332} y1={80} x2={368} y2={80} />
+      {/* output */}
+      <rect x="370" y="55" width="80" height="50" rx="4" fill="#fff" stroke={LINE} />
+      <text x="410" y="75" textAnchor="middle" fontSize="11" fill={INK} style={f}>dense</text>
+      <text x="410" y="93" textAnchor="middle" fontSize="12" fontWeight="600" fill={M} style={f}>SOC</text>
       {/* recurrence */}
-      <path d="M 260 132 L 260 150 L 170 150 L 170 132" fill="none" stroke={G} strokeWidth="1.5" strokeDasharray="4 3" />
-      <text x="215" y="146" textAnchor="middle" fontSize="10" fill={M} style={f}>h_{"{t−1}"}{cell === "LSTM" ? ", c_{t−1}" : ""} via z</text>
+      <path d="M 300 134 L 300 152 L 160 152 L 160 134" fill="none" stroke={G} strokeWidth="1.5" strokeDasharray="4 3" />
+      <text x="230" y="149" textAnchor="middle" fontSize="9.5" fill={M} style={f}>
+        h<tspan fontSize="7" dy="2.5">t−1</tspan>
+        {cell === "LSTM" ? <><tspan dy="-2.5">, c</tspan><tspan fontSize="7" dy="2.5">t−1</tspan></> : null}
+        <tspan dy="-2.5"> carried in z</tspan>
+      </text>
     </svg>
   );
 }
