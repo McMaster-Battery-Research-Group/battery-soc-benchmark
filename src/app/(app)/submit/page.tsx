@@ -28,8 +28,8 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
       <div className="container-site grid gap-8 py-10 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <EvaluatorStatusLine className="rounded-brand border border-border bg-white px-4 py-3" />
-          <DryRunPanel directUpload={(process.env.STORAGE ?? "local") === "blob"} />
-          <SubmitForm contests={contests.map((c) => ({ id: c.id, title: c.title, remaining: c.maxSubmissionsPerUser - c._count.submissions }))} preselectContest={sp.contest} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} directUpload={(process.env.STORAGE ?? "local") === "blob"} />
+          <DryRunPanel directUpload={(process.env.STORAGE ?? "local") === "supabase"} />
+          <SubmitForm contests={contests.map((c) => ({ id: c.id, title: c.title, remaining: c.maxSubmissionsPerUser - c._count.submissions }))} preselectContest={sp.contest} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} directUpload={(process.env.STORAGE ?? "local") === "supabase"} />
         </div>
         <aside className="space-y-4">
           <div className="card p-5">

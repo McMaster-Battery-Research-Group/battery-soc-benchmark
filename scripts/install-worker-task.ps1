@@ -19,7 +19,7 @@ $task = "SOC Benchmark Worker"
 $npm = (Get-Command npm.cmd).Source
 
 # Environment: the worker reads .env from the repo (production values: DATABASE_URL,
-# DIRECT_URL, STORAGE=blob, BLOB_READ_WRITE_TOKEN, EVALUATOR=real, SMTP_*, ...).
+# DIRECT_URL, STORAGE=supabase, SUPABASE_URL, SUPABASE_SERVICE_KEY, EVALUATOR=real, SMTP_*, ...).
 $action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"$npm`" run worker >> `"$repo\worker.log`" 2>&1" -WorkingDirectory $repo
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet `

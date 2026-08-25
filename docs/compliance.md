@@ -25,19 +25,19 @@ How this platform maps to McMaster's **Information Security Policy (IS-00, 2016)
 | --- | --- | --- | --- | --- |
 | Account records | name, email, affiliation, bcrypt hash, role | Personal information (Confidential) | PostgreSQL | until account deletion |
 | Submission metadata + results | model name, description, scores, time series | Public (unless flagged private) | PostgreSQL | indefinite (benchmark record) |
-| Submission packages | `.zip` with `Model.m/.p`, parameters | Third-party IP (Confidential) | Local disk or Vercel Blob | **deleted immediately after evaluation** |
+| Submission packages | `.zip` with `Model.m/.p`, parameters | Third-party IP (Confidential) | Local disk or a private Supabase Storage bucket | **deleted immediately after evaluation** |
 | Evaluation logs | worker log lines | Internal | PostgreSQL | with the submission |
 | Contact messages | name, email, free text | Personal information | PostgreSQL | until resolved/deleted |
 | Blinded dataset | the hidden test cycles | **Restricted** (the whole benchmark depends on secrecy) | evaluator host only — never in the web tier or repo | permanent |
 
 The last row is the most important classification: the blinded data must only ever exist on the machine that runs the evaluator, which favours running the worker on a campus machine.
 
-## §26(b) risk assessment — cloud option (Vercel + Render + Vercel Blob)
+## §26(b) risk assessment — cloud option (Vercel + Supabase)
 
 | Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- |
 | Provider breach exposes user records | Low | Medium (names/emails; hashes are bcrypt) | Minimal PII; strong hashing; providers are SOC 2; encryption at rest; choose Canadian region for Postgres where offered |
-| Model IP exposure via Blob URL | Low | Medium–High (competitors' code) | random-suffix URLs, deleted within minutes after evaluation, HTTPS only; upgrade to private Blob/S3 with signed URLs if required |
+| Model IP exposure from package storage | Low | Medium–High (competitors' code) | private bucket (no public URLs), uploads via short-lived signed URLs for signed-in users only, reads require the service key, objects deleted within minutes after evaluation, HTTPS only |
 | Data residency outside Canada | Certain for Vercel functions unless pinned; avoidable for DB | Policy/contract | Pin Vercel region; Render Postgres in Canada; or host DB on campus |
 | Loss of availability (provider outage) | Low | Low (research service) | Daily DB backups; repo + `render.yaml` allow rebuild in hours |
 | Blinded data leakage | N/A for cloud tier | Critical | Blinded data never leaves the evaluator host |

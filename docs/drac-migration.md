@@ -34,7 +34,7 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 
 - [ ] PI + sponsored accounts active in CCDB
 - [ ] Request rapid-access cloud allocation (persistent VM, ≥ 2 vCPU / 4 GB) via the Alliance cloud request form
-- [ ] Provision Ubuntu VM, install Node 20, clone repo, `npm ci`, copy production `.env` (DATABASE_URL, DIRECT_URL, STORAGE=blob, BLOB_READ_WRITE_TOKEN, SMTP_*, NEXT_PUBLIC_SITE_URL)
+- [ ] Provision Ubuntu VM, install Node 20, clone repo, `npm ci`, copy production `.env` (DATABASE_URL, DIRECT_URL, STORAGE=supabase, SUPABASE_URL, SUPABASE_SERVICE_KEY, SMTP_*, NEXT_PUBLIC_SITE_URL)
 - [ ] Install MATLAB Runtime (or confirm `module load matlab` licence) and the lab's evaluation script; implement `src/evaluator/matlab-evaluator.ts`
 - [ ] Copy blinded dataset to the VM (or `/project`) with group-only permissions
 - [ ] Run the worker as a systemd service (`Restart=always`); disable the cron-job.org ping

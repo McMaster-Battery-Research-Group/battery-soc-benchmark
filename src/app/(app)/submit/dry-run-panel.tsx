@@ -5,6 +5,7 @@ import { FlaskConical, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/misc";
 import { fmtBytes, cn } from "@/lib/utils";
+import { uploadPackage } from "@/lib/upload-client";
 import { startDryRunAction } from "./dry-run-actions";
 import { DryRunResult, useDryRunPoll } from "@/components/dry-run-result";
 import { DryRunQuotaLine } from "@/components/dry-run-quota";
@@ -31,9 +32,8 @@ export function DryRunPanel({ directUpload }: { directUpload: boolean }) {
       const fd = new FormData();
       if (directUpload) {
         setPct(0);
-        const { upload } = await import("@vercel/blob/client");
-        const blob = await upload(`dry-runs/${file.name}`, file, { access: "public", handleUploadUrl: "/api/upload", onUploadProgress: (p) => setPct(Math.round(p.percentage)) });
-        fd.set("fileUrl", blob.url);
+        const key = await uploadPackage(file, "dry-run", setPct);
+        fd.set("fileKey", key);
         fd.set("fileName", file.name);
         setPct(null);
       } else {

@@ -1,38 +1,24 @@
 import { NextResponse } from "next/server";
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@/lib/auth";
-import { MAX_UPLOAD_BYTES } from "@/lib/storage";
+import { storage, SupabaseStorage, MAX_UPLOAD_BYTES } from "@/lib/storage";
 
 /**
- * Issues short-lived client tokens so the browser can upload a submission
- * package straight to Vercel Blob (bypassing the serverless body limit).
- * Only signed-in, verified users get a token; only .zip up to MAX_UPLOAD_MB.
+ * Issues a short-lived signed upload URL so the browser can PUT a submission
+ * package straight into the private Supabase bucket (bypassing the serverless
+ * body limit). Only signed-in users; only .zip up to MAX_UPLOAD_MB (the bucket
+ * enforces the size limit and MIME types server-side as well).
  */
 export async function POST(req: Request) {
-  if ((process.env.STORAGE ?? "local") !== "blob") return NextResponse.json({ error: "Direct upload disabled" }, { status: 404 });
+  if (!(storage instanceof SupabaseStorage)) return NextResponse.json({ error: "Direct upload disabled" }, { status: 404 });
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
-  const body = (await req.json()) as HandleUploadBody;
+  const body = (await req.json().catch(() => ({}))) as { name?: string; size?: number; purpose?: string };
+  if (!body.name || !body.name.toLowerCase().endsWith(".zip")) return NextResponse.json({ error: "Only .zip packages are accepted" }, { status: 400 });
+  if (!body.size || body.size > MAX_UPLOAD_BYTES) return NextResponse.json({ error: `File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB limit` }, { status: 400 });
   try {
-    const json = await handleUpload({
-      body,
-      request: req,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      onBeforeGenerateToken: async (pathname) => {
-        if (!pathname.toLowerCase().endsWith(".zip")) throw new Error("Only .zip packages are accepted");
-        return {
-          allowedContentTypes: ["application/zip", "application/x-zip-compressed", "application/octet-stream"],
-          maximumSizeInBytes: MAX_UPLOAD_BYTES,
-          addRandomSuffix: true,
-          tokenPayload: JSON.stringify({ userId: session.user.id }),
-        };
-      },
-      onUploadCompleted: async () => {
-        /* the submission row is created by the server action once metadata is posted */
-      },
-    });
-    return NextResponse.json(json);
+    const signed = await storage.createSignedUpload(body.purpose === "dry-run" ? "dry-runs" : "submissions");
+    return NextResponse.json(signed);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Upload failed" }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Upload failed" }, { status: 500 });
   }
 }
