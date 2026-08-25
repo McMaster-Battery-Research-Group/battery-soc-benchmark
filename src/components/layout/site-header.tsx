@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronDown, LogOut, User as UserIcon, Shield, FolderKanban, MessageSquare } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, User as UserIcon, Shield, FolderKanban, MessageSquare, BookOpen, FlaskConical, Database, ListChecks, BookA, LifeBuoy, Info } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "./logo";
@@ -12,14 +12,20 @@ import { signOutAction } from "@/app/(auth)/actions";
 
 type HeaderUser = { id: string; name: string; email?: string | null; role: "USER" | "ADMIN"; affiliation: string } | null;
 
+/** Three destinations + one "Learn" group. Compare lives inside the results area. */
 const NAV = [
-  { href: "/getting-started", label: "Get started" },
-  { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/compare", label: "Compare" },
-  { href: "/contest", label: "Contest" },
-  { href: "/dataset", label: "Dataset" },
-  { href: "/docs", label: "Methodology" },
-  { href: "/examples", label: "Examples" },
+  { href: "/leaderboard", label: "Leaderboard", match: ["/leaderboard", "/compare", "/submissions/"] },
+  { href: "/contest", label: "Contest", match: ["/contest"] },
+];
+
+export const LEARN = [
+  { href: "/getting-started", label: "Get started", desc: "From zero to a first score, step by step", icon: BookOpen },
+  { href: "/examples", label: "Example models", desc: "Four reference estimators in MATLAB and Python", icon: FlaskConical },
+  { href: "/dataset", label: "Dataset", desc: "What is open, what is blinded, how to download", icon: Database },
+  { href: "/docs", label: "Methodology", desc: "Test cases, weights, submission format", icon: ListChecks },
+  { href: "/glossary", label: "Glossary", desc: "Every term in plain language", icon: BookA },
+  { href: "/help", label: "Help & FAQ", desc: "Accounts, submissions, results", icon: LifeBuoy },
+  { href: "/about", label: "About the project", desc: "The lab, the people, the funding", icon: Info },
 ];
 
 export function SiteHeader({ user }: { user: HeaderUser }) {
@@ -27,7 +33,10 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => setOpen(false), [pathname]);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const active = (m: string[]) => m.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/"));
+  const learnActive = LEARN.some((l) => pathname === l.href || pathname.startsWith(l.href + "/"));
+  const item = (isActive: boolean) =>
+    cn("rounded-brand px-3 py-2 font-heading text-[15px] font-medium transition-colors", isActive ? "bg-maroon-100 text-maroon" : "text-grey-800 hover:bg-grey-100 hover:text-ink");
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
@@ -37,49 +46,54 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
           <Wordmark />
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
             {NAV.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                className={cn(
-                  "rounded-brand px-3 py-2 font-heading text-[15px] font-medium transition-colors",
-                  isActive(n.href) ? "bg-maroon-100 text-maroon" : "text-grey-800 hover:bg-grey-100 hover:text-ink",
-                )}
-                aria-current={isActive(n.href) ? "page" : undefined}
-              >
+              <Link key={n.href} href={n.href} className={item(active(n.match))} aria-current={active(n.match) ? "page" : undefined}>
                 {n.label}
               </Link>
             ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger className={cn(item(learnActive), "inline-flex items-center gap-1")}>
+                Learn <ChevronDown className="size-4 text-grey-600" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-80 p-2">
+                {LEARN.map((l) => (
+                  <DropdownMenuItem key={l.href} asChild className="items-start gap-3 py-2.5">
+                    <Link href={l.href}>
+                      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-brand bg-maroon-100 text-maroon"><l.icon className="size-4" /></span>
+                      <span>
+                        <span className="block font-heading font-medium text-ink">{l.label}</span>
+                        <span className="block text-xs text-grey-600">{l.desc}</span>
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">
+          <Button asChild variant="primary" size="sm">
+            <Link href="/submit">Submit a model</Link>
+          </Button>
           {user ? (
-            <>
-              <Button asChild variant="primary" size="sm">
-                <Link href="/submit">Submit a model</Link>
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger className="ml-1 flex items-center gap-2 rounded-brand px-2 py-1.5 hover:bg-grey-100">
-                  <span className="flex size-8 items-center justify-center rounded-full bg-maroon font-heading text-xs font-semibold text-white">{initials(user.name)}</span>
-                  <span className="max-w-32 truncate font-heading text-sm font-medium text-ink">{user.name}</span>
-                  <ChevronDown className="size-4 text-grey-600" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuLabel>{user.affiliation}</DropdownMenuLabel>
-                  <DropdownMenuItem asChild><Link href="/submissions"><FolderKanban className="size-4" /> My submissions</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/profile"><UserIcon className="size-4" /> Profile</Link></DropdownMenuItem>
-                  {user.role === "ADMIN" ? <DropdownMenuItem asChild><Link href="/admin"><Shield className="size-4" /> Admin</Link></DropdownMenuItem> : null}
-                  <DropdownMenuItem asChild><Link href="/contact"><MessageSquare className="size-4" /> Feedback &amp; support</Link></DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => signOutAction()}><LogOut className="size-4" /> Sign out</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="ml-1 flex items-center gap-2 rounded-brand px-2 py-1.5 hover:bg-grey-100">
+                <span className="flex size-8 items-center justify-center rounded-full bg-maroon font-heading text-xs font-semibold text-white">{initials(user.name)}</span>
+                <span className="max-w-32 truncate font-heading text-sm font-medium text-ink">{user.name}</span>
+                <ChevronDown className="size-4 text-grey-600" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel>{user.affiliation}</DropdownMenuLabel>
+                <DropdownMenuItem asChild><Link href="/submissions"><FolderKanban className="size-4" /> My submissions</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link href="/profile"><UserIcon className="size-4" /> Profile</Link></DropdownMenuItem>
+                {user.role === "ADMIN" ? <DropdownMenuItem asChild><Link href="/admin"><Shield className="size-4" /> Admin</Link></DropdownMenuItem> : null}
+                <DropdownMenuItem asChild><Link href="/contact"><MessageSquare className="size-4" /> Feedback &amp; support</Link></DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => signOutAction()}><LogOut className="size-4" /> Sign out</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <>
-              <Button asChild variant="ghost" size="sm"><Link href="/login">Sign in</Link></Button>
-              <Button asChild variant="primary" size="sm"><Link href="/register">Create account</Link></Button>
-            </>
+            <Button asChild variant="ghost" size="sm"><Link href="/login">Sign in</Link></Button>
           )}
         </div>
 
@@ -92,12 +106,16 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
         <div id="mobile-nav" className="border-t border-border bg-white lg:hidden">
           <nav className="container-site flex flex-col py-3" aria-label="Mobile">
             {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className={cn("rounded-brand px-3 py-3 font-heading text-base font-medium", isActive(n.href) ? "bg-maroon-100 text-maroon" : "text-grey-900")}>{n.label}</Link>
+              <Link key={n.href} href={n.href} className={cn("rounded-brand px-3 py-3 font-heading text-base font-medium", active(n.match) ? "bg-maroon-100 text-maroon" : "text-grey-900")}>{n.label}</Link>
+            ))}
+            <Link href="/submit" className="rounded-brand px-3 py-3 font-heading text-base font-medium text-maroon">Submit a model</Link>
+            <p className="mt-2 px-3 pb-1 pt-2 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Learn</p>
+            {LEARN.map((l) => (
+              <Link key={l.href} href={l.href} className="rounded-brand px-3 py-2.5 font-heading text-[15px] font-medium text-grey-900">{l.label}</Link>
             ))}
             <div className="my-2 h-px bg-border" />
             {user ? (
               <>
-                <Link href="/submit" className="rounded-brand px-3 py-3 font-heading font-medium text-maroon">Submit a model</Link>
                 <Link href="/submissions" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">My submissions</Link>
                 <Link href="/profile" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Profile</Link>
                 <Link href="/contact" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Feedback &amp; support</Link>

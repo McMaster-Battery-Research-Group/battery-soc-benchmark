@@ -24,7 +24,7 @@ export default async function MySubmissionsPage() {
   return (
     <>
       <PageHeader eyebrow="Your workspace" title="My submissions" description={`${subs.length} submission${subs.length === 1 ? "" : "s"}${active ? ` · ${active} in progress` : ""}. Private models are listed here but hidden from the public leaderboard.`} actions={<Button asChild><Link href="/submit">Submit a model</Link></Button>} />
-      <div className="container-site py-8">
+      <div className="container-site py-10">
         {subs.length === 0 ? (
           <EmptyState icon={FolderKanban} title="No submissions yet" description="Package your estimator as a .zip and submit it for blinded evaluation. Results typically arrive within minutes." action={<Button asChild><Link href="/submit">Submit your first model</Link></Button>} />
         ) : (

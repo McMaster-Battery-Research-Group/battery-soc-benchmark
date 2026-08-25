@@ -27,7 +27,7 @@ export default async function ExamplesPage() {
         description="Four reference estimators — a Coulomb counter, an EKF, a feedforward network and an LSTM — each as a MATLAB and a Python package. Read the schematic and the annotated source, download the package, or run it on a public drive cycle with one click to see what a result looks like."
         actions={<Button asChild variant="secondary"><a href={DOI} target="_blank" rel="noreferrer"><Download /> Original packages on Borealis</a></Button>}
       />
-      <div className="container-site py-8">
+      <div className="container-site py-10">
         <Tabs defaultValue={EXAMPLES[0].slug}>
           <TabsList>
             {EXAMPLES.map((e) => <TabsTrigger key={e.slug} value={e.slug}>{e.name.replace(/^Example \d — /, "")}</TabsTrigger>)}

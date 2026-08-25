@@ -1,40 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { getLeaderboardRows, getOpenContest } from "@/lib/queries";
+import { getLeaderboardRows } from "@/lib/queries";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { HowToRead } from "@/components/leaderboard/how-to-read";
 import { PageHeader } from "@/components/ui/misc";
+import { ResultsNav } from "@/components/layout/results-nav";
 import { Button } from "@/components/ui/button";
-import { Trophy, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 export const metadata: Metadata = { title: "Leaderboard" };
 export const dynamic = "force-dynamic";
 
 export default async function LeaderboardPage() {
   const session = await auth();
-  const [rows, contest] = await Promise.all([
-    getLeaderboardRows({ viewerId: session?.user?.id, isAdmin: session?.user?.role === "ADMIN" }),
-    getOpenContest(),
-  ]);
+  const rows = await getLeaderboardRows({ viewerId: session?.user?.id, isAdmin: session?.user?.role === "ADMIN" });
 
   return (
     <>
+      <ResultsNav />
       <PageHeader
         eyebrow="Blinded evaluation"
         title="Leaderboard"
-        description="Every model below was evaluated on the same blinded Tesla 2170 drive-cycle data across −20 °C to 40 °C. Values are average RMSE in % SOC — lower is better. Hover a column header for its definition."
+        description="Every model was scored on the same hidden Tesla 2170 drive-cycle data from −20 °C to 40 °C. Numbers are average RMSE in % SOC — lower is better."
         actions={
           <>
-            {contest ? (
-              <Button asChild variant="secondary"><Link href={`/contest/${contest.slug}`}><Trophy /> Contest leaderboard</Link></Button>
-            ) : null}
             <Button asChild variant="outline"><Link href="/contact?from=/leaderboard"><MessageSquare /> Contact administrator</Link></Button>
             <Button asChild><Link href="/submit">Submit a model</Link></Button>
           </>
         }
       />
-      <div className="container-site py-8">
+      <div className="container-site py-10">
         <HowToRead />
         <LeaderboardTable rows={rows} viewerId={session?.user?.id} />
         <p className="mt-4 text-xs text-grey-600">
