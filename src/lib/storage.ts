@@ -73,10 +73,9 @@ export class SupabaseStorage implements ModelStorage {
   private key = process.env.SUPABASE_SERVICE_KEY ?? "";
   readonly bucket = process.env.SUPABASE_BUCKET ?? "packages";
 
-  constructor() {
-    if (!process.env.SUPABASE_URL || !this.key) throw new Error("STORAGE=supabase needs SUPABASE_URL and SUPABASE_SERVICE_KEY");
-  }
+  /** Validated lazily (on first use), never at import time — `next build` loads route modules without runtime secrets. */
   private headers(extra: Record<string, string> = {}) {
+    if (!process.env.SUPABASE_URL || !this.key) throw new Error("STORAGE=supabase needs SUPABASE_URL and SUPABASE_SERVICE_KEY set on this host");
     return { Authorization: `Bearer ${this.key}`, apikey: this.key, ...extra };
   }
   private obj(key: string) {
