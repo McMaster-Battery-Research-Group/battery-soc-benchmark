@@ -44,7 +44,7 @@ export function LeaderboardTable({
   const [author, setAuthor] = React.useState("");
   const [affiliation, setAffiliation] = React.useState("");
   const [modelType, setModelType] = React.useState("");
-  const [showPrivate, setShowPrivate] = React.useState(true);
+  const [showPrivate, setShowPrivate] = React.useState(false); // opt-in: the public board is what everyone else sees
 
   React.useEffect(() => {
     try {
@@ -74,10 +74,14 @@ export function LeaderboardTable({
     [rows, author, affiliation, modelType, showPrivate],
   );
 
-  // Rank is derived from the sorted order by weighted error, independent of the current sort.
+  // Rank is derived from the weighted error, independent of the current sort, and counted over
+  // PUBLIC rows only — so it matches what everyone else sees. A viewer's own private model gets a
+  // "would rank here" ghost position without displacing anyone.
   const rankById = React.useMemo(() => {
-    const m = new Map<string, number>();
-    [...filtered].sort((a, b) => a.weightedError - b.weightedError).forEach((r, i) => m.set(r.id, i + 1));
+    const m = new Map<string, { rank: number; ghost: boolean }>();
+    const pub = filtered.filter((r) => !r.isPrivate).sort((a, b) => a.weightedError - b.weightedError);
+    pub.forEach((r, i) => m.set(r.id, { rank: i + 1, ghost: false }));
+    for (const r of filtered) if (r.isPrivate) m.set(r.id, { rank: pub.filter((p) => p.weightedError < r.weightedError).length + 1, ghost: true });
     return m;
   }, [filtered]);
 
@@ -96,7 +100,7 @@ export function LeaderboardTable({
 
   const download = () => {
     const cols = table.getVisibleLeafColumns().filter((c) => c.id !== "rank").map((c) => ({ key: c.id, header: typeof c.columnDef.header === "string" ? c.columnDef.header : c.id }));
-    const data = table.getSortedRowModel().rows.map((r) => ({ rank: rankById.get(r.original.id), ...r.original }));
+    const data = table.getSortedRowModel().rows.map((r) => ({ rank: rankById.get(r.original.id)?.ghost ? `~${rankById.get(r.original.id)?.rank} (private)` : rankById.get(r.original.id)?.rank, ...r.original }));
     const csv = toCsv(data, [{ key: "rank", header: "Rank" }, ...cols, { key: "affiliation", header: "Affiliation" }]);
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
@@ -139,7 +143,7 @@ export function LeaderboardTable({
           <div className="flex flex-wrap items-center gap-2">
             {hasPrivate ? (
               <label className="mr-2 flex items-center gap-2 text-sm text-grey-800">
-                <Checkbox checked={showPrivate} onCheckedChange={(v) => setShowPrivate(!!v)} /> Show my private models
+                <Checkbox checked={showPrivate} onCheckedChange={(v) => setShowPrivate(!!v)} /> Show where my private models would rank (only you can see them)
               </label>
             ) : null}
             <ColumnPicker visibility={visibility} onChange={updateVisibility} />
@@ -192,7 +196,7 @@ export function LeaderboardTable({
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
                           <td key={cell.id} className={cn("px-3 py-2.5 align-middle", meta.align === "right" && "text-right", cell.column.id === "modelName" && "sticky left-0 z-[1] bg-white")}>
-                            {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
                       })}
@@ -208,7 +212,7 @@ export function LeaderboardTable({
                 const r = row.original;
                 return (
                   <li key={r.id} className="flex items-start gap-3 p-4">
-                    <RankBadge rank={rankById.get(r.id)!} />
+                    <RankBadge rank={rankById.get(r.id)!.rank} ghost={rankById.get(r.id)!.ghost} />
                     <div className="min-w-0 flex-1">
                       <Link href={`/submissions/${r.id}`} className="font-heading font-semibold text-ink">{r.modelName}</Link>
                       <p className="text-xs text-grey-600">{MODEL_TYPE_LABELS[r.modelType]} · {r.author}, {r.affiliation} · {fmtDate(r.submittedAt)}</p>
