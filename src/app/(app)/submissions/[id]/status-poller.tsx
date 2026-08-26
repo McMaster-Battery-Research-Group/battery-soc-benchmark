@@ -44,8 +44,9 @@ function progressFromLog(log: string): { pct: number | null; etaSec: number | nu
   for (let i = lines.length - 1; i >= 0; i--) {
     const m = /^(\S+) .*?(\d{1,3}(?:\.\d+)?)%\s*\|\s*(.+)$/.exec(lines[i]);
     if (m) {
-      pct = Math.min(100, Number(m[2]));
       stage = m[3].trim();
+      // the validation step reports its own 100 % before the real run starts — treat it as "just begun"
+      pct = stage.startsWith("validation") ? 1 : Math.min(100, Number(m[2]));
       lastAt = Date.parse(m[1]);
       break;
     }
