@@ -200,17 +200,44 @@ class MatlabBackend(Backend):
             q = lambda p: str(p).replace("\\", "/").replace("'", "''")  # noqa: E731
             cmd = f"addpath('{q(self.script_dir)}'); Run_Model('{q(self.pkg_dir)}','{q(inp)}','{q(outp)}')"
             log(f"matlab -batch (1 session, {len(jobs)} input matrices)")
+            # Stream MATLAB's output as it happens so the site can show live progress:
+            # Run_Model.m prints "[Run_Model] k/n done ..." after every input matrix, which we
+            # translate into the same "NN.N% | key" lines the Python backend emits.
+            done_re = re.compile(r"^\[Run_Model\] (\d+)/(\d+) done")
+            stderr_tail: list[str] = []
+
+            def relay(line: str) -> None:
+                line = line.strip()
+                if not line:
+                    return
+                m = done_re.match(line)
+                if m:
+                    k, n = int(m.group(1)), int(m.group(2))
+                    key = jobs[k - 1].key if 0 < k <= len(jobs) else f"{k}/{n}"
+                    log(f"{100 * k / n:5.1f}% | {key}")
+                else:
+                    log(line)
+
             try:
-                proc = subprocess.run([self.matlab, "-batch", cmd], capture_output=True, text=True, timeout=self.timeout)
+                proc = subprocess.Popen([self.matlab, "-batch", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, encoding="utf-8", errors="replace")
             except FileNotFoundError as e:
                 raise ModelError(f"Could not start MATLAB ({e}). Set MATLAB_BIN.") from e
+            deadline = time.monotonic() + self.timeout
+            assert proc.stdout is not None
+            try:
+                for line in proc.stdout:
+                    relay(line)
+                    if "ERROR" in line:
+                        stderr_tail.append(line.strip())
+                    if time.monotonic() > deadline:
+                        proc.kill()
+                        raise ModelError(f"MATLAB evaluation exceeded {self.timeout / 60:.0f} minutes.")
+                proc.wait(timeout=max(1.0, deadline - time.monotonic()))
             except subprocess.TimeoutExpired as e:
+                proc.kill()
                 raise ModelError(f"MATLAB evaluation exceeded {self.timeout / 60:.0f} minutes.") from e
-            for line in (proc.stdout + proc.stderr).splitlines():
-                if line.strip():
-                    log(line.strip())
             if not outp.is_file():
-                raise ModelError(f"MATLAB produced no output (exit {proc.returncode}): {proc.stderr[-500:]}")
+                raise ModelError(f"MATLAB produced no output (exit {proc.returncode}): {' '.join(stderr_tail)[-500:]}")
             res = loadmat(outp, squeeze_me=False)
             err = str(res.get("err", np.array([""]))).strip("[]' ")
             if err and err != "":
