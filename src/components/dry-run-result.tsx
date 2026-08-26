@@ -8,6 +8,7 @@ import { fmtPct } from "@/lib/utils";
 import { COMPLEXITY_LABELS } from "@/lib/test-cases";
 import type { DryRunOutput } from "@/evaluator/types";
 import { SocTrace } from "@/components/charts/soc-trace";
+import { LogView } from "@/components/log-view";
 
 export type DryRunPoll = { status: string; result: DryRunOutput | null; failureMessage: string | null; log: string };
 
@@ -43,9 +44,16 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
   const running = !poll || poll.status === "QUEUED" || poll.status === "RUNNING";
   const r = poll?.result;
   if (running) {
+    const lines = (poll?.log ?? "").split("\n").filter(Boolean);
+    const last = lines[lines.length - 1]?.replace(/^\S+ /, "") ?? "";
     return (
-      <div className="mt-4 flex items-center gap-3 rounded-brand bg-grey-100 px-4 py-3 text-sm text-grey-800" aria-live="polite">
-        <Loader2 className="size-4 animate-spin text-bayfront" /> {poll?.status === "RUNNING" ? "Running validation and one open cycle…" : "Queued — starts as soon as an evaluator is free."}
+      <div className="mt-4 rounded-brand bg-grey-100 px-4 py-3 text-sm text-grey-800" aria-live="polite">
+        <div className="flex items-center gap-3">
+          <Loader2 className="size-4 animate-spin text-bayfront" />
+          <span>{poll?.status === "RUNNING" ? "Running validation and one open cycle…" : "Queued — starts as soon as an evaluator is free."}</span>
+          {last ? <span className="ml-auto hidden max-w-[50%] truncate font-mono text-xs text-grey-600 sm:inline" title={last}>{last}</span> : null}
+        </div>
+        {poll?.log ? <LogView title={`Console (${lines.length} lines)`} log={poll.log} defaultOpen maxHeight="max-h-64" className="mt-3" /> : null}
       </div>
     );
   }
@@ -54,7 +62,7 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
       <div className="mt-4 space-y-3">
         <Alert variant="danger" title="The package did not run">
           <p className="break-words">{poll.failureMessage}</p>
-          {poll.log ? <pre className="mt-3 max-h-72 max-w-full overflow-auto whitespace-pre-wrap break-all rounded-brand bg-grey-900 p-3 text-xs leading-relaxed text-white">{poll.log}</pre> : null}
+          {poll.log ? <LogView title="Console" log={poll.log} defaultOpen maxHeight="max-h-72" className="mt-3" /> : null}
         </Alert>
         <p className="flex items-center gap-2 text-sm text-grey-700"><XCircle className="size-4 text-danger" /> Fix the package and run the test again — or <Link href="/contact?category=bug&subject=Dry%20run%20failed" className="text-maroon underline">report a problem</Link> if you think the evaluator is at fault.</p>
       </div>
@@ -80,6 +88,7 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
         ))}
       </div>
       <SocTrace traces={[{ key: "dry", label: `m80 ${r.cycle.cycle} at ${r.cycle.temperatureC} °C (open data)`, cell: "m80", cycle: r.cycle.cycle, temperatureC: r.cycle.temperatureC, t: r.trace.t, actual: r.trace.actual, estimated: r.trace.estimated }]} names={[modelName]} />
+      {poll?.log ? <LogView title="Console output" log={poll.log} className="mt-0" /> : null}
       {footer ? <p className="flex items-center gap-2 text-sm text-grey-700"><CheckCircle2 className="size-4 text-forest" /> {footer}</p> : null}
     </div>
   );
