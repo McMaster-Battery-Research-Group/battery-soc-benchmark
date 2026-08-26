@@ -7,7 +7,7 @@ import { Loader2, Clock, PauseCircle } from "lucide-react";
 type Live = {
   status: string;
   log: string;
-  evaluator?: { online: boolean; lastSeenAt: string | null; queued: number; running: number } | null;
+  evaluator?: { online: boolean; lastSeenAt: string | null; queued: number; running: number; capacity?: number } | null;
   queuePosition?: number | null;
 };
 
@@ -125,9 +125,14 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
       : "Starting up — running all blinded drive cycles across four cells and six temperatures, plus the robustness sweeps. A full run takes roughly 30–60 minutes; this page updates automatically and you will be e-mailed with the PDF report."
     : offline
       ? `The evaluator runs on a lab machine that is offline right now (last seen ${ago(ev?.lastSeenAt ?? null)}). Nothing is lost: your submission${pos ? ` is #${pos} in the queue and` : ""} will start automatically as soon as it is back. You can close this page — the results arrive by e-mail.`
-      : pos && pos > 1
-        ? `Your submission is #${pos} in the queue${ev?.running ? ` · ${ev.running} evaluating now` : ""}. Each full run takes roughly 30–60 minutes; you can close this page — the results arrive by e-mail.`
-        : "Your submission is next in line and will start within seconds.";
+      : (() => {
+          const slots = ev?.capacity ?? 1;
+          const busy = ev?.running ?? 0;
+          const waitingFor = Math.max(0, (pos ?? 1) - 1 + Math.max(0, busy - slots + 1)); // runs that must finish before ours starts
+          if (waitingFor === 0 && busy < slots) return "Your submission is next in line and will start within seconds.";
+          const eta = Math.ceil(waitingFor / Math.max(1, slots)) * 45;
+          return `Your submission is #${pos ?? 1} in the queue · ${busy} evaluating now${slots > 1 ? ` (${slots} parallel slots)` : ""}. It starts when ${waitingFor === 1 ? "the current evaluation finishes" : `${waitingFor} evaluations ahead of it finish`} — roughly ${eta} min at ~45 min per run. You can close this page; the results arrive by e-mail.`;
+        })();
 
   return (
     <div ref={cardRef} className="card scroll-mt-24 p-5" aria-live="polite">
