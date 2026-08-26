@@ -29,7 +29,7 @@ The benchmark executes code written by anonymous internet users (`Model.py`, `Mo
 - [ ] **Run the worker as a dedicated low-privilege Windows account** (`socbench`): create the user, grant read-only ACLs to the repo / `.env.production` / `blind-data`, add it to `docker-users`, grant "Log on as a batch job", then `scripts\install-worker-task.ps1 -RunAsUser socbench`. Until this is done, MATLAB packages (host mode) run with Ahmad's full user rights.
 - [ ] **MATLAB inside the sandbox.** `evaluator/Dockerfile.matlab` (MathWorks base image + toolboxes via `mpm`) works on Linux x86-64 only and needs a licence server (`EVAL_MATLAB_LICENSE`). Plan: build it on the DRAC VM; until then `.m/.p` packages run on the host under the allow-listed env + low-privilege account.
 - [ ] **Install the MATLAB toolboxes** submissions commonly need on the current host (Signal Processing, Deep Learning, Statistics & ML, Control System, System Identification, Optimization, Curve Fitting) — functional, not security, but the admin page's toolbox list is the way to verify.
-- [ ] **Rotate the Gmail app password** hard-coded in the archived `Standardized_Evaluation_Tool_V2.m`, and move from the personal Gmail sender to Resend/Brevo on the benchmark domain (SPF/DKIM/DMARC) — also fixes the multi-minute delivery delay into McMaster mailboxes.
+- [ ] **Domain + Resend for e-mail** (see README → TODO for the step list): verified sending domain with SPF/DKIM/DMARC replaces the personal Gmail sender — fixes the multi-minute delivery delay into McMaster mailboxes and removes a personal credential from the service. Afterwards revoke the Gmail app password and rotate the one hard-coded in the archived `Standardized_Evaluation_Tool_V2.m`.
 
 ## Open — not started
 
