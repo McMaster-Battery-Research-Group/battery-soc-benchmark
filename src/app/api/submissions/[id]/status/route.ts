@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     status: sub.status,
     log: insider ? sub.job?.log ?? "" : "",
     failureMessage: sub.failureMessage,
-    evaluator: ev ? { online: ev.online, lastSeenAt: ev.lastSeenAt, queued: ev.queued, running: ev.running } : null,
+    evaluator: ev ? { online: ev.online, lastSeenAt: ev.lastSeenAt, queued: ev.queued, running: ev.running, capacity: ev.capacity } : null,
     queuePosition: pos,
   });
 }
