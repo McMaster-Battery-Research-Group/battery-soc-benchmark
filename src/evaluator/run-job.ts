@@ -106,8 +106,13 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
   const log = async (line: string) => {
     const stamped = `${new Date().toISOString()} ${line}\n`;
     process.stdout.write(`[${sub.seq}] ${line}\n`);
-    const cur = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { log: true, cancelRequestedAt: true } }).catch(() => null);
-    if (!cur) return; // job row gone (cancelled + deleted) — nothing to write to
+    const cur = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { log: true, cancelRequestedAt: true } }).catch(() => undefined);
+    if (cur === null) {
+      // job row gone: the submission was cancelled/deleted while we were evaluating it
+      if (!abort.signal.aborted) abort.abort();
+      return;
+    }
+    if (!cur) return; // transient DB error — keep going
     if (cur.cancelRequestedAt && !abort.signal.aborted) abort.abort();
     // Every log line also refreshes the lock (heartbeat): a real evaluation can
     // run for an hour, far longer than STALE_LOCK_MS, and must not be re-claimed
@@ -115,8 +120,8 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     await db.evaluationJob.update({ where: { id: jobId }, data: { log: cur.log + stamped, lockedAt: new Date() } }).catch(() => {});
   };
   const cancelPoll = setInterval(async () => {
-    const j = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { cancelRequestedAt: true } }).catch(() => null);
-    if (j?.cancelRequestedAt && !abort.signal.aborted) abort.abort();
+    const j = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { cancelRequestedAt: true } }).catch(() => undefined);
+    if ((j === null || j?.cancelRequestedAt) && !abort.signal.aborted) abort.abort();
   }, 10_000);
 
   await db.submission.update({ where: { id: sub.id }, data: { status: "RUNNING" } });
