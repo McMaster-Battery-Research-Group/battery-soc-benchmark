@@ -11,21 +11,31 @@ export function fmtPct(v: number | null | undefined, digits = 2) {
   return v.toFixed(digits);
 }
 
+/**
+ * All dates are shown in the benchmark's home timezone (McMaster, Hamilton ON)
+ * regardless of where the page is rendered — Vercel's servers run in UTC, so
+ * relying on the server clock showed 05:13 for a 01:13 EDT submission.
+ * Times carry the zone label so international users aren't misled.
+ */
+export const SITE_TZ = process.env.NEXT_PUBLIC_SITE_TZ ?? "America/Toronto";
+
 export function fmtDate(d: Date | string | null | undefined, opts: Intl.DateTimeFormatOptions = {}) {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
-  return date.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric", ...opts });
+  return date.toLocaleDateString("en-CA", { timeZone: SITE_TZ, year: "numeric", month: "short", day: "numeric", ...opts });
 }
 
 export function fmtDateTime(d: Date | string | null | undefined) {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
   return date.toLocaleString("en-CA", {
+    timeZone: SITE_TZ,
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZoneName: "short",
   });
 }
 

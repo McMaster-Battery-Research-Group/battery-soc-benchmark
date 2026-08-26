@@ -2,6 +2,7 @@ import PDFDocument from "pdfkit";
 import { TEST_CASES, MODEL_TYPE_LABELS, COMPLEXITY_LABELS, type MetricKey } from "@/lib/test-cases";
 import type { PerCycleRow, TimeSeriesTrace } from "@/evaluator/types";
 import { logoPngPath } from "@/lib/logos";
+import { fmtDateTime } from "@/lib/utils";
 
 /**
  * Submission report as a PDF (vector charts, brand palette, A4). Pure Node —
@@ -36,7 +37,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     const W = doc.page.width - 96; // content width
     const X0 = 48;
     const fmt = (v: number, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "—");
-    const date = (d: Date | null) => (d ? d.toLocaleString("en-CA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
+    const date = (d: Date | null) => (d ? fmtDateTime(d) : "—"); // benchmark timezone with zone label, independent of the server's clock
 
     // ---------- header band (+ institutional logos at top-right once the official PNGs are supplied)
     doc.rect(0, 0, doc.page.width, 6).fill(M);
