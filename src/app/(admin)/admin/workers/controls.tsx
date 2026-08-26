@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Pause, Play, Power, Trash2, Unlock, RotateCcw, ChevronDown } from "lucide-react";
+import { Pause, Play, Power, Trash2, Unlock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { workerCommandAction, forgetWorkerAction, releaseJobAction, retryJobAction } from "../actions";
@@ -65,18 +65,4 @@ export function AutoRefresh({ seconds }: { seconds: number }) {
   return null;
 }
 
-export function LogView({ title, log }: { title: string; log: string }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLPreElement>(null);
-  React.useEffect(() => {
-    if (open && ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-  }, [open, log]);
-  return (
-    <div className="mt-4">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-1 font-heading text-sm font-medium text-maroon hover:underline" aria-expanded={open}>
-        <ChevronDown className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /> {title}
-      </button>
-      {open ? <pre ref={ref} className="mt-2 max-h-80 overflow-auto rounded-brand bg-grey-900 p-3 text-xs leading-relaxed text-white">{log || "(no output yet)"}</pre> : null}
-    </div>
-  );
-}
+export { LogView } from "@/components/log-view";
