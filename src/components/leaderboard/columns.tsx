@@ -38,7 +38,9 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             <span aria-hidden>·</span>
             <span>{MODEL_TYPE_LABELS[row.original.modelType] ?? row.original.modelType}</span>
             {row.original.isPrivate ? (
-              <Tooltip content="Private — visible only to you"><Lock className="size-3 text-grey-500" /></Tooltip>
+              <Tooltip content="Only you can see this row. Make it public from the submission page to appear on the leaderboard.">
+                <span className="inline-flex items-center gap-1 rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900"><Lock className="size-3" /> Private · only you</span>
+              </Tooltip>
             ) : null}
             {row.original.isHidden ? (
               <Tooltip content="Hidden by an administrator"><EyeOff className="size-3 text-danger" /></Tooltip>
