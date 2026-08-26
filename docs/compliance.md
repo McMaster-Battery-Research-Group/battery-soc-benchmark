@@ -54,3 +54,7 @@ Satisfies §26(a) directly. Requirements: Ubuntu/Debian VM, Node 20+, PostgreSQL
 2. Decide hosting option with Dr. Kollmeyer; file the §26(b) assessment with IT Security if cloud is chosen.
 3. Name the service owner and an operational contact in the site footer/contact page.
 4. Write the breach-response runbook (who calls the Privacy Officer, how accounts are locked, how submissions are purged).
+
+### Update 2026-08-26 — evaluation sandbox and abuse controls
+
+Per-evaluation Docker isolation, allow-listed host environment, zip-slip/zip-bomb rejection, DB-backed rate limits, per-user submission caps and browser security headers are now implemented (risk table above updated). Outstanding human steps and open items are tracked in `security.md`; the largest residual risk is MATLAB packages running outside the container until the MATLAB sandbox image is built on the DRAC VM.

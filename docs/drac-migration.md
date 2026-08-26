@@ -39,3 +39,15 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 - [ ] Copy blinded dataset to the VM (or `/project`) with group-only permissions
 - [ ] Run the worker as a systemd service (`Restart=always`); disable the cron-job.org ping
 - [ ] Update `docs/compliance.md` data-inventory row for blinded data location
+
+## Security requirements for the DRAC worker (added 2026-08-26)
+
+Submissions are untrusted code — treat the VM as hostile-workload host. See `security.md` for the full status list.
+
+- [ ] Use an **Alliance Cloud (Arbutus) VM**, not the batch clusters: running third-party code on shared login/compute nodes is outside the acceptable-use terms and would let a submission probe the cluster.
+- [ ] Install Docker (or Apptainer) and build both sandbox images: `docker build -t socbench-eval evaluator` and `docker build -t socbench-eval-matlab -f evaluator/Dockerfile.matlab --build-arg MATLAB_RELEASE=<release> --build-arg PRODUCTS="…" evaluator`. Set `EVAL_SANDBOX=docker`, `EVAL_SANDBOX_MATLAB_IMAGE=socbench-eval-matlab`, `EVAL_MATLAB_LICENSE=<port@licence-host>` (and `EVAL_MATLAB_NETWORK=bridge` only if that host must be reachable). This closes the host-mode MATLAB gap that exists on the laptop.
+- [ ] Run the worker as a **non-sudo service user** under systemd (`Restart=always`); repo read-only to it; `.env.production` and `blind_data.mat` mode 600 owned by that user; nothing on `/project` or `/scratch` group-readable.
+- [ ] Firewall: `ufw default deny incoming`; SSH keys only (no passwords), ideally restricted to campus/VPN ranges; outbound allowed only to Supabase (5432/6543 + 443), the SMTP host and the MATLAB licence server.
+- [ ] `unattended-upgrades` on; rebuild the sandbox images monthly; keep Docker's daemon socket inaccessible to the service user except through the group.
+- [ ] Update `compliance.md` §26(b) to name the Alliance VM as the processing location for third-party model IP and the blinded data; note the Alliance's own security policy.
+- [ ] After migration: remove blinded data, `.env.production` and the scheduled task from the laptop; rotate the Supabase secrets once more so any laptop copy is dead.
