@@ -21,6 +21,8 @@ import { StatusPoller } from "./status-poller";
 import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const sub = await getSubmissionDetail((await params).id);
   return { title: sub ? sub.modelName : "Submission" };
