@@ -133,7 +133,7 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
           <div className={running ? "h-full w-1/3 animate-[slide_1.6s_ease-in-out_infinite] rounded-full bg-maroon" : offline ? "h-full w-1/12 rounded-full bg-gold-400" : "h-full w-1/12 rounded-full bg-grey-400"} />
         )}
       </div>
-      {live.log ? <pre ref={logRef} className="mt-4 max-h-96 overflow-auto rounded-brand bg-grey-900 p-3 text-xs leading-relaxed text-white">{live.log}</pre> : null}
+      {live.log ? <pre ref={logRef} className="mt-4 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all rounded-brand bg-grey-900 p-3 text-xs leading-relaxed text-white">{live.log}</pre> : null}
       <style>{`@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}`}</style>
     </div>
   );

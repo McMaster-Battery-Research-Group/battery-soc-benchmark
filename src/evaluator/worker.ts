@@ -48,7 +48,7 @@ let diag: Diag | null = null;
 let diagAt = 0;
 function probe(cmd: string, args: string[]) {
   try {
-    return execFileSync(cmd, args, { encoding: "utf8", timeout: 20_000, stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return execFileSync(cmd, args, { encoding: "utf8", timeout: 90_000, stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     return "";
   }
@@ -73,7 +73,10 @@ function diagnostics(): Diag {
     try {
       accessSync(mb, constants.X_OK);
       const m = /R20\d\d[ab]/.exec(mb);
-      matlabInfo = `${m?.[0] ?? "MATLAB"} at ${mb}`;
+      // Installed products matter: submissions routinely need Signal Processing / Deep Learning toolboxes.
+      const ver = probe(mb, ["-batch", "v=ver; fprintf('%s;', v.Name)"]);
+      const products = ver ? ver.split(";").map((s) => s.trim()).filter((s) => s && s !== "MATLAB") : [];
+      matlabInfo = `${m?.[0] ?? "MATLAB"} at ${mb}` + (ver ? ` · toolboxes: ${products.length ? products.join(", ") : "none"}` : "");
     } catch {
       matlabInfo = `MATLAB_BIN not found: ${mb}`;
     }
