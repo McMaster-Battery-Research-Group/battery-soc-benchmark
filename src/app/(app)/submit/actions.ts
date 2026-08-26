@@ -150,7 +150,10 @@ export async function togglePrivateAction(id: string, isPrivate: boolean) {
 export async function cancelSubmissionAction(id: string): Promise<{ ok: true; immediate: boolean } | { ok: false; error: string }> {
   const { sub } = await ownedSubmission(id);
   if (sub.status === "COMPLETED" || sub.status === "FAILED") return { ok: false, error: "This submission has already finished — delete it instead." };
-  if (sub.status === "QUEUED") {
+  // Only delete outright if no worker has claimed the job yet; a claimed job is
+  // effectively running (the status flips a moment later), so ask the worker to abort.
+  const job = await db.evaluationJob.findUnique({ where: { submissionId: id }, select: { lockedAt: true } });
+  if (sub.status === "QUEUED" && !job?.lockedAt) {
     await storage.remove(sub.fileKey);
     await db.submission.delete({ where: { id } });
     revalidatePath("/submissions");
