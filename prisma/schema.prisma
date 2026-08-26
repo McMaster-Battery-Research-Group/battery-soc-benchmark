@@ -201,6 +201,17 @@ model EvaluationResult {
   createdAt        DateTime @default(now())
 }
 
+/// Sliding-window rate limiting for sensitive actions (login, register, reset,
+/// contact, uploads). One row per hit; counted per key within a window and
+/// pruned opportunistically. Works across Vercel's stateless functions.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
 /// Liveness of evaluation workers (one row per worker process). The site uses
 /// it to tell users whether evaluations are currently running or waiting.
 model WorkerHeartbeat {

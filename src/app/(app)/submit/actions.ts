@@ -19,6 +19,15 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   const session = await auth();
   if (!session?.user) redirect("/login?next=/submit");
 
+  // Each full evaluation occupies a machine for ~30–60 min: cap per user per day (admins exempt).
+  const perDay = Number(process.env.SUBMISSIONS_PER_DAY ?? 3);
+  if (session.user.role !== "ADMIN" && perDay > 0) {
+    const today = await db.submission.count({ where: { userId: session.user.id, submittedAt: { gt: new Date(Date.now() - 24 * 3600_000) } } });
+    if (today >= perDay) {
+      return { errors: { form: `You have submitted ${today} models in the last 24 hours — the limit is ${perDay} per day so the evaluation queue stays fair. Use "Test your package first" for iteration; it does not count.` }, values: { modelName: String(fd.get("modelName") ?? ""), description: String(fd.get("description") ?? ""), modelType: String(fd.get("modelType") ?? ""), evaluationLevel: String(fd.get("evaluationLevel") ?? "DYNAMIC"), contestId: String(fd.get("contestId") ?? "") } };
+    }
+  }
+
   const raw = {
     modelName: String(fd.get("modelName") ?? ""),
     description: String(fd.get("description") ?? ""),

@@ -201,7 +201,8 @@ class MatlabBackend(Backend):
         self.pkg_dir = pkg_dir
         self.matlab = matlab_bin or os.environ.get("MATLAB_BIN", "matlab")
         self.timeout = timeout_min * 60
-        self.script_dir = Path(__file__).resolve().parents[3] / "matlab"
+        # matlab/Run_Model.m: next to the repo checkout, or wherever the sandbox image put it
+        self.script_dir = Path(os.environ.get("SOCBENCH_MATLAB_SCRIPTS") or (Path(__file__).resolve().parents[3] / "matlab"))
 
     def run(self, jobs: list[Job], log: Callable[[str], None]) -> list[Prediction]:
         with tempfile.TemporaryDirectory(prefix="socbench-ml-") as td:

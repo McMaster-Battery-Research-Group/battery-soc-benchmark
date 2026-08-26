@@ -16,6 +16,45 @@ from pathlib import Path
 
 from . import __version__
 from .data import load_blind_data
+
+# Submission packages are untrusted input. Limits mirror src/lib/package-check.ts.
+MAX_ENTRIES = 500
+MAX_TOTAL_BYTES = 512 * 1024 * 1024
+MAX_ENTRY_BYTES = 256 * 1024 * 1024
+MAX_RATIO = 200  # uncompressed / compressed — zip bombs are ~1000+
+
+
+def safe_extract(z: zipfile.ZipFile, dest: Path) -> str | None:
+    """Extract only regular files at the top level, refusing traversal, symlinks and bombs. Returns a problem string or None."""
+    dest = dest.resolve()
+    infos = [i for i in z.infolist() if not i.filename.startswith("__MACOSX/") and not i.filename.endswith(".DS_Store")]
+    if len(infos) > MAX_ENTRIES:
+        return f"The archive has {len(infos)} entries; at most {MAX_ENTRIES} are allowed."
+    total = 0
+    for i in infos:
+        name = i.filename
+        if i.is_dir():
+            continue
+        if name.startswith(("/", "\\")) or ".." in name.replace("\\", "/").split("/") or ":" in name[:2]:
+            return f"Unsafe path in archive: {name!r}."
+        if (i.external_attr >> 16) & 0o170000 == 0o120000:  # symlink
+            return f"Symbolic links are not allowed in the package ({name!r})."
+        if i.file_size > MAX_ENTRY_BYTES:
+            return f"{name!r} is larger than {MAX_ENTRY_BYTES // 1048576} MB uncompressed."
+        if i.compress_size and i.file_size / max(1, i.compress_size) > MAX_RATIO:
+            return f"{name!r} has an implausible compression ratio; the package was rejected."
+        total += i.file_size
+        if total > MAX_TOTAL_BYTES:
+            return f"The package exceeds {MAX_TOTAL_BYTES // 1048576} MB uncompressed."
+    for i in infos:
+        if i.is_dir():
+            continue
+        target = (dest / Path(i.filename.replace("\\", "/")).name).resolve()  # flatten: top-level files only
+        if target.parent != dest:
+            return f"Unsafe path in archive: {i.filename!r}."
+        with z.open(i) as src, open(target, "wb") as dst:
+            shutil.copyfileobj(src, dst, 1024 * 1024)
+    return None
 from .pipeline import build_jobs, complexity, per_cycle_rows, score, validation_job
 from .runner import MatlabBackend, ModelError, PythonBackend
 
@@ -55,7 +94,9 @@ def main(argv=None) -> None:
     try:
         try:
             with zipfile.ZipFile(args.package) as z:
-                z.extractall(work)
+                problem = safe_extract(z, work)
+                if problem:
+                    fail(out, "FORMAT", problem)
         except zipfile.BadZipFile:
             fail(out, "FORMAT", "The package is not a valid .zip archive.")
         has_py, has_m = (work / "Model.py").is_file(), ((work / "Model.m").is_file() or (work / "Model.p").is_file())

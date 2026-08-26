@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { claimNext, runNext } from "@/evaluator/run-job";
 
 export const maxDuration = 60;
@@ -11,14 +12,14 @@ export const dynamic = "force-dynamic";
  * evaluator needs the real worker on a MATLAB host.
  *
  *   GET/POST /api/jobs/run
- *   Authorization: Bearer <CRON_SECRET>   (or ?secret=<CRON_SECRET>)
+ *   Authorization: Bearer <CRON_SECRET>   (header only — never in the URL)
  */
 async function handle(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  const url = new URL(req.url);
-  const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? url.searchParams.get("secret");
-  if (provided !== secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Header only — a secret in the query string ends up in access logs and browser history.
+  const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!provided || provided.length !== secret.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(secret))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const started = Date.now();
   const results: { submissionId: string; status: string }[] = [];
