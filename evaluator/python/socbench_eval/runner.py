@@ -85,12 +85,25 @@ class PythonBackend(Backend):
 
     def run(self, jobs: list[Job], log: Callable[[str], None]) -> list[Prediction]:
         out = []
+        # progress is weighted by samples (work), not by matrix count — long cycles count more
+        cum = _cumulative_samples(jobs)
         for i, j in enumerate(jobs):
-            log(f"{100 * (i + 1) / len(jobs):5.1f}% | {j.key}")
             t0 = time.perf_counter()
             raw = _iterate_py(self.model, j.X)
             out.append(_finish(j.key, raw, j.pad, time.perf_counter() - t0))
+            log(f"{cum[i]:5.1f}% | {j.key}")
         return out
+
+
+def _cumulative_samples(jobs: list[Job]) -> list[float]:
+    """Percent of total samples completed after each job (the evaluator's progress axis)."""
+    sizes = [int(j.X.shape[0]) for j in jobs]
+    total = float(sum(sizes)) or 1.0
+    acc, out = 0, []
+    for s in sizes:
+        acc += s
+        out.append(100.0 * acc / total)
+    return out
 
 
 def _load_py_model(pkg_dir: Path) -> ModuleType:
@@ -205,6 +218,7 @@ class MatlabBackend(Backend):
             # translate into the same "NN.N% | key" lines the Python backend emits.
             done_re = re.compile(r"^\[Run_Model\] (\d+)/(\d+) done")
             stderr_tail: list[str] = []
+            cum = _cumulative_samples(jobs)  # sample-weighted progress, same axis as the Python backend
 
             def relay(line: str) -> None:
                 line = line.strip()
@@ -213,8 +227,10 @@ class MatlabBackend(Backend):
                 m = done_re.match(line)
                 if m:
                     k, n = int(m.group(1)), int(m.group(2))
-                    key = jobs[k - 1].key if 0 < k <= len(jobs) else f"{k}/{n}"
-                    log(f"{100 * k / n:5.1f}% | {key}")
+                    if 0 < k <= len(jobs):
+                        log(f"{cum[k - 1]:5.1f}% | {jobs[k - 1].key}")
+                    else:
+                        log(f"{100 * k / n:5.1f}% | {k}/{n}")
                 else:
                     log(line)
 

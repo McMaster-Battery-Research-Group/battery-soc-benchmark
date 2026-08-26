@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canViewSubmission } from "@/lib/queries";
-import { getEvaluatorStatus, queuePosition } from "@/lib/worker-status";
+import { getEvaluatorStatus, estimateQueueWaitSec } from "@/lib/worker-status";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +13,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!sub || !canViewSubmission(sub, session?.user)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const insider = session?.user?.id === sub.userId || session?.user?.role === "ADMIN" || sub.collaborators.some((c) => c.userId === session?.user?.id);
   const pending = sub.status === "QUEUED" || sub.status === "RUNNING";
-  const [ev, pos] = pending ? await Promise.all([getEvaluatorStatus(), sub.status === "QUEUED" ? queuePosition(id) : Promise.resolve(null)]) : [null, null];
+  const ev = pending ? await getEvaluatorStatus() : null;
+  const queue = sub.status === "QUEUED" ? await estimateQueueWaitSec(id) : null;
   return NextResponse.json({
     status: sub.status,
     log: insider ? sub.job?.log ?? "" : "",
     failureMessage: sub.failureMessage,
     evaluator: ev ? { online: ev.online, lastSeenAt: ev.lastSeenAt, queued: ev.queued, running: ev.running, capacity: ev.capacity } : null,
-    queuePosition: pos,
+    queuePosition: queue?.position ?? null,
+    /** seconds until this queued submission is expected to start (null when the evaluator is offline) */
+    queueWaitSec: queue?.waitSec ?? null,
   });
 }
