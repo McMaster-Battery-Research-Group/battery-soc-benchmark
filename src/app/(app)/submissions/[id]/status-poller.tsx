@@ -67,6 +67,14 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
   const router = useRouter();
   const [live, setLive] = React.useState<Live>({ status, log });
   const logRef = React.useRef<HTMLPreElement>(null);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  // Fresh submission (redirected here with ?new=1): bring the live status into view.
+  React.useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("new")) return;
+    const t = setTimeout(() => cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
+    return () => clearTimeout(t);
+  }, []);
 
   React.useEffect(() => {
     let stop = false;
@@ -122,7 +130,7 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
         : "Your submission is next in line and will start within seconds.";
 
   return (
-    <div className="card p-5" aria-live="polite">
+    <div ref={cardRef} className="card scroll-mt-24 p-5" aria-live="polite">
       <div className="flex items-center gap-3">
         {running ? <Loader2 className="size-5 animate-spin text-bayfront" /> : offline ? <PauseCircle className="size-5 text-[#9a6a17]" /> : <Clock className="size-5 text-grey-500" />}
         <div className="min-w-0 flex-1">

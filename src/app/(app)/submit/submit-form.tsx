@@ -29,6 +29,8 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
   const [uploadPct, setUploadPct] = React.useState<number | null>(null);
   const [uploadErr, setUploadErr] = React.useState<string | undefined>();
   const [clientErrors, setClientErrors] = React.useState<FieldErrors>({});
+  const [checking, setChecking] = React.useState(false); // upload done, server validating the package
+  React.useEffect(() => setChecking(false), [state]); // a server response (error) ends it; success redirects away
 
   // Controlled fields
   const [modelName, setModelName] = React.useState("");
@@ -107,6 +109,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
       fd.delete("file");
     }
     setUploadPct(null);
+    setChecking(true);
     rawAction(fd);
   };
 
@@ -165,10 +168,10 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
             </>
           )}
         </div>
-        {uploadPct !== null ? (
+        {uploadPct !== null || checking ? (
           <div aria-live="polite">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-grey-200"><div className="h-full rounded-full bg-maroon transition-[width]" style={{ width: `${uploadPct}%` }} /></div>
-            <p className="mt-1 text-xs text-grey-600">Uploading package… {uploadPct}%</p>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-grey-200"><div className={`h-full rounded-full bg-maroon transition-[width] ${checking ? "animate-pulse" : ""}`} style={{ width: `${checking ? 100 : uploadPct}%` }} /></div>
+            <p className="mt-1 text-xs text-grey-600">{checking ? "Upload complete — checking the package structure and queuing the evaluation… you will be taken to the live status page." : `Uploading package… ${uploadPct}%`}</p>
           </div>
         ) : null}
         <FieldError>{localErr ?? uploadErr ?? errors.file}</FieldError>
