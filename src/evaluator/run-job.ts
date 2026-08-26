@@ -14,6 +14,11 @@ import { EvaluationError, EvaluationCancelled } from "./types";
 export const STALE_LOCK_MS = 30 * 60 * 1000;
 export const MAX_ATTEMPTS = 2;
 
+/** Abort controllers of evaluations currently running in this process (for graceful shutdown). */
+export const inflight = new Set<AbortController>();
+/** `abort(SHUTDOWN)` = release the job back to the queue (worker stopping), as opposed to a submitter cancel. */
+export const SHUTDOWN = "shutdown";
+
 /** Dry runs are short and interactive, so they jump the queue. */
 export async function claimDryRun() {
   const staleBefore = new Date(Date.now() - 15 * 60 * 1000);
@@ -103,6 +108,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
   // Cancellation: the owner sets EvaluationJob.cancelRequestedAt; we notice it on
   // the next log line or the 10 s poll and abort the evaluator (which kills MATLAB too).
   const abort = new AbortController();
+  inflight.add(abort);
   const log = async (line: string) => {
     const stamped = `${new Date().toISOString()} ${line}\n`;
     process.stdout.write(`[${sub.seq}] ${line}\n`);
@@ -132,6 +138,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     await log(`package ready at ${localPath}`);
     const out = await evaluator.evaluate({ submissionId: sub.id, filePath: localPath, fileType: sub.fileType, modelType: sub.modelType, evaluationLevel: sub.evaluationLevel, log, signal: abort.signal });
     clearInterval(cancelPoll);
+    inflight.delete(abort);
     const { perCycle, timeSeries, evaluatorVersion, ...scalars } = out;
     await db.$transaction([
       db.evaluationResult.upsert({
@@ -158,6 +165,14 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     return { submissionId: sub.id, status: "COMPLETED" };
   } catch (err) {
     clearInterval(cancelPoll);
+    inflight.delete(abort);
+    if (abort.signal.aborted && abort.signal.reason === SHUTDOWN) {
+      // Worker is stopping: hand the job back untouched so another (or the restarted) worker picks it up.
+      await log(`worker ${workerId()} is shutting down — evaluation stopped and returned to the queue (no attempt used)`);
+      await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, attempts: { decrement: 1 } } }).catch(() => {});
+      await db.submission.update({ where: { id: sub.id }, data: { status: "QUEUED" } }).catch(() => {});
+      return { submissionId: sub.id, status: "RETRY" };
+    }
     if (err instanceof EvaluationCancelled || abort.signal.aborted) {
       process.stdout.write(`[${sub.seq}] cancelled by the submitter — evaluator stopped, submission removed\n`);
       await storage.remove(sub.fileKey);

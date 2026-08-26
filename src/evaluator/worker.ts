@@ -20,7 +20,7 @@ import os from "os";
 import { execFileSync } from "child_process";
 import { statfsSync, accessSync, constants } from "fs";
 import { db } from "@/lib/db";
-import { claimNext, runNext, workerId, type WorkItem } from "./run-job";
+import { claimNext, runNext, workerId, inflight, SHUTDOWN, type WorkItem } from "./run-job";
 import { getEvaluator } from "./index";
 
 const POLL_MS = 2000;
@@ -176,19 +176,34 @@ async function main() {
   console.log(`[worker] ${workerId()} online — evaluator "${getEvaluator().name}", concurrency ${CONCURRENCY}, polling every ${POLL_MS} ms`);
   await heartbeat();
   const hb = setInterval(() => void heartbeat(), HEARTBEAT_MS);
+  const running = new Set<Promise<void>>();
+  let exiting = false;
+  /**
+   * Graceful stop (Ctrl+C / SIGTERM / admin "stop"): kill in-flight evaluator
+   * processes (and their MATLAB sessions), hand those jobs back to the queue,
+   * remove our heartbeat row, then exit. A second Ctrl+C exits immediately.
+   */
   const bye = async () => {
+    if (exiting) process.exit(1);
+    exiting = true;
+    stopping = true;
     clearInterval(hb);
+    if (inflight.size) {
+      console.log(`[worker] stopping — aborting ${inflight.size} in-flight evaluation(s) and returning them to the queue`);
+      for (const c of inflight) c.abort(SHUTDOWN);
+      await Promise.race([Promise.allSettled([...running]), new Promise((r) => setTimeout(r, 15_000))]);
+    }
     try {
       await db.workerHeartbeat.delete({ where: { id: workerId() } });
     } catch {}
+    console.log("[worker] bye");
     process.exit(0);
   };
-  process.on("SIGINT", bye);
-  process.on("SIGTERM", bye);
+  process.on("SIGINT", () => void bye());
+  process.on("SIGTERM", () => void bye());
 
-  const running = new Set<Promise<void>>();
   while (true) {
-    if (stopping && running.size === 0) return bye();
+    if (stopping && running.size === 0 && !exiting) return bye(); // admin "stop" after current work drained
     try {
       if (!paused && !stopping && running.size < CONCURRENCY) {
         const item = await claimNext();
