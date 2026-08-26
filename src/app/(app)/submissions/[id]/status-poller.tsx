@@ -3,12 +3,14 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Clock, PauseCircle } from "lucide-react";
+import { progressFromLog, STAGE_LABEL, fmtDuration } from "@/lib/progress";
 
 type Live = {
   status: string;
   log: string;
   evaluator?: { online: boolean; lastSeenAt: string | null; queued: number; running: number; capacity?: number } | null;
   queuePosition?: number | null;
+  queueWaitSec?: number | null;
 };
 
 function ago(iso: string | null) {
@@ -21,51 +23,10 @@ function ago(iso: string | null) {
   return h < 36 ? `${h} h ago` : `${Math.round(h / 24)} d ago`;
 }
 
-function fmtDuration(sec: number) {
-  if (sec < 60) return "under a minute";
-  const m = Math.round(sec / 60);
-  if (m < 60) return `about ${m} min`;
-  const h = Math.floor(m / 60);
-  return `about ${h} h ${m - h * 60} min`;
-}
-
-/**
- * Progress from the evaluator log. socbench_eval prints lines like
- *   "2026-08-25T23:14:22Z [eval] [19:14:22]  78.5% | cycle:m1000:26"
- * so the last percentage is the fraction done; the timestamp of the
- * "started evaluation" line gives elapsed time, from which we extrapolate.
- */
-function progressFromLog(log: string): { pct: number | null; etaSec: number | null; stage: string | null } {
-  if (!log) return { pct: null, etaSec: null, stage: null };
-  const lines = log.split("\n");
-  let pct: number | null = null;
-  let stage: string | null = null;
-  let lastAt: number | null = null;
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const m = /^(\S+) .*?(\d{1,3}(?:\.\d+)?)%\s*\|\s*(.+)$/.exec(lines[i]);
-    if (m) {
-      stage = m[3].trim();
-      // the validation step reports its own 100 % before the real run starts — treat it as "just begun"
-      pct = stage.startsWith("validation") ? 1 : Math.min(100, Number(m[2]));
-      lastAt = Date.parse(m[1]);
-      break;
-    }
-  }
-  const startLine = lines.find((l) => /started evaluation/.test(l));
-  const startAt = startLine ? Date.parse(startLine.split(" ")[0]) : NaN;
-  let etaSec: number | null = null;
-  if (pct !== null && pct >= 3 && pct < 100 && Number.isFinite(startAt) && lastAt) {
-    const elapsed = (lastAt - startAt) / 1000;
-    etaSec = Math.max(30, (elapsed * (100 - pct)) / pct);
-  }
-  return { pct, etaSec, stage };
-}
-
-const STAGE_LABEL: Record<string, string> = { validation: "validating the model", cycle: "blinded drive cycles", isoc: "initial-SOC robustness sweep", offset: "current-offset robustness sweep", charge: "charging cycles", scoring: "scoring" };
-
 export function StatusPoller({ id, status, log }: { id: string; status: string; log: string }) {
   const router = useRouter();
   const [live, setLive] = React.useState<Live>({ status, log });
+  const [, setTick] = React.useState(0); // re-render every few seconds so "remaining" counts down between polls
   const logRef = React.useRef<HTMLPreElement>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
@@ -82,7 +43,6 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
       try {
         const res = await fetch(`/api/submissions/${id}/status`, { cache: "no-store" });
         if (res.status === 404) {
-          // cancelled (and deleted) while we were watching
           window.location.replace("/submissions?cancelled=1");
           return;
         }
@@ -91,7 +51,6 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
         if (stop) return;
         setLive(j);
         if (j.status === "COMPLETED" || j.status === "FAILED") {
-          // Reload the server-rendered page so the results (charts, report link) appear without a manual refresh.
           router.refresh();
           setTimeout(() => window.location.replace(`/submissions/${id}`), 800);
           return;
@@ -100,13 +59,14 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
       if (!stop) setTimeout(tick, 2500);
     };
     const t = setTimeout(tick, 1000);
+    const clock = setInterval(() => setTick((n) => n + 1), 5000);
     return () => {
       stop = true;
       clearTimeout(t);
+      clearInterval(clock);
     };
   }, [id, router]);
 
-  // keep the newest log lines in view
   React.useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [live.log]);
@@ -119,20 +79,22 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
   const stageLabel = stage ? STAGE_LABEL[stage.split(":")[0]] ?? stage : null;
 
   const title = running ? "Evaluating against blinded data…" : offline ? "Queued — evaluation machine is currently paused" : "Queued for evaluation";
-  const body = running
-    ? pct !== null
-      ? `${pct.toFixed(0)} % done${stageLabel ? ` · ${stageLabel}` : ""}${etaSec !== null ? ` · ${fmtDuration(etaSec)} remaining` : ""}. This page updates automatically; you will also be e-mailed with the PDF report.`
-      : "Starting up — running all blinded drive cycles across four cells and six temperatures, plus the robustness sweeps. A full run takes roughly 30–60 minutes; this page updates automatically and you will be e-mailed with the PDF report."
-    : offline
-      ? `The evaluator runs on a lab machine that is offline right now (last seen ${ago(ev?.lastSeenAt ?? null)}). Nothing is lost: your submission${pos ? ` is #${pos} in the queue and` : ""} will start automatically as soon as it is back. You can close this page — the results arrive by e-mail.`
-      : (() => {
-          const slots = ev?.capacity ?? 1;
-          const busy = ev?.running ?? 0;
-          const waitingFor = Math.max(0, (pos ?? 1) - 1 + Math.max(0, busy - slots + 1)); // runs that must finish before ours starts
-          if (waitingFor === 0 && busy < slots) return "Your submission is next in line and will start within seconds.";
-          const eta = Math.ceil(waitingFor / Math.max(1, slots)) * 45;
-          return `Your submission is #${pos ?? 1} in the queue · ${busy} evaluating now${slots > 1 ? ` (${slots} parallel slots)` : ""}. It starts when ${waitingFor === 1 ? "the current evaluation finishes" : `${waitingFor} evaluations ahead of it finish`} — roughly ${eta} min at ~45 min per run. You can close this page; the results arrive by e-mail.`;
-        })();
+  let body: string;
+  if (running) {
+    body =
+      pct !== null
+        ? `${pct.toFixed(0)} % done${stageLabel ? ` · ${stageLabel}` : ""}${etaSec !== null ? ` · ${fmtDuration(etaSec)} remaining` : ""}. This page updates automatically; you will also be e-mailed with the PDF report.`
+        : "Starting up — running all blinded drive cycles across four cells and six temperatures, plus the robustness sweeps. This page updates automatically and you will be e-mailed with the PDF report.";
+  } else if (offline) {
+    body = `The evaluator runs on a lab machine that is offline right now (last seen ${ago(ev?.lastSeenAt ?? null)}). Nothing is lost: your submission${pos ? ` is #${pos} in the queue and` : ""} will start automatically as soon as it is back. You can close this page — the results arrive by e-mail.`;
+  } else {
+    const busy = ev?.running ?? 0;
+    const slots = ev?.capacity ?? 1;
+    const wait = live.queueWaitSec;
+    if ((pos ?? 1) === 1 && busy < slots) body = "Your submission is next in line and will start within seconds.";
+    else
+      body = `Your submission is #${pos ?? 1} in the queue · ${busy} evaluating now${slots > 1 ? ` (${slots} parallel slots)` : ""}. Expected to start in ${wait !== null && wait !== undefined ? fmtDuration(wait) : "a while"} (based on the live progress of the current run and typical run times for the models ahead of you). You can close this page; the results arrive by e-mail.`;
+  }
 
   return (
     <div ref={cardRef} className="card scroll-mt-24 p-5" aria-live="polite">
