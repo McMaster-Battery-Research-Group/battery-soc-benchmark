@@ -86,7 +86,7 @@ export async function getSubmissionDetail(id: string) {
       user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } },
       collaborators: { include: { user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
       result: true,
-      job: { select: { log: true, attempts: true } },
+      job: { select: { log: true, attempts: true, cancelRequestedAt: true } },
       contest: { select: { id: true, slug: true, title: true, status: true } },
     },
   });

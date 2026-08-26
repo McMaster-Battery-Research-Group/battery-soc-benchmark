@@ -161,6 +161,7 @@ async function slot(item: WorkItem) {
     const r = await runNext(item);
     if (r.status === "FAILED") stats.failed++;
     else if (r.status === "COMPLETED" || r.status === "DRY_RUN") stats.completed++;
+    // CANCELLED / RETRY are neither
   } catch (err) {
     stats.failed++;
     stats.lastError = err instanceof Error ? err.message : String(err);

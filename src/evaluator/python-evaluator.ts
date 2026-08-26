@@ -1,8 +1,22 @@
-import { spawn } from "child_process";
+import { spawn, execFile, type ChildProcess } from "child_process";
 import { mkdtemp, readFile, rm } from "fs/promises";
 import os from "os";
 import path from "path";
-import { EvaluationError, type DryRunOutput, type EvaluationInput, type EvaluationOutput, type Evaluator } from "./types";
+import { EvaluationError, EvaluationCancelled, type DryRunOutput, type EvaluationInput, type EvaluationOutput, type Evaluator } from "./types";
+
+/** Kill the evaluator AND everything it spawned (the MATLAB session for .m/.p packages). */
+function killTree(child: ChildProcess) {
+  if (!child.pid) return;
+  if (process.platform === "win32") {
+    execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, () => {});
+  } else {
+    try {
+      process.kill(-child.pid, "SIGKILL"); // process group (spawned with detached: true)
+    } catch {
+      child.kill("SIGKILL");
+    }
+  }
+}
 import { parseResultsJson } from "./results";
 
 /**
@@ -44,11 +58,20 @@ export class PythonEvaluator implements Evaluator {
           cwd: pkgDir,
           env: { ...process.env, PYTHONPATH: pkgDir, PYTHONUNBUFFERED: "1", PYTHONIOENCODING: "utf-8" },
           windowsHide: true,
+          detached: process.platform !== "win32", // own process group on POSIX so killTree can take MATLAB with it
         });
         const timer = setTimeout(() => {
-          child.kill("SIGKILL");
+          killTree(child);
           reject(new EvaluationError(`Evaluation exceeded the ${timeoutMs / 60_000} minute limit.`, true));
         }, timeoutMs);
+        const onAbort = () => {
+          clearTimeout(timer);
+          killTree(child);
+          reject(new EvaluationCancelled());
+        };
+        if (input.signal?.aborted) return onAbort();
+        input.signal?.addEventListener("abort", onAbort, { once: true });
+        child.on("close", () => input.signal?.removeEventListener("abort", onAbort));
         let tail = "";
         const onData = (buf: Buffer) => {
           const text = buf.toString();

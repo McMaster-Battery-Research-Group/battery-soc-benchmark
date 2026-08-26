@@ -42,6 +42,16 @@ export interface EvaluationInput {
   evaluationLevel: "DYNAMIC" | "STATIC";
   /** Append a line to the job log (persisted, shown to the submitter on failure) */
   log: (line: string) => Promise<void> | void;
+  /** Aborted when the owner cancels: implementations must kill the evaluator process (and its MATLAB child). */
+  signal?: AbortSignal;
+}
+
+/** Thrown by evaluators when `signal` fires. */
+export class EvaluationCancelled extends Error {
+  constructor() {
+    super("Evaluation cancelled by the submitter.");
+    this.name = "EvaluationCancelled";
+  }
 }
 
 /**

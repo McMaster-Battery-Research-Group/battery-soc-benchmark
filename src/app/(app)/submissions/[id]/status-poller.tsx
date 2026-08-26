@@ -73,6 +73,11 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
     const tick = async () => {
       try {
         const res = await fetch(`/api/submissions/${id}/status`, { cache: "no-store" });
+        if (res.status === 404) {
+          // cancelled (and deleted) while we were watching
+          window.location.replace("/submissions?cancelled=1");
+          return;
+        }
         if (!res.ok) return;
         const j = (await res.json()) as Live;
         if (stop) return;

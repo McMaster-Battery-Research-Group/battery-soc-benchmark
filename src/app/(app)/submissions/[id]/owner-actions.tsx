@@ -1,16 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Lock, Unlock, RotateCcw, Trash2, EyeOff, Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Lock, Unlock, RotateCcw, Trash2, EyeOff, Eye, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { togglePrivateAction, deleteSubmissionAction, requeueSubmissionAction } from "../../submit/actions";
+import { togglePrivateAction, deleteSubmissionAction, requeueSubmissionAction, cancelSubmissionAction } from "../../submit/actions";
 import { toggleHiddenAction } from "@/app/(admin)/admin/actions";
 
-export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inContest }: { id: string; status: string; isPrivate: boolean; isHidden: boolean; isAdmin: boolean; inContest: boolean }) {
+export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inContest, cancelRequested }: { id: string; status: string; isPrivate: boolean; isHidden: boolean; isAdmin: boolean; inContest: boolean; cancelRequested?: boolean }) {
   const { push } = useToast();
+  const router = useRouter();
   const [pending, start] = React.useTransition();
+  const [cancelling, setCancelling] = React.useState(!!cancelRequested);
   const run = (fn: () => Promise<unknown>, ok: string) =>
     start(async () => {
       try {
@@ -20,10 +23,23 @@ export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inConte
         push({ kind: "error", title: "Action failed", description: e instanceof Error ? e.message : String(e) });
       }
     });
+  const cancel = () =>
+    start(async () => {
+      const res = await cancelSubmissionAction(id);
+      if (!res.ok) return push({ kind: "error", title: "Could not cancel", description: res.error });
+      if (res.immediate) {
+        push({ kind: "success", title: "Submission cancelled and removed" });
+        router.push("/submissions");
+      } else {
+        setCancelling(true);
+        push({ kind: "success", title: "Cancelling…", description: "The evaluator is being stopped; this submission will be removed in a moment." });
+      }
+    });
 
+  const inProgress = status === "QUEUED" || status === "RUNNING";
   return (
     <div className="flex shrink-0 flex-wrap gap-2">
-      {!inContest ? (
+      {!inContest && !inProgress ? (
         <Button variant="outline" size="sm" disabled={pending} onClick={() => run(() => togglePrivateAction(id, !isPrivate), isPrivate ? "Model is now public" : "Model is now private")}>
           {isPrivate ? <Unlock /> : <Lock />} {isPrivate ? "Make public" : "Make private"}
         </Button>
@@ -31,20 +47,32 @@ export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inConte
       {status === "FAILED" ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => run(() => requeueSubmissionAction(id), "Re-queued for evaluation")}><RotateCcw /> Re-run</Button>
       ) : null}
-      {isAdmin ? (
+      {isAdmin && !inProgress ? (
         <Button variant="outline" size="sm" disabled={pending} onClick={() => run(() => toggleHiddenAction(id, !isHidden), isHidden ? "Submission unhidden" : "Submission hidden from leaderboard")}>
           {isHidden ? <Eye /> : <EyeOff />} {isHidden ? "Unhide" : "Hide"}
         </Button>
       ) : null}
-      <Dialog>
-        <DialogTrigger asChild><Button variant="danger" size="sm" disabled={pending || status === "RUNNING"}><Trash2 /> Delete</Button></DialogTrigger>
-        <DialogContent title="Delete this submission?" description="Its results are removed from the leaderboard permanently. This cannot be undone." size="sm">
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button variant="danger" onClick={() => run(() => deleteSubmissionAction(id), "Submission deleted")}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {inProgress ? (
+        <Dialog>
+          <DialogTrigger asChild><Button variant="danger" size="sm" disabled={pending || cancelling} loading={cancelling}><Ban /> {cancelling ? "Cancelling…" : "Cancel evaluation"}</Button></DialogTrigger>
+          <DialogContent title="Cancel this evaluation?" description={status === "RUNNING" ? "The evaluator will be stopped on the evaluation machine and this submission removed. It does not count against any contest limit. You can submit again at any time." : "The submission will be removed from the queue. You can submit again at any time."} size="sm">
+            <DialogFooter>
+              <DialogClose asChild><Button variant="outline">Keep evaluating</Button></DialogClose>
+              <DialogClose asChild><Button variant="danger" onClick={cancel}><Ban /> Cancel evaluation</Button></DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <Dialog>
+          <DialogTrigger asChild><Button variant="danger" size="sm" disabled={pending}><Trash2 /> Delete</Button></DialogTrigger>
+          <DialogContent title="Delete this submission?" description="Its results are removed from the leaderboard permanently. This cannot be undone." size="sm">
+            <DialogFooter>
+              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+              <Button variant="danger" onClick={() => run(() => deleteSubmissionAction(id), "Submission deleted")}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

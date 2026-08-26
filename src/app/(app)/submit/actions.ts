@@ -142,9 +142,29 @@ export async function togglePrivateAction(id: string, isPrivate: boolean) {
   revalidatePath(`/submissions/${id}`);
 }
 
+/**
+ * Cancel a submission that has not finished. Queued → removed immediately.
+ * Running → the worker is asked to abort (it kills the evaluator / MATLAB
+ * process, then deletes the submission); the page redirects once it is gone.
+ */
+export async function cancelSubmissionAction(id: string): Promise<{ ok: true; immediate: boolean } | { ok: false; error: string }> {
+  const { sub } = await ownedSubmission(id);
+  if (sub.status === "COMPLETED" || sub.status === "FAILED") return { ok: false, error: "This submission has already finished — delete it instead." };
+  if (sub.status === "QUEUED") {
+    await storage.remove(sub.fileKey);
+    await db.submission.delete({ where: { id } });
+    revalidatePath("/submissions");
+    revalidatePath("/leaderboard");
+    return { ok: true, immediate: true };
+  }
+  await db.evaluationJob.update({ where: { submissionId: id }, data: { cancelRequestedAt: new Date() } });
+  revalidatePath(`/submissions/${id}`);
+  return { ok: true, immediate: false };
+}
+
 export async function deleteSubmissionAction(id: string) {
   const { sub } = await ownedSubmission(id);
-  if (sub.status === "RUNNING") throw new Error("Cannot delete a submission while it is being evaluated");
+  if (sub.status === "RUNNING") throw new Error("Cannot delete a submission while it is being evaluated — cancel it first");
   await storage.remove(sub.fileKey);
   await db.submission.delete({ where: { id } });
   revalidatePath("/leaderboard");
