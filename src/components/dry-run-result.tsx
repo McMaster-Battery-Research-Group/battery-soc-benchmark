@@ -87,8 +87,8 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
           </div>
         ))}
       </div>
+      {poll?.log ? <LogView title={`Console output (${poll.log.split("\n").filter(Boolean).length} lines)`} log={poll.log} className="mt-0" /> : null}
       <SocTrace traces={[{ key: "dry", label: `m80 ${r.cycle.cycle} at ${r.cycle.temperatureC} °C (open data)`, cell: "m80", cycle: r.cycle.cycle, temperatureC: r.cycle.temperatureC, t: r.trace.t, actual: r.trace.actual, estimated: r.trace.estimated }]} names={[modelName]} />
-      {poll?.log ? <LogView title="Console output" log={poll.log} className="mt-0" /> : null}
       {footer ? <p className="flex items-center gap-2 text-sm text-grey-700"><CheckCircle2 className="size-4 text-forest" /> {footer}</p> : null}
     </div>
   );

@@ -36,8 +36,9 @@ export async function runDryRun(id: string) {
   const dr = await db.dryRun.findUnique({ where: { id } });
   if (!dr) return;
   const log = async (line: string) => {
-    const cur = await db.dryRun.findUnique({ where: { id }, select: { log: true } });
-    await db.dryRun.update({ where: { id }, data: { log: (cur?.log ?? "") + `${new Date().toISOString()} ${line}\n` } });
+    process.stdout.write(`[dry ${id.slice(-6)}] ${line}\n`); // visible in the worker terminal / admin console too
+    const cur = await db.dryRun.findUnique({ where: { id }, select: { log: true } }).catch(() => null);
+    if (cur) await db.dryRun.update({ where: { id }, data: { log: cur.log + `${new Date().toISOString()} ${line}\n` } }).catch(() => {});
   };
   try {
     const localPath = await storage.materialize(dr.fileKey);
