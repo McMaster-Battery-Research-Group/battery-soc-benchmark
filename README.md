@@ -106,7 +106,7 @@ Obtaining them (the lab must do this — the marks are trademarked and cannot be
 
 ## TODO
 
-- [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and the Render worker. No code change.
+- [ ] **Email: switch from Gmail to Resend once a domain is available.** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, mail is sent from the personal address, and a personal account shouldn't back a public service. When `batterysocbenchmark.ca` DNS is accessible: verify the domain in Resend (DKIM/SPF records), create an API key, and set `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>"` on Vercel and in the worker's `.env.production`. No code change. Also fixes the multi-minute delivery delay into McMaster (Microsoft 365) mailboxes caused by the unaligned personal-Gmail sender.
 - [ ] Drop the official McMaster and NSERC assets into `public/logos/` (SVG for web, PNG for PDF/e-mail) once Brand Marketing approves — see *Institutional logos* above.
 - [x] Parity-tested the CC / EKF / FNN / LSTM example packages: all 21 score columns match the historical `Leaderboard.csv` to 0.000 (2026-08-25).
 - [ ] Decide whether the evaluation host ships PyTorch for Python submissions (three archived Python submissions depend on it).
@@ -116,7 +116,8 @@ Obtaining them (the lab must do this — the marks are trademarked and cannot be
 - [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
 - [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
 - [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
-- [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production.
+- [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production, and delete the `example.edu` demo accounts from the live database (Admin → Users) before announcing the site.
+- [ ] **Security follow-ups** — tracked in detail in `docs/security.md`. Human steps still outstanding: rotate the Supabase DB password + service-role key; move repo/`.env.production`/`blind-data` out of OneDrive; run the worker as the low-privilege `socbench` account; build the MATLAB sandbox image on the DRAC VM (host-mode MATLAB packages remain the main residual risk); install MATLAB toolboxes on the current host. Not started: cheating-detection badges, session invalidation on password change, admin 2FA, audit log, Dependabot/`npm audit`, weekly `pg_dump` backups, ZAP scan before launch.
 
 ## Scripts
 
