@@ -191,11 +191,18 @@ export function LeaderboardTable({
                 </thead>
                 <tbody>
                   {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id} className={cn("border-b border-border transition-colors hover:bg-maroon-100/50", row.original.userId === viewerId && "bg-gold-100/60")}>
+                    <tr
+                      key={row.id}
+                      className={cn(
+                        "border-b border-border transition-colors hover:bg-maroon-100/50",
+                        row.original.isPrivate ? "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-gold-100/60",
+                      )}
+                      title={row.original.isPrivate ? "Private — visible only to you; not on the public leaderboard" : undefined}
+                    >
                       {row.getVisibleCells().map((cell) => {
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
-                          <td key={cell.id} className={cn("px-3 py-2.5 align-middle", meta.align === "right" && "text-right", cell.column.id === "modelName" && "sticky left-0 z-[1] bg-white")}>
+                          <td key={cell.id} className={cn("px-3 py-2.5 align-middle", meta.align === "right" && "text-right", cell.column.id === "modelName" && "sticky left-0 z-[1]", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : "bg-white"))}>
                             {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
@@ -211,10 +218,11 @@ export function LeaderboardTable({
               {table.getRowModel().rows.map((row) => {
                 const r = row.original;
                 return (
-                  <li key={r.id} className="flex items-start gap-3 p-4">
+                  <li key={r.id} className={cn("flex items-start gap-3 p-4", r.isPrivate && "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]")}>
                     <RankBadge rank={rankById.get(r.id)!.rank} ghost={rankById.get(r.id)!.ghost} />
                     <div className="min-w-0 flex-1">
                       <Link href={`/submissions/${r.id}`} className="font-heading font-semibold text-ink">{r.modelName}</Link>
+                      {r.isPrivate ? <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900">Private · only you</span> : null}
                       <p className="text-xs text-grey-600">{MODEL_TYPE_LABELS[r.modelType]} · {r.author}, {r.affiliation} · {fmtDate(r.submittedAt)}</p>
                       <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
                         <div><dt className="text-grey-600">Weighted</dt><dd className="font-heading font-semibold text-ink tabular">{fmtPct(r.weightedError)}</dd></div>
