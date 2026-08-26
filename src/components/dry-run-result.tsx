@@ -53,8 +53,8 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
     return (
       <div className="mt-4 space-y-3">
         <Alert variant="danger" title="The package did not run">
-          <p>{poll.failureMessage}</p>
-          {poll.log ? <pre className="mt-3 max-h-48 overflow-auto rounded-brand bg-grey-900 p-3 text-xs text-white">{poll.log}</pre> : null}
+          <p className="break-words">{poll.failureMessage}</p>
+          {poll.log ? <pre className="mt-3 max-h-72 max-w-full overflow-auto whitespace-pre-wrap break-all rounded-brand bg-grey-900 p-3 text-xs leading-relaxed text-white">{poll.log}</pre> : null}
         </Alert>
         <p className="flex items-center gap-2 text-sm text-grey-700"><XCircle className="size-4 text-danger" /> Fix the package and run the test again — or <Link href="/contact?category=bug&subject=Dry%20run%20failed" className="text-maroon underline">report a problem</Link> if you think the evaluator is at fault.</p>
       </div>

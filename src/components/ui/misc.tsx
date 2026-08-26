@@ -24,7 +24,7 @@ export function Alert({
   return (
     <div className={cn("flex gap-3 rounded-brand border p-4 text-sm", styles[variant], className)} role={variant === "danger" ? "alert" : undefined}>
       <Icon className={cn("mt-0.5 size-5 shrink-0", iconColor)} aria-hidden />
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         {title ? <p className="font-heading font-semibold text-ink">{title}</p> : null}
         {children ? <div className={cn(title && "mt-1")}>{children}</div> : null}
       </div>

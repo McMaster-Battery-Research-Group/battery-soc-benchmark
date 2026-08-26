@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import traceback
 import subprocess
 import sys
@@ -152,6 +153,32 @@ def _user_frames(limit: int = 6) -> str:
 
 # ---------------------------------------------------------------- MATLAB
 
+# "Undefined function 'x'" almost always means a toolbox is missing on the evaluation
+# host rather than a bug in the submission. Name the likely product so the message is
+# actionable for both the submitter and the administrators.
+_TOOLBOX_FUNCS = {
+    "Signal Processing Toolbox": {"butter", "filtfilt", "cheby1", "cheby2", "ellip", "designfilt", "sgolayfilt", "medfilt1", "resample", "pwelch", "findpeaks", "lowpass", "highpass", "bandpass"},
+    "Deep Learning Toolbox": {"predict", "network", "feedforwardnet", "fitnet", "narxnet", "dlnetwork", "trainNetwork", "predictAndUpdateState", "resetState", "classify", "sim"},
+    "Statistics and Machine Learning Toolbox": {"fitrgp", "fitrsvm", "fitrtree", "fitrensemble", "TreeBagger", "mvnpdf", "normrnd", "ksdensity", "regress", "zscore"},
+    "Control System Toolbox": {"ss", "tf", "c2d", "lsim", "kalman", "dlqe", "ss2tf", "tf2ss"},
+    "System Identification Toolbox": {"iddata", "ssest", "n4sid", "arx", "extendedKalmanFilter", "unscentedKalmanFilter"},
+    "Optimization Toolbox": {"fmincon", "lsqnonlin", "fminunc", "lsqcurvefit", "quadprog"},
+    "Curve Fitting Toolbox": {"fit", "cfit", "smooth", "fittype"},
+    "Fuzzy Logic Toolbox": {"readfis", "evalfis", "mamfis", "sugfis"},
+}
+
+
+def _toolbox_hint(err: str) -> str:
+    m = re.search(r"Undefined function '([A-Za-z_]\w*)'", err)
+    if not m:
+        return ""
+    fn = m.group(1)
+    for product, funcs in _TOOLBOX_FUNCS.items():
+        if fn in funcs:
+            return f" — '{fn}' belongs to the {product}, which is not installed on the evaluation host. The administrators have been notified via the log; if you can, avoid the toolbox call (e.g. hard-code filter coefficients)."
+    return f" — '{fn}' is not on MATLAB's path here: either it comes from a toolbox that is not installed on the evaluation host, or the function file is missing from your package."
+
+
 class MatlabBackend(Backend):
     name = "matlab"
 
@@ -187,7 +214,7 @@ class MatlabBackend(Backend):
             res = loadmat(outp, squeeze_me=False)
             err = str(res.get("err", np.array([""]))).strip("[]' ")
             if err and err != "":
-                raise ModelError(f"MATLAB model error: {err}")
+                raise ModelError(f"MATLAB model error: {err}{_toolbox_hint(err)}")
             preds = res["preds"].reshape(-1)
             secs = np.asarray(res["secs"], dtype=float).reshape(-1)
             if len(preds) != len(jobs):
