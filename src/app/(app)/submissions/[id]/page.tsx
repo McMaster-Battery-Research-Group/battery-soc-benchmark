@@ -62,7 +62,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           </p>
           <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
         </div>
-        {(isOwner || isAdmin) ? <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} inContest={!!sub.contestId} /> : null}
+        {(isOwner || isAdmin) ? <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} /> : null}
       </div>
 
       {sp.new ? <Alert variant="success" className="mt-6" title="Submission received">Your package passed the structural checks and is queued for blinded evaluation. This page updates automatically; you will also receive an email when it finishes.</Alert> : null}

@@ -242,6 +242,9 @@ model EvaluationJob {
   lockedAt     DateTime?
   lockedBy     String?
   log          String     @default("")
+  /// Set when the owner asks to cancel a running evaluation; the worker aborts
+  /// the evaluator process and deletes the submission.
+  cancelRequestedAt DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

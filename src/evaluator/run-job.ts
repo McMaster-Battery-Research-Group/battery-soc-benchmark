@@ -9,7 +9,7 @@ import { storage } from "@/lib/storage";
 import { evaluationCompleteEmail } from "@/lib/mail";
 import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getEvaluator } from "./index";
-import { EvaluationError } from "./types";
+import { EvaluationError, EvaluationCancelled } from "./types";
 
 export const STALE_LOCK_MS = 30 * 60 * 1000;
 export const MAX_ATTEMPTS = 2;
@@ -87,7 +87,7 @@ export function workerId() {
   return `${hostname()}-${process.pid}`;
 }
 
-export async function runJob(jobId: string): Promise<{ submissionId: string; status: "COMPLETED" | "FAILED" | "RETRY" }> {
+export async function runJob(jobId: string): Promise<{ submissionId: string; status: "COMPLETED" | "FAILED" | "RETRY" | "CANCELLED" }> {
   const evaluator = getEvaluator();
   const job = await db.evaluationJob.findUnique({ where: { id: jobId }, include: { submission: { include: { user: true, collaborators: { include: { user: { select: { email: true, name: true } } } } } } } });
   if (!job) throw new Error("job vanished");
@@ -100,15 +100,24 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     if (skipped.length) await log(`${skipped.length} pending collaborator(s) not e-mailed — the owner has not confirmed them yet`);
     return [{ email: sub.user.email, name: sub.user.name }, ...fresh.filter((c) => c.notifiedAt).map((c) => c.user)];
   };
+  // Cancellation: the owner sets EvaluationJob.cancelRequestedAt; we notice it on
+  // the next log line or the 10 s poll and abort the evaluator (which kills MATLAB too).
+  const abort = new AbortController();
   const log = async (line: string) => {
     const stamped = `${new Date().toISOString()} ${line}\n`;
     process.stdout.write(`[${sub.seq}] ${line}\n`);
-    const cur = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { log: true } });
+    const cur = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { log: true, cancelRequestedAt: true } }).catch(() => null);
+    if (!cur) return; // job row gone (cancelled + deleted) — nothing to write to
+    if (cur.cancelRequestedAt && !abort.signal.aborted) abort.abort();
     // Every log line also refreshes the lock (heartbeat): a real evaluation can
     // run for an hour, far longer than STALE_LOCK_MS, and must not be re-claimed
     // by another worker while it is still making progress.
-    await db.evaluationJob.update({ where: { id: jobId }, data: { log: (cur?.log ?? "") + stamped, lockedAt: new Date() } });
+    await db.evaluationJob.update({ where: { id: jobId }, data: { log: cur.log + stamped, lockedAt: new Date() } }).catch(() => {});
   };
+  const cancelPoll = setInterval(async () => {
+    const j = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { cancelRequestedAt: true } }).catch(() => null);
+    if (j?.cancelRequestedAt && !abort.signal.aborted) abort.abort();
+  }, 10_000);
 
   await db.submission.update({ where: { id: sub.id }, data: { status: "RUNNING" } });
   await log(`${workerId()} started evaluation with "${evaluator.name}" evaluator (attempt ${job.attempts})`);
@@ -116,7 +125,8 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
   try {
     const localPath = await storage.materialize(sub.fileKey);
     await log(`package ready at ${localPath}`);
-    const out = await evaluator.evaluate({ submissionId: sub.id, filePath: localPath, fileType: sub.fileType, modelType: sub.modelType, evaluationLevel: sub.evaluationLevel, log });
+    const out = await evaluator.evaluate({ submissionId: sub.id, filePath: localPath, fileType: sub.fileType, modelType: sub.modelType, evaluationLevel: sub.evaluationLevel, log, signal: abort.signal });
+    clearInterval(cancelPoll);
     const { perCycle, timeSeries, evaluatorVersion, ...scalars } = out;
     await db.$transaction([
       db.evaluationResult.upsert({
@@ -142,6 +152,13 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     }
     return { submissionId: sub.id, status: "COMPLETED" };
   } catch (err) {
+    clearInterval(cancelPoll);
+    if (err instanceof EvaluationCancelled || abort.signal.aborted) {
+      process.stdout.write(`[${sub.seq}] cancelled by the submitter — evaluator stopped, submission removed\n`);
+      await storage.remove(sub.fileKey);
+      await db.submission.delete({ where: { id: sub.id } }).catch(() => {}); // cascades to job + result
+      return { submissionId: sub.id, status: "CANCELLED" };
+    }
     const message = err instanceof EvaluationError && err.userFacing ? err.message : "The evaluator encountered an internal error. The administrators have been notified.";
     await log(`FAILED: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
     const willRetry = job.attempts < MAX_ATTEMPTS && !(err instanceof EvaluationError);
