@@ -13,6 +13,16 @@
   Remove with:
     Unregister-ScheduledTask -TaskName "SOC Benchmark Worker" -Confirm:$false
 #>
+param(
+  # Run the worker as a separate low-privilege local account instead of your own
+  # (recommended: submissions are untrusted code). Create it first:
+  #   New-LocalUser socbench -Password (Read-Host -AsSecureString) -PasswordNeverExpires
+  #   icacls <repo> /grant "socbench:(OI)(CI)RX"      # read the code
+  #   icacls <repo>\.env.production /grant "socbench:R"
+  #   icacls <blind-data dir> /grant "socbench:(OI)(CI)R"
+  # then: .\scripts\install-worker-task.ps1 -RunAsUser socbench
+  [string]$RunAsUser = $env:USERNAME
+)
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $task = "SOC Benchmark Worker"
@@ -23,13 +33,15 @@ $npm = (Get-Command npm.cmd).Source
 # Uses .env.production when present (the live site), else .env (local dev).
 $script = if (Test-Path (Join-Path $repo ".env.production")) { "worker:prod" } else { "worker" }
 $action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"$npm`" run $script >> `"$repo\worker.log`" 2>&1" -WorkingDirectory $repo
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$trigger = if ($RunAsUser -eq $env:USERNAME) { New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME } else { New-ScheduledTaskTrigger -AtStartup }
 $settings = New-ScheduledTaskSettingsSet `
   -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
   -ExecutionTimeLimit ([TimeSpan]::Zero) `
   -MultipleInstances IgnoreNew `
   -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+$principal = if ($RunAsUser -eq $env:USERNAME) { New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited } else { New-ScheduledTaskPrincipal -UserId $RunAsUser -LogonType Password -RunLevel Limited }
+# NOTE: with -RunAsUser the account needs "Log on as a batch job" (secpol.msc) and Docker Desktop
+# access (add it to the local "docker-users" group).
 
 Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null

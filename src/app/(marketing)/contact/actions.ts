@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { contactSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { feedbackNotificationEmail } from "@/lib/mail";
+import { rateLimit, clientIp, TOO_MANY } from "@/lib/rate-limit";
 
 export interface ContactState {
   ok?: boolean;
@@ -15,6 +16,8 @@ export async function sendContactAction(_prev: ContactState, fd: FormData): Prom
   const values = Object.fromEntries(["name", "email", "category", "subject", "body", "pageUrl"].map((k) => [k, String(fd.get(k) ?? "")]));
   const parsed = contactSchema.safeParse(values);
   if (!parsed.success) return { errors: zodErrors(parsed.error), values };
+  const rl = await rateLimit(`contact:ip:${await clientIp()}`, 5, 60 * 60_000);
+  if (!rl.ok) return { errors: { form: TOO_MANY(rl.retryAfterSec) }, values };
   const session = await auth();
   const { pageUrl, ...rest } = parsed.data;
   const msg = await db.contactMessage.create({ data: { ...rest, pageUrl: pageUrl || null, userId: session?.user?.id ?? null } });

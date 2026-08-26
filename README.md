@@ -165,6 +165,19 @@ Zero-cost layout for the mock-evaluator phase; the paid Render option is kept in
 ### Paid alternative — Render worker
 `render.yaml` defines a $7/mo background worker (and, commented out, Render Postgres). Only worth it if nobody can keep a machine on and the cron endpoint isn't acceptable.
 
+### Security model (read before running a worker)
+
+**Submissions are untrusted code** that the benchmark executes by design. Threats: exfiltrating the blinded data (the answer key), reading the worker's secrets, using the evaluation host as a foothold. Defences, in layers:
+
+1. **Container sandbox (default when Docker is installed, `EVAL_SANDBOX=docker`).** Each evaluation runs in a throw-away container: `--network none`, read-only root FS, `--cap-drop ALL`, `no-new-privileges`, CPU/memory/pid limits, unprivileged user, and only three mounts — the package (ro), `blind_data.mat` (ro) and an output directory. The container never receives the worker's environment, so DB/SMTP/storage secrets are not reachable. Build once: `docker build -t socbench-eval evaluator` (add `--build-arg TORCH=1` for PyTorch). MATLAB packages need `evaluator/Dockerfile.matlab` (Linux x86-64 + a license server) — until that image is configured they run on the host (next layer).
+2. **Allow-listed environment on the host (`EVAL_SANDBOX=none`, or MATLAB packages without a MATLAB image).** Only `SOCBENCH_*`, `MATLAB_*`, PATH/temp/home variables reach the model process — never `DATABASE_URL`, `SUPABASE_SERVICE_KEY`, `SMTP_PASS`, `AUTH_SECRET`. This still lets a malicious model read the blinded data and your files, so run the worker as a **dedicated low-privilege account** (`scripts\install-worker-task.ps1 -RunAsUser socbench`) and keep the repo, `.env.production` and `blind-data/` **outside OneDrive / synced folders**.
+3. **Package hygiene** — zip entries are validated on upload *and* before extraction (no `..`/absolute paths, no symlinks, ≤ 500 entries, ≤ 512 MB uncompressed, compression ratio ≤ 200) so zip-slip and zip bombs are rejected.
+4. **Abuse limits** — DB-backed sliding windows on login (10/15 min per account, 40 per IP), registration (5/h per IP), password reset & verification e-mails (3/h per address), contact form (5/h per IP), upload URLs (30/h per user), and `SUBMISSIONS_PER_DAY` full evaluations per user (default 3; dry runs and admins exempt).
+5. **Web hardening** — CSP / HSTS / nosniff / frame-ancestors none / referrer & permissions policies (`next.config.ts`), cron endpoint accepts the secret in the `Authorization` header only (constant-time compare), signed short-lived upload URLs into a private bucket, packages deleted after evaluation.
+6. **Detecting cheating** — a model that has memorised the blinded data is a statistical, not technical, problem: watch for implausibly low error on the blinded cell vs the open cells (admin badge on the TODO list).
+
+Rotate `DATABASE_URL`/`SUPABASE_SERVICE_KEY` from Supabase → Settings if they are ever exposed; both Vercel and `.env.production` on the worker must be updated together.
+
 ### Ops notes
 - Scaling evaluation: run `npm run worker` on more machines — jobs are claimed atomically, nothing else to configure. `WORKER_CONCURRENCY=n` runs n evaluations in parallel on one machine (CPU-bound; ≤ physical cores / 2). **Admin → Evaluation workers** (`/admin/workers`) lists every machine with live diagnostics (CPU/memory/disk, Python/MATLAB/blinded-data checks, code version, completed/failed counts), the last 200 console lines of each, the queue with lock ages, and pause / resume / stop / release-lock / retry controls.
 - Real evaluation: set `EVALUATOR=real` on the worker host (needs Python + `socbench_eval`, MATLAB for `.m/.p` packages, and `SOCBENCH_BLIND_DATA` pointing at the blinded `.mat` — see *The evaluator*). The worker calls `storage.materialize()` so the package is always a local file regardless of storage mode. The cron endpoint only works with the mock evaluator.

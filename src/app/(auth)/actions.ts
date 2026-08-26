@@ -6,6 +6,7 @@ import { AuthError as NextAuthError } from "next-auth";
 import { db } from "@/lib/db";
 import { hashPassword, signIn, signOut, auth } from "@/lib/auth";
 import { isListedAdmin } from "@/lib/admin-list";
+import { rateLimit, clientIp, TOO_MANY } from "@/lib/rate-limit";
 import { verificationEmail, passwordResetEmail } from "@/lib/mail";
 import { loginSchema, registerSchema, passwordSchema, profileSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
@@ -32,6 +33,8 @@ export async function registerAction(_prev: ActionState, fd: FormData): Promise<
   const parsed = registerSchema.safeParse(vals);
   if (!parsed.success) return { errors: zodErrors(parsed.error), values: vals };
   const email = parsed.data.email.toLowerCase();
+  const rl = await rateLimit(`register:ip:${await clientIp()}`, 5, 60 * 60_000);
+  if (!rl.ok) return { errors: { form: TOO_MANY(rl.retryAfterSec) }, values: vals };
 
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) return { errors: { email: "An account with this email already exists." }, values: vals };
@@ -46,6 +49,8 @@ export async function registerAction(_prev: ActionState, fd: FormData): Promise<
 
 export async function resendVerificationAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const email = String(fd.get("email") ?? "").toLowerCase().trim();
+  const rl = await rateLimit(`verify:email:${email}`, 3, 60 * 60_000);
+  if (!rl.ok) return { errors: { form: TOO_MANY(rl.retryAfterSec) } };
   const user = await db.user.findUnique({ where: { email } });
   if (user && !user.emailVerified) {
     const token = await issueToken(user.id, "VERIFY_EMAIL", 24 * 3600 * 1000);
@@ -59,6 +64,10 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
   const next = String(fd.get("next") ?? "");
   const parsed = loginSchema.safeParse(vals);
   if (!parsed.success) return { errors: zodErrors(parsed.error), values: { email: vals.email } };
+  // Credential stuffing / brute force: per account and per source address.
+  const ip = await clientIp();
+  const [byEmail, byIp] = await Promise.all([rateLimit(`login:email:${parsed.data.email.toLowerCase()}`, 10, 15 * 60_000), rateLimit(`login:ip:${ip}`, 40, 15 * 60_000)]);
+  if (!byEmail.ok || !byIp.ok) return { errors: { form: TOO_MANY(Math.max(byEmail.retryAfterSec, byIp.retryAfterSec)) }, values: { email: vals.email } };
   try {
     await signIn("credentials", { email: parsed.data.email, password: parsed.data.password, redirect: false });
   } catch (err) {
@@ -79,6 +88,11 @@ export async function signOutAction() {
 }
 
 export async function requestResetAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  {
+    const email = String(fd.get("email") ?? "").toLowerCase().trim();
+    const [byEmail, byIp] = await Promise.all([rateLimit(`reset:email:${email}`, 3, 60 * 60_000), rateLimit(`reset:ip:${await clientIp()}`, 10, 60 * 60_000)]);
+    if (!byEmail.ok || !byIp.ok) return { errors: { form: TOO_MANY(Math.max(byEmail.retryAfterSec, byIp.retryAfterSec)) } };
+  }
   const email = String(fd.get("email") ?? "").toLowerCase().trim();
   if (!email) return { errors: { email: "Enter your email address" } };
   const user = await db.user.findUnique({ where: { email } });
