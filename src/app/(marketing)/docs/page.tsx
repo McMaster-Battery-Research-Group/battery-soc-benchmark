@@ -1,3 +1,4 @@
+import { getActiveWeights } from "@/lib/scoring-config";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/misc";
@@ -46,7 +47,8 @@ for i = 2:T
     [SOC(i), z] = Model(X(i, :), z);   % iterative call with state
 end`;
 
-export default function DocsPage() {
+export default async function DocsPage() {
+  const weights = await getActiveWeights();
   const groups: TestCaseGroup[] = ["overview", "conditions", "temperature", "robustness"];
   return (
     <>
@@ -78,7 +80,7 @@ export default function DocsPage() {
                     <thead className="bg-grey-100"><tr className="border-b border-border"><th className="h-9 w-14 px-3 text-left font-heading text-xs font-semibold uppercase text-grey-800">Test</th><th className="h-9 px-3 text-left font-heading text-xs font-semibold uppercase text-grey-800">Name</th><th className="h-9 px-3 text-left font-heading text-xs font-semibold uppercase text-grey-800">Data</th><th className="h-9 w-20 px-3 text-right font-heading text-xs font-semibold uppercase text-grey-800">Weight</th></tr></thead>
                     <tbody>
                       {TEST_CASES.filter((t) => t.group === g).map((t) => (
-                        <tr key={t.key} className="border-b border-border last:border-0"><td className="px-3 py-2 tabular text-grey-600">{t.test}</td><td className="px-3 py-2 font-medium text-ink">{t.label}</td><td className="px-3 py-2 text-grey-800">{t.description}</td><td className="px-3 py-2 text-right tabular">{t.weight}</td></tr>
+                        <tr key={t.key} className="border-b border-border last:border-0"><td className="px-3 py-2 tabular text-grey-600">{t.test}</td><td className="px-3 py-2 font-medium text-ink">{t.label}</td><td className="px-3 py-2 text-grey-800">{t.description}</td><td className="px-3 py-2 text-right tabular">{(weights[t.key] ?? t.weight).toFixed(4)}</td></tr>
                       ))}
                     </tbody>
                   </table>

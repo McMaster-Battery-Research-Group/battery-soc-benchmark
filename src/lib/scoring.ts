@@ -8,14 +8,15 @@ export type MetricValues = Record<MetricKey, number>;
  * Challenging / important edge cases (−20 °C, 1000 kg, robustness, sensor
  * offset) are up-weighted as suggested in the ITEC 2022 paper, §IV.c.
  */
-export function weightedError(values: Partial<MetricValues>): number {
+export function weightedError(values: Partial<MetricValues>, weights?: Partial<Record<MetricKey, number>>): number {
   let num = 0;
   let den = 0;
   for (const tc of TEST_CASES) {
     const v = values[tc.key];
     if (typeof v !== "number" || Number.isNaN(v)) continue;
-    num += v * tc.weight;
-    den += tc.weight;
+    const w = weights?.[tc.key] ?? tc.weight;
+    num += v * w;
+    den += w;
   }
   return den === 0 ? NaN : round(num / den, 3);
 }

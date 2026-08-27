@@ -46,6 +46,7 @@ export function LeaderboardTable({
   const [affiliation, setAffiliation] = React.useState("");
   const [modelType, setModelType] = React.useState("");
   const [showPrivate, setShowPrivate] = React.useState(false); // opt-in: the public board is what everyone else sees
+  const [showLegacy, setShowLegacy] = React.useState(true); // legacy-scored rows are listed (unranked) unless filtered out
 
   React.useEffect(() => {
     try {
@@ -70,9 +71,10 @@ export function LeaderboardTable({
           (!author || r.author.toLowerCase().includes(author.toLowerCase())) &&
           (!affiliation || r.affiliation.toLowerCase().includes(affiliation.toLowerCase())) &&
           (!modelType || r.modelType === modelType) &&
-          (showPrivate || !r.isPrivate),
+          (showPrivate || !r.isPrivate) &&
+          (showLegacy || isCurrentBenchmark(r.evaluatorVersion)),
       ),
-    [rows, author, affiliation, modelType, showPrivate],
+    [rows, author, affiliation, modelType, showPrivate, showLegacy],
   );
 
   // Rank is derived from the weighted error, independent of the current sort, and counted over
@@ -115,6 +117,7 @@ export function LeaderboardTable({
   };
 
   const hasPrivate = viewerId ? rows.some((r) => r.isPrivate && r.userId === viewerId) : false;
+  const legacyCount = rows.filter((r) => !isCurrentBenchmark(r.evaluatorVersion)).length;
   const modelTypes = Array.from(new Set(rows.map((r) => r.modelType)));
 
   return (
@@ -149,6 +152,13 @@ export function LeaderboardTable({
               <label className="mr-2 flex items-center gap-2 text-sm text-grey-800">
                 <Checkbox checked={showPrivate} onCheckedChange={(v) => setShowPrivate(!!v)} /> Show where my private models would rank (only you can see them)
               </label>
+            ) : null}
+            {legacyCount ? (
+              <Tooltip content="Submissions scored by an older benchmark version. They are never ranked; untick to hide them.">
+                <label className="mr-2 flex items-center gap-2 text-sm text-grey-800">
+                  <Checkbox checked={showLegacy} onCheckedChange={(v) => setShowLegacy(!!v)} /> Include legacy-scored ({legacyCount}, unranked)
+                </label>
+              </Tooltip>
             ) : null}
             <ColumnPicker visibility={visibility} onChange={updateVisibility} />
             <Button variant="outline" size="sm" onClick={download}><Download /> CSV</Button>

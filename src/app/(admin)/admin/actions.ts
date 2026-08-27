@@ -9,6 +9,40 @@ import { requireAdmin } from "@/lib/auth";
 import { contestSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { moderationEmail } from "@/lib/mail";
 import { storage } from "@/lib/storage";
+import { rescoreAll } from "@/lib/rescore";
+import { normalise, validateWeights, sameWeights, getActiveScoring, DEFAULT_WEIGHTS } from "@/lib/scoring-config";
+
+// ---- scoring weights
+
+/** Dry run: how many stored scores would change with these weights. */
+export async function previewScoringAction(weights: Record<string, number>): Promise<{ ok: true; changed: number; checked: number; sample: { seq: number; modelName: string; from: number; to: number }[] } | { ok: false; error: string }> {
+  await requireAdmin();
+  const w = normalise(weights);
+  const problem = validateWeights(w);
+  if (problem) return { ok: false, error: problem };
+  const r = await rescoreAll({ apply: false, notify: false, note: "", by: "preview", weights: w });
+  return { ok: true, changed: r.changed, checked: r.checked, sample: r.changes.slice(0, 50) };
+}
+
+/** Save new weights (or null = reset to defaults), re-score everything, optionally e-mail authors. */
+export async function saveScoringAction(weights: Record<string, number> | null, note: string, notify: boolean): Promise<{ ok: true; rescored: number; emailed: number } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const why = note.trim();
+  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters) — it is sent to authors and kept in the change log." };
+  const w = weights ? normalise(weights) : DEFAULT_WEIGHTS;
+  const problem = validateWeights(w);
+  if (problem) return { ok: false, error: problem };
+  const current = await getActiveScoring(true);
+  if (sameWeights(w, current.weights)) return { ok: false, error: "These are already the active weights." };
+  const cfg = await db.scoringConfig.create({ data: { createdBy: admin.id, note: why, weights: w } });
+  const r = await rescoreAll({ apply: true, notify, note: why, by: admin.id, weights: w });
+  await db.scoringConfig.update({ where: { id: cfg.id }, data: { rescored: r.changed, notified: r.emailed } });
+  logEvent("admin.scoring_changed", { by: admin.id, reset: !weights, rescored: r.changed, emailed: r.emailed, note: why });
+  revalidatePath("/leaderboard");
+  revalidatePath("/docs");
+  revalidatePath("/admin/scoring");
+  return { ok: true, rescored: r.changed, emailed: r.emailed };
+}
 
 // ---- evaluation workers
 
