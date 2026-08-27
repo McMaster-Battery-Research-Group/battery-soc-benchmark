@@ -31,12 +31,23 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
   const logRef = React.useRef<HTMLPreElement>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
-  // Fresh submission (redirected here with ?new=1): bring the live status into view.
+  // Fresh submission (redirected here with ?new=1): bring the live status card — and its console — into view.
+  // Scroll more than once: the browser restores scroll after navigation and the card grows when the log arrives.
+  const isNew = React.useRef(false);
+  const scrolledForLog = React.useRef(false);
+  const reveal = React.useCallback(() => cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), []);
   React.useEffect(() => {
-    if (!new URLSearchParams(window.location.search).has("new")) return;
-    const t = setTimeout(() => cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
+    isNew.current = new URLSearchParams(window.location.search).has("new");
+    if (!isNew.current) return;
+    const timers = [100, 600, 1500].map((ms) => setTimeout(reveal, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [reveal]);
+  React.useEffect(() => {
+    if (!isNew.current || scrolledForLog.current || !live.log) return;
+    scrolledForLog.current = true; // first console output: scroll once more so the terminal is on screen
+    const t = setTimeout(reveal, 50);
     return () => clearTimeout(t);
-  }, []);
+  }, [live.log, reveal]);
 
   React.useEffect(() => {
     let stop = false;
