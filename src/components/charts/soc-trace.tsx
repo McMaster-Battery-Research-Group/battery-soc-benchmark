@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, ReferenceArea } from "recharts";
-import { ZoomIn, ZoomOut, Hand, MoveHorizontal, MoveVertical, Maximize2 } from "lucide-react";
+import { Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
+import { Hand, MoveHorizontal, MoveVertical, Maximize2, BoxSelect, Plus, Minus, ChevronDown } from "lucide-react";
 import type { TimeSeriesTrace } from "@/evaluator/types";
 import { fmtPct, cn } from "@/lib/utils";
 import { CHART, SERIES } from "./palette";
@@ -46,12 +46,14 @@ export function SocTrace({
   const [yZoom, setYZoom] = React.useState<{ soc?: [number, number]; err?: [number, number] }>({});
   const [mode, setMode] = React.useState<Mode>("box");
   const [errScale, setErrScale] = React.useState<"auto" | "fixed">("auto");
-  const [fitSoc, setFitSoc] = React.useState(false);
+  const [fitSoc, setFitSoc] = React.useState(true);
   const [navKey, setNavKey] = React.useState(0);
   const navInitial = React.useRef<[number, number]>([0, Math.max(0, n - 1)]);
   const domainsRef = React.useRef<{ soc: [number, number]; err: [number, number] }>({ soc: [0, 100], err: [-20, 20] });
   const wrapRef = React.useRef<HTMLDivElement>(null);
-  const [sel, setSel] = React.useState<{ plot: Plot; from: number; to: number; y1: number; y2: number } | null>(null);
+  // rubber-band selection in plot pixels (relative to the plot wrapper) — exact, independent of data-point snapping
+  const [sel, setSel] = React.useState<{ plot: Plot; x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const selRef = React.useRef<typeof sel>(null);
   const pan = React.useRef<{ plot: Plot; x: number; y: number; range: [number, number]; yDom: [number, number] } | null>(null);
 
   React.useEffect(() => {
@@ -98,6 +100,20 @@ export function SocTrace({
       return { soc: grow(z.soc), err: grow(z.err) };
     });
   };
+  const scaleY = (factor: number) =>
+    setYZoom((z) => {
+      const f = (d: [number, number]) => {
+        const mid = (d[0] + d[1]) / 2;
+        const half = (d[1] - d[0]) / 2 / factor;
+        return [round3(mid - half), round3(mid + half)] as [number, number];
+      };
+      return { soc: f(z.soc ?? domainsRef.current.soc), err: f(z.err ?? domainsRef.current.err) };
+    });
+  const zoomIn = () => {
+    const [a, b] = range;
+    zoomAtIndex(Math.round((a + b) / 2), 2);
+    scaleY(2);
+  };
   const zoomAtIndex = (i: number, factor: number) => {
     const [a, b] = range;
     const width = b - a + 1;
@@ -106,19 +122,6 @@ export function SocTrace({
     const s = Math.round(i - frac * newW);
     applyRange(s, s + newW - 1);
   };
-  const zoomTimeSpan = (t1: number, t2: number) => {
-    const lo = Math.min(t1, t2);
-    const hi = Math.max(t1, t2);
-    const times = ref?.t ?? [];
-    let s = times.findIndex((t) => t >= lo);
-    let e = times.findIndex((t) => t > hi);
-    if (s < 0) s = 0;
-    e = e < 0 ? times.length - 1 : Math.max(s, e - 1);
-    if (e - s < 3) return false;
-    applyRange(s, e);
-    return true;
-  };
-
   // ---- pixel helpers (fixed margins make this exact enough)
   const plotWidth = () => Math.max(1, (wrapRef.current?.clientWidth ?? 800) - Y_AXIS_W - RIGHT);
   const yValue = (plot: Plot, chartY: number) => {
@@ -127,87 +130,100 @@ export function SocTrace({
     const frac = Math.min(1, Math.max(0, (chartY - top) / (height - top - xAxis)));
     return hi - frac * (hi - lo);
   };
-  const readEvent = (plot: Plot, e: unknown) => {
-    const ev = e as { activeLabel?: unknown; chartX?: number; chartY?: number } | null;
-    const v = ev?.activeLabel;
-    const t = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
-    const y = typeof ev?.chartY === "number" ? yValue(plot, ev.chartY) : NaN;
-    return { t, y, chartX: ev?.chartX ?? NaN, chartY: ev?.chartY ?? NaN };
+  const localPoint = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const plotArea = (plot: Plot) => ({ left: Y_AXIS_W, right: Y_AXIS_W + plotWidth(), top: PLOT[plot].top, bottom: PLOT[plot].height - PLOT[plot].xAxis });
+  const clampToArea = (plot: Plot, pt: { x: number; y: number }) => {
+    const a = plotArea(plot);
+    return { x: Math.min(a.right, Math.max(a.left, pt.x)), y: Math.min(a.bottom, Math.max(a.top, pt.y)) };
+  };
+  const indexAtX = (x: number) => {
+    const [a, b] = range;
+    const fx = Math.min(1, Math.max(0, (x - Y_AXIS_W) / plotWidth()));
+    return Math.round(a + fx * (b - a));
   };
 
-  // Pan: native pointer events on the wrapper (independent of Recharts' event payloads).
-  const panHandlers = (plot: Plot) =>
-    mode !== "pan"
-      ? {}
-      : {
-          onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
-            if (e.button !== 0) return;
-            e.currentTarget.setPointerCapture(e.pointerId);
-            pan.current = { plot, x: e.clientX, y: e.clientY, range, yDom: domainsRef.current[plot] };
-          },
-          onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
-            const p = pan.current;
-            if (!p || p.plot !== plot) return;
-            const [a, b] = p.range;
-            const width = Math.min(n, b - a + 1);
-            const dxSamples = Math.round(((p.x - e.clientX) / plotWidth()) * width);
-            const s = Math.max(0, Math.min(n - width, a + dxSamples));
-            if (Number.isFinite(s)) {
-              navInitial.current = [s, s + width - 1];
-              setRange((prev) => (prev[0] === s ? prev : [s, s + width - 1]));
-            }
-            const { height, top, xAxis } = PLOT[plot];
-            const perPx = (p.yDom[1] - p.yDom[0]) / (height - top - xAxis);
-            const dy = (e.clientY - p.y) * perPx;
-            if (Number.isFinite(dy) && dy !== 0) setYZoom((z) => ({ ...z, [plot]: [round3(p.yDom[0] + dy), round3(p.yDom[1] + dy)] }));
-          },
-          onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => {
-            if (!pan.current) return;
-            pan.current = null;
-            try {
-              e.currentTarget.releasePointerCapture(e.pointerId);
-            } catch {}
-            setNavKey((k) => k + 1);
-          },
-          onPointerCancel: () => {
-            pan.current = null;
-            setNavKey((k) => k + 1);
-          },
-        };
-
-  const handlersFor = (plot: Plot) => ({
-    onMouseDown: (e: unknown) => {
-      if (mode === "pan") return;
-      const { t, y } = readEvent(plot, e);
-      if (Number.isFinite(t)) setSel({ plot, from: t, to: t, y1: y, y2: y });
-    },
-    onMouseMove: (e: unknown) => {
-      if (mode === "pan") return;
-      const { t, y } = readEvent(plot, e);
-      if (sel && sel.plot === plot && Number.isFinite(t)) setSel({ ...sel, to: t, y2: Number.isFinite(y) ? y : sel.y2 });
-    },
-    onMouseUp: (e: unknown) => {
-      if (mode === "pan") return;
-      if (!sel || sel.plot !== plot) return setSel(null);
-      const [lo, hi] = domainsRef.current[plot];
-      const dy = Math.abs(sel.y1 - sel.y2);
-      const tallEnough = Number.isFinite(dy) && dy >= 0.05 * (hi - lo);
-      const wideEnough = sel.from !== sel.to;
-      if (mode === "box" && !wideEnough && !tallEnough) {
-        // click: zoom in 2× at the point (MATLAB "zoom in" click behaviour)
-        const { t } = readEvent(plot, e);
-        const times = ref?.t ?? [];
-        const i = times.findIndex((v) => v >= t);
-        zoomAtIndex(i < 0 ? 0 : i, 2);
-      } else if (mode === "box" || mode === "x") {
-        if (wideEnough) zoomTimeSpan(sel.from, sel.to);
-        if (mode === "box" && tallEnough) setYZoom((z) => ({ ...z, [plot]: [round3(Math.min(sel.y1, sel.y2)), round3(Math.max(sel.y1, sel.y2))] }));
-      } else if (mode === "y" && tallEnough) {
-        setYZoom((z) => ({ ...z, [plot]: [round3(Math.min(sel.y1, sel.y2)), round3(Math.max(sel.y1, sel.y2))] }));
+  /** One pointer model for every tool (MATLAB-style): drag a rectangle → zoom exactly that box; click → zoom 2×; pan → drag the view. */
+  const pointerHandlers = (plot: Plot) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      if (mode === "pan") {
+        pan.current = { plot, x: e.clientX, y: e.clientY, range, yDom: domainsRef.current[plot] };
+        return;
       }
-      setSel(null);
+      const pt = clampToArea(plot, localPoint(e));
+      const next = { plot, x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
+      selRef.current = next;
+      setSel(next);
     },
-    onMouseLeave: () => setSel(null),
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (mode === "pan") {
+        const p = pan.current;
+        if (!p || p.plot !== plot) return;
+        const [a, b] = p.range;
+        const width = Math.min(n, b - a + 1);
+        const dxSamples = Math.round(((p.x - e.clientX) / plotWidth()) * width);
+        const st = Math.max(0, Math.min(n - width, a + dxSamples));
+        if (Number.isFinite(st)) {
+          navInitial.current = [st, st + width - 1];
+          setRange((prev) => (prev[0] === st ? prev : [st, st + width - 1]));
+        }
+        const { height, top, xAxis } = PLOT[plot];
+        const perPx = (p.yDom[1] - p.yDom[0]) / (height - top - xAxis);
+        const dy = (e.clientY - p.y) * perPx;
+        if (Number.isFinite(dy) && dy !== 0) setYZoom((z) => ({ ...z, [plot]: [round3(p.yDom[0] + dy), round3(p.yDom[1] + dy)] }));
+        return;
+      }
+      const cur = selRef.current;
+      if (!cur || cur.plot !== plot) return;
+      const pt = clampToArea(plot, localPoint(e));
+      const next = { ...cur, x1: pt.x, y1: pt.y };
+      selRef.current = next;
+      setSel(next);
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      if (mode === "pan") {
+        if (!pan.current) return;
+        pan.current = null;
+        setNavKey((k) => k + 1);
+        return;
+      }
+      const cur = selRef.current;
+      selRef.current = null;
+      setSel(null);
+      if (!cur || cur.plot !== plot) return;
+      const w = Math.abs(cur.x1 - cur.x0);
+      const h = Math.abs(cur.y1 - cur.y0);
+      const MIN = 4; // px — anything smaller is a click
+      const useX = mode !== "y" && w >= MIN;
+      const useY = mode !== "x" && h >= MIN;
+      if (!useX && !useY) {
+        if (mode === "box") zoomAtIndex(indexAtX(cur.x0), 2);
+        return;
+      }
+      if (useX) {
+        const s0 = indexAtX(Math.min(cur.x0, cur.x1));
+        const e0 = indexAtX(Math.max(cur.x0, cur.x1));
+        applyRange(s0, Math.max(s0 + 3, e0));
+      }
+      if (useY) {
+        const v1 = yValue(plot, Math.min(cur.y0, cur.y1));
+        const v2 = yValue(plot, Math.max(cur.y0, cur.y1));
+        setYZoom((z) => ({ ...z, [plot]: [round3(Math.min(v1, v2)), round3(Math.max(v1, v2))] }));
+      }
+    },
+    onPointerCancel: () => {
+      pan.current = null;
+      selRef.current = null;
+      setSel(null);
+      setNavKey((k) => k + 1);
+    },
     onDoubleClick: () => restore(),
   });
 
@@ -264,22 +280,25 @@ export function SocTrace({
 
   const selBox = (plot: Plot) => {
     if (!sel || sel.plot !== plot) return null;
-    const [lo, hi] = domainsRef.current[plot];
-    const tall = Math.abs(sel.y1 - sel.y2) >= 0.05 * (hi - lo);
-    const wide = sel.from !== sel.to;
-    if (mode === "y") return tall && view.length ? <ReferenceArea x1={view[0].t} x2={view[view.length - 1].t} y1={Math.min(sel.y1, sel.y2)} y2={Math.max(sel.y1, sel.y2)} fill={CHART.primary} fillOpacity={0.12} stroke={CHART.primary} strokeOpacity={0.5} /> : null;
-    if (!wide) return null;
-    const yProps = mode === "box" && tall ? { y1: Math.min(sel.y1, sel.y2), y2: Math.max(sel.y1, sel.y2) } : {};
-    return <ReferenceArea x1={Math.min(sel.from, sel.to)} x2={Math.max(sel.from, sel.to)} {...yProps} fill={CHART.primary} fillOpacity={0.12} stroke={CHART.primary} strokeOpacity={0.5} />;
+    const area = plotArea(plot);
+    const left = mode === "y" ? area.left : Math.min(sel.x0, sel.x1);
+    const right = mode === "y" ? area.right : Math.max(sel.x0, sel.x1);
+    const top = mode === "x" ? area.top : Math.min(sel.y0, sel.y1);
+    const bottom = mode === "x" ? area.bottom : Math.max(sel.y0, sel.y1);
+    if (right - left < 1 && bottom - top < 1) return null;
+    return <div aria-hidden className="pointer-events-none absolute z-[2] border border-maroon bg-maroon/10" style={{ left, top, width: right - left, height: bottom - top }} />;
   };
 
-  const tools: { id: Mode | "out" | "fit"; label: string; icon: React.ComponentType<{ className?: string }>; tip: string }[] = [
-    { id: "box", label: "Zoom", icon: ZoomIn, tip: "Drag a box to zoom (time on both plots, value on this plot). Click to zoom in 2×. Wheel zooms time; Ctrl+wheel zooms value." },
+  const modes: { id: Mode; label: string; icon: React.ComponentType<{ className?: string }>; tip: string }[] = [
+    { id: "box", label: "Zoom", icon: BoxSelect, tip: "Drag a rectangle to zoom to exactly that box (time on both plots, value on this plot). Click to zoom in 2×. Wheel zooms time; Ctrl+wheel zooms value." },
     { id: "x", label: "Zoom X", icon: MoveHorizontal, tip: "Drag to zoom the time axis only." },
     { id: "y", label: "Zoom Y", icon: MoveVertical, tip: "Drag to zoom the value axis of this plot only." },
     { id: "pan", label: "Pan", icon: Hand, tip: "Drag to move the view." },
-    { id: "out", label: "Zoom out", icon: ZoomOut, tip: "Step out 2×." },
-    { id: "fit", label: "Fit", icon: Maximize2, tip: "Restore the whole cycle and default axes (or double-click a plot)." },
+  ];
+  const actions: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; tip: string; run: () => void }[] = [
+    { id: "in", label: "Zoom in", icon: Plus, tip: "Zoom in 2× around the centre (both axes).", run: zoomIn },
+    { id: "out", label: "Zoom out", icon: Minus, tip: "Zoom out 2× (both axes).", run: zoomOut },
+    { id: "fit", label: "Fit", icon: Maximize2, tip: "Restore the whole cycle and default axes (or double-click a plot).", run: restore },
   ];
 
   return (
@@ -294,9 +313,15 @@ export function SocTrace({
       legend={legend}
       aside={
         selectable && options ? (
-          <NativeSelect value={ref.key} onChange={(e) => onSelect?.(e.target.value)} className="h-9 w-56 text-sm" aria-label="Choose drive cycle">
-            {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </NativeSelect>
+          <label className="block">
+            <span className="mb-1 block font-heading text-xs font-medium uppercase tracking-wide text-grey-600">Drive cycle</span>
+            <span className="relative block">
+              <NativeSelect value={ref.key} onChange={(e) => onSelect?.(e.target.value)} className="h-10 w-64 cursor-pointer border-grey-400 bg-white pr-9 font-heading text-sm font-medium text-ink shadow-sm hover:border-maroon focus:border-maroon" aria-label="Choose drive cycle">
+                {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </NativeSelect>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-maroon" />
+            </span>
+          </label>
         ) : null
       }
     >
@@ -304,22 +329,22 @@ export function SocTrace({
         {/* Toolbar — MATLAB figure style */}
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2 px-1 text-xs text-grey-700">
           <div className="inline-flex rounded-brand border border-border p-0.5" role="toolbar" aria-label="Zoom and pan tools">
-            {tools.map((t) => {
-              const isMode = t.id !== "out" && t.id !== "fit";
-              const active = isMode && mode === t.id;
-              return (
-                <Tip key={t.id} content={t.tip}>
-                  <button
-                    type="button"
-                    aria-pressed={isMode ? active : undefined}
-                    onClick={() => (t.id === "out" ? zoomOut() : t.id === "fit" ? restore() : setMode(t.id))}
-                    className={cn("inline-flex items-center gap-1 rounded-[3px] px-2 py-1 font-heading font-medium", active ? "bg-maroon text-white" : "text-grey-800 hover:bg-grey-100", (t.id === "out" || t.id === "fit") && "border-l border-border")}
-                  >
-                    <t.icon className="size-3.5" /> {t.label}
-                  </button>
-                </Tip>
-              );
-            })}
+            {modes.map((t) => (
+              <Tip key={t.id} content={t.tip}>
+                <button type="button" aria-pressed={mode === t.id} onClick={() => setMode(t.id)} className={cn("inline-flex items-center gap-1 rounded-[3px] px-2 py-1 font-heading font-medium", mode === t.id ? "bg-maroon text-white" : "text-grey-800 hover:bg-grey-100")}>
+                  <t.icon className="size-3.5" /> {t.label}
+                </button>
+              </Tip>
+            ))}
+          </div>
+          <div className="inline-flex rounded-brand border border-border p-0.5" role="group" aria-label="Zoom steps">
+            {actions.map((t) => (
+              <Tip key={t.id} content={t.tip}>
+                <button type="button" onClick={t.run} aria-label={t.label} className="inline-flex size-7 items-center justify-center rounded-[3px] text-grey-800 hover:bg-grey-100">
+                  <t.icon className="size-4" />
+                </button>
+              </Tip>
+            ))}
           </div>
           <span className="inline-flex items-center gap-1.5">
             Error axis
@@ -357,12 +382,12 @@ export function SocTrace({
 
         <div ref={wrapRef}>
           {/* SOC */}
-          <div onWheel={onWheel("soc")} {...panHandlers("soc")} className={cn("select-none touch-none", cursor)}>
+          <div onWheel={onWheel("soc")} {...pointerHandlers("soc")} className={cn("relative select-none touch-none", cursor)}>
+            {selBox("soc")}
             <ResponsiveContainer width="100%" height={PLOT.soc.height}>
-              <LineChart data={view} margin={{ top: PLOT.soc.top, right: RIGHT, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...handlersFor("soc")}>
+              <LineChart data={view} margin={{ top: PLOT.soc.top, right: RIGHT, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} height={PLOT.soc.xAxis} />
-                {selBox("soc")}
                 <YAxis {...axisProps} width={Y_AXIS_W} unit="%" domain={socDomain} allowDataOverflow />
                 <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
                 <Line type="monotone" dataKey="actual" name="Actual" stroke={CHART.actual} strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -374,12 +399,12 @@ export function SocTrace({
           </div>
 
           {/* Error */}
-          <div onWheel={onWheel("err")} {...panHandlers("err")} className={cn("select-none touch-none", cursor)}>
+          <div onWheel={onWheel("err")} {...pointerHandlers("err")} className={cn("relative select-none touch-none", cursor)}>
+            {selBox("err")}
             <ResponsiveContainer width="100%" height={PLOT.err.height}>
-              <LineChart data={view} margin={{ top: PLOT.err.top, right: RIGHT, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`} {...handlersFor("err")}>
+              <LineChart data={view} margin={{ top: PLOT.err.top, right: RIGHT, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} height={PLOT.err.xAxis} />
-                {selBox("err")}
                 <YAxis {...axisProps} width={Y_AXIS_W} unit="%" domain={errDomain} allowDataOverflow tickFormatter={(v) => (Math.abs(v) < 1 ? Number(v).toFixed(2) : Number(v).toFixed(1))} />
                 <ReferenceLine y={0} stroke={CHART.axis} />
                 <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${Number(p.value) >= 0 ? "+" : ""}${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
