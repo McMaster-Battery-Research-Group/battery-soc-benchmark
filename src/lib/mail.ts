@@ -258,3 +258,23 @@ export async function accountEventEmail(kind: "registered" | "verified", user: {
     ),
   );
 }
+
+/** Role change: tell the person, CC every other administrator so the whole admin group sees who granted/revoked what. */
+export async function roleChangedEmail(user: { name: string; email: string }, role: "USER" | "ADMIN", byName: string) {
+  const { adminNotifyTargets } = await import("@/lib/admin-list");
+  const cc = (await adminNotifyTargets()).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
+  const granted = role === "ADMIN";
+  const href = `${site()}/admin`;
+  return sendMail({
+    to: addr(user.name, user.email),
+    cc: cc.join(", ") || undefined,
+    subject: granted ? "You are now an administrator of the Battery SOC Benchmark" : "Your administrator access on the Battery SOC Benchmark was removed",
+    html: layout(
+      granted ? "You have administrator access" : "Administrator access removed",
+      granted
+        ? `<p>Hi ${user.name},</p><p><strong>${byName}</strong> made you an administrator. You can now moderate submissions, manage contests and users, read the contact inbox, watch the evaluation workers and change the scoring weights. Admin accounts also have no submission rate limits.</p><p style="font-size:13px;color:#6d7a84">All administrators are copied on this message.</p>${button(href, "Open the admin panel")}`
+        : `<p>Hi ${user.name},</p><p><strong>${byName}</strong> removed your administrator access. Your account, submissions and collaborations are unaffected.</p><p style="font-size:13px;color:#6d7a84">All administrators are copied on this message.</p>`,
+    ),
+    text: granted ? `${byName} made you an administrator: ${href}` : `${byName} removed your administrator access.`,
+  });
+}
