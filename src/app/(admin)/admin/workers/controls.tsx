@@ -18,6 +18,8 @@ function useRun() {
         push({ kind: "success", title: ok });
         router.refresh();
       } catch (e) {
+        // A server action that redirect()s throws a NEXT_REDIRECT sentinel: let Next handle it, it is not a failure.
+        if (typeof (e as { digest?: unknown })?.digest === "string" && String((e as { digest: string }).digest).startsWith("NEXT_REDIRECT")) throw e;
         push({ kind: "error", title: "Action failed", description: e instanceof Error ? e.message : String(e) });
       }
     });
