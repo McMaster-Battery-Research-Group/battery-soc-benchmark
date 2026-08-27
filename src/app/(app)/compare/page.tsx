@@ -26,7 +26,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader eyebrow="Side by side" title="Compare models" description="Pick two to four evaluated models to overlay their test-case errors, temperature sensitivity and time-domain SOC traces on the same blinded cycles." actions={<Button asChild variant="outline"><Link href="/leaderboard"><ListOrdered /> Back to leaderboard</Link></Button>} />
       <div className="container-site py-10">
-        <CompareClient rows={rows} initialIds={ids} tracesById={tracesById} />
+        <CompareClient rows={rows} initialIds={ids} tracesById={tracesById} viewerId={session?.user?.id} />
       </div>
     </>
   );
