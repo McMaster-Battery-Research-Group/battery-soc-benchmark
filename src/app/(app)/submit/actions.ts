@@ -11,6 +11,7 @@ import { checkSubmissionPackage } from "@/lib/package-check";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail } from "@/lib/mail";
 import { randomBytes } from "crypto";
+import { rateLimit, retryText } from "@/lib/rate-limit";
 
 export interface SubmitState {
   errors?: FieldErrors;
@@ -234,6 +235,23 @@ export async function notifyCollaboratorsAction(id: string): Promise<{ ok: true;
   logEvent("collaborators.invited", { submissionId: id, sent, pending: pending.length });
   revalidatePath(`/submissions/${id}`);
   return sent ? { ok: true, sent } : { ok: false, error: "E-mails could not be sent — check the mail settings." };
+}
+
+/** Re-send the invitation e-mail to one invited-but-unanswered collaborator (owner/admin; at most once per 12 h per person). */
+export async function resendInviteAction(id: string, userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { sub, session } = await ownedSubmission(id);
+  const c = await db.submissionCollaborator.findUnique({ where: { submissionId_userId: { submissionId: id, userId } }, include: { user: { select: { email: true, name: true } } } });
+  if (!c || !c.notifiedAt) return { ok: false, error: "This person has not been invited yet — use Send invitations." };
+  if (c.acceptedAt) return { ok: false, error: "Already accepted." };
+  const rl = await rateLimit(`invite:${id}:${userId}`, 1, 12 * 60 * 60_000);
+  if (!rl.ok) return { ok: false, error: `An invitation was sent recently — you can resend in ${retryText(rl.retryAfterSec)}.` };
+  const token = c.inviteToken ?? randomBytes(24).toString("base64url");
+  const owner = await db.user.findUnique({ where: { id: sub.userId }, select: { email: true } });
+  const sent = await collaboratorInviteEmail(c.user.email, c.user.name, session.user.name, sub.modelName, sub.id, sub.status === "COMPLETED", token, owner?.email);
+  if (!sent) return { ok: false, error: "The e-mail could not be sent — check the mail settings." };
+  await db.submissionCollaborator.update({ where: { submissionId_userId: { submissionId: id, userId } }, data: { notifiedAt: new Date(), inviteToken: token } });
+  logEvent("collaborator.invite_resent", { submissionId: id, userId });
+  return { ok: true };
 }
 
 /** Accept or decline an invitation — by the signed-in collaborator, or via the e-mail token (no login needed). */

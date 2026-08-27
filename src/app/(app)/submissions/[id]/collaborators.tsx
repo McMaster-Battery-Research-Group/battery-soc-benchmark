@@ -3,14 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, Users, Send, MailCheck, Clock, Check, BadgeCheck } from "lucide-react";
+import { X, Users, Send, MailCheck, Clock, Check, BadgeCheck, RefreshCw } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/misc";
 import { Dialog, DialogContent, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { addCollaboratorAction, removeCollaboratorAction, notifyCollaboratorsAction, respondToInviteAction } from "../../submit/actions";
+import { addCollaboratorAction, removeCollaboratorAction, notifyCollaboratorsAction, respondToInviteAction, resendInviteAction } from "../../submit/actions";
 
 export type Collaborator = { id: string; name: string; affiliation: string; avatarVersion: number | null; notified: boolean; accepted: boolean };
 type Person = Omit<Collaborator, "notified" | "accepted">;
@@ -45,6 +45,14 @@ export function Collaborators({ submissionId, owner, list, canEdit, viewerId }: 
       const res = await notifyCollaboratorsAction(submissionId);
       if (res.ok) push({ kind: "success", title: `${res.sent} invitation${res.sent === 1 ? "" : "s"} sent (you were CC'd)` });
       else push({ kind: "error", title: "Nothing sent", description: res.error });
+      router.refresh();
+    });
+
+  const resend = (userId: string, name: string) =>
+    start(async () => {
+      const res = await resendInviteAction(submissionId, userId);
+      if (res.ok) push({ kind: "success", title: `Invitation re-sent to ${name}` });
+      else push({ kind: "error", title: "Not re-sent", description: res.error });
       router.refresh();
     });
 
@@ -116,14 +124,14 @@ export function Collaborators({ submissionId, owner, list, canEdit, viewerId }: 
       <ul className="mt-4 grid gap-2 sm:grid-cols-2">
         <PersonCard p={owner} role="Owner" state="owner" />
         {list.map((c) => (
-          <PersonCard key={c.id} p={c} role={c.accepted ? "Co-author" : c.notified ? "Invited — awaiting reply" : "Pending — not invited"} state={c.accepted ? "accepted" : c.notified ? "invited" : "pending"} onRemove={canEdit || c.id === viewerId ? () => remove(c.id) : undefined} removeLabel={c.id === viewerId ? "Leave" : "Remove"} pending={pending} />
+          <PersonCard key={c.id} p={c} role={c.accepted ? "Co-author" : c.notified ? "Invited — awaiting reply" : "Pending — not invited"} state={c.accepted ? "accepted" : c.notified ? "invited" : "pending"} onRemove={canEdit || c.id === viewerId ? () => remove(c.id) : undefined} removeLabel={c.id === viewerId ? "Leave" : "Remove"} onResend={canEdit && c.notified && !c.accepted ? () => resend(c.id, c.name) : undefined} pending={pending} />
         ))}
       </ul>
     </section>
   );
 }
 
-function PersonCard({ p, role, state, onRemove, removeLabel, pending }: { p: Person; role: string; state: "owner" | "pending" | "invited" | "accepted"; onRemove?: () => void; removeLabel?: string; pending?: boolean }) {
+function PersonCard({ p, role, state, onRemove, removeLabel, onResend, pending }: { p: Person; role: string; state: "owner" | "pending" | "invited" | "accepted"; onRemove?: () => void; removeLabel?: string; onResend?: () => void; pending?: boolean }) {
   const Icon = state === "pending" ? Clock : state === "invited" ? MailCheck : state === "accepted" ? BadgeCheck : null;
   const iconColor = state === "pending" ? "text-[#9a6a17]" : state === "invited" ? "text-bayfront" : "text-forest";
   return (
@@ -136,6 +144,9 @@ function PersonCard({ p, role, state, onRemove, removeLabel, pending }: { p: Per
           {Icon ? <Icon className={`size-3 ${iconColor}`} aria-hidden /> : null}
         </span>
       </span>
+      {onResend ? (
+        <button type="button" onClick={onResend} disabled={pending} className="inline-flex items-center gap-1 rounded-brand px-2 py-1 font-heading text-xs font-medium text-maroon hover:bg-maroon-100" title="Send the invitation e-mail again (once per 12 h)"><RefreshCw className="size-3.5" /> Resend invite</button>
+      ) : null}
       {onRemove ? (
         <button type="button" onClick={onRemove} disabled={pending} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`${removeLabel ?? "Remove"} ${p.name}`} title={removeLabel}><X className="size-4" /></button>
       ) : null}
