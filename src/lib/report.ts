@@ -122,7 +122,10 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     y += 30;
     const hist = input.history ?? [];
     if (hist.length > 1) {
-      if (y + 40 + hist.length * 14 > doc.page.height - 60) {
+      // keep the whole table together when it fits on one page
+      const hcNote = W - 110 - 130 - 150 - 8;
+      const needed = 46 + hist.reduce((a, h) => a + Math.max(14, doc.heightOfString(h.note ?? "", { width: hcNote }) + 6), 0);
+      if (y + needed > doc.page.height - 70) {
         doc.addPage();
         y = 48;
       }
@@ -134,6 +137,12 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       const KIND: Record<string, string> = { evaluation: "Evaluated", failure: "Failed", rescore: "Re-scored", reevaluation: "Re-evaluated" };
       for (const h of hist) {
         const rowH = Math.max(14, doc.heightOfString(h.note ?? "", { width: hc[3] - 8 }) + 6);
+        if (y + rowH > doc.page.height - 70) {
+          doc.addPage();
+          y = 48;
+          tableHeader(doc, X0, y, hc, ["When", "Event", "Weighted error", "Note"]);
+          y += 18;
+        }
         doc.moveTo(X0, y + rowH).lineTo(X0 + W, y + rowH).lineWidth(0.5).strokeColor(LINE).stroke();
         doc.fillColor(GREY).font("Helvetica").fontSize(8).text(date(h.createdAt), X0 + 4, y + 4, { width: hc[0] - 8 });
         doc.fillColor(INK).font("Helvetica-Bold").text(`${KIND[h.kind] ?? h.kind} · ${h.evaluatorVersion.split("/")[0]}`, X0 + hc[0] + 4, y + 4, { width: hc[1] - 8 });
@@ -201,8 +210,8 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       doc.switchToPage(i);
       doc.page.margins.bottom = 0; // footer sits inside the margin; stop pdfkit from paginating
       doc.fillColor(GREY).font("Helvetica").fontSize(7.5);
-      doc.text(`Battery SOC Benchmark · ${siteUrl}/submissions/${s.id} · Cite: Kollmeyer et al., IEEE ITEC 2022, doi:10.1109/ITEC53557.2022.9813996`, X0, doc.page.height - 34, { width: W - 60, lineBreak: false });
-      doc.text("Developed by the McMaster Automotive Resource Centre, McMaster University, with funding from NSERC / CRSNG.", X0, doc.page.height - 22, { width: W - 60, lineBreak: false });
+      doc.text(`Battery SOC Benchmark · ${siteUrl}/submissions/${s.id} · Cite: Kollmeyer et al., IEEE ITEC 2022, doi:10.1109/ITEC53557.2022.9813996`, X0, doc.page.height - 34, { width: W - 60, height: 10, ellipsis: true, lineBreak: false });
+      doc.text("Developed by the McMaster Automotive Resource Centre, McMaster University, with funding from NSERC / CRSNG.", X0, doc.page.height - 22, { width: W - 60, height: 10, ellipsis: true, lineBreak: false });
       doc.text(`${i - range.start + 1} / ${range.count}`, X0, doc.page.height - 34, { width: W, align: "right", lineBreak: false });
     }
     doc.end();
