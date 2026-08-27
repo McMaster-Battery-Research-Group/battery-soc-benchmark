@@ -44,16 +44,52 @@ function allowListedEnv(): Record<string, string> {
   return out;
 }
 
-let dockerAvailable: boolean | null = null;
-function haveDocker() {
-  if (dockerAvailable !== null) return dockerAvailable;
+/** Is the Docker daemon reachable right now? (not cached — Docker Desktop comes and goes) */
+export function dockerUp(): boolean {
   try {
     execFileSync("docker", ["version", "--format", "{{.Server.Os}}"], { stdio: ["ignore", "pipe", "ignore"], timeout: 15_000, windowsHide: true });
-    dockerAvailable = true;
+    return true;
   } catch {
-    dockerAvailable = false;
+    return false;
   }
-  return dockerAvailable;
+}
+
+/** Configured sandbox mode: "docker" unless EVAL_SANDBOX=none is set explicitly. */
+export function sandboxMode(): "docker" | "none" {
+  return (process.env.EVAL_SANDBOX ?? "docker").toLowerCase() === "none" ? "none" : "docker";
+}
+
+/**
+ * Try to bring the Docker daemon up (Docker Desktop on Windows/macOS). Returns
+ * when it answers or after `waitMs`. Safe to call repeatedly.
+ */
+export async function ensureDocker(waitMs = 90_000, log?: (l: string) => void): Promise<boolean> {
+  if (dockerUp()) return true;
+  const candidates =
+    process.platform === "win32"
+      ? [path.join(process.env["ProgramFiles"] ?? "C:\Program Files", "Docker", "Docker", "Docker Desktop.exe")]
+      : process.platform === "darwin"
+        ? ["/Applications/Docker.app"]
+        : [];
+  for (const c of candidates) {
+    try {
+      log?.(`[sandbox] Docker daemon not running — starting ${c}`);
+      if (process.platform === "darwin") execFile("open", ["-a", c]);
+      else spawn(c, [], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+      break;
+    } catch (e) {
+      log?.(`[sandbox] could not start Docker Desktop: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 5_000));
+    if (dockerUp()) {
+      log?.("[sandbox] Docker daemon is up");
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Kill the evaluator AND everything it spawned (the MATLAB session for .m/.p packages). */
@@ -103,10 +139,13 @@ export class PythonEvaluator implements Evaluator {
     const outDir = await mkdtemp(path.join(os.tmpdir(), "socbench-pyeval-"));
     const timeoutMs = Number(dry ? (process.env.DRY_RUN_TIMEOUT_MIN ?? 10) : (process.env.PY_EVAL_TIMEOUT_MIN ?? 180)) * 60_000;
 
-    const mode = (process.env.EVAL_SANDBOX ?? (haveDocker() ? "docker" : "none")).toLowerCase();
+    const mode = sandboxMode();
     const runtime = packageRuntime(input.filePath);
     const matlabImage = process.env.EVAL_SANDBOX_MATLAB_IMAGE;
     const useDocker = mode === "docker" && (runtime !== "matlab" || !!matlabImage);
+    // Never fall back silently: if the sandbox is required but the daemon is down, fail this
+    // attempt as an internal (retryable) error — the worker holds the queue until Docker is back.
+    if (useDocker && !dockerUp()) throw new EvaluationError("Docker sandbox required (EVAL_SANDBOX=docker) but the Docker daemon is not running on the evaluation host.", false);
 
     let cmd: string;
     let args: string[];
