@@ -10,6 +10,7 @@ import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage } from "@/lib/package-check";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail } from "@/lib/mail";
+import { recordRevision } from "@/lib/history";
 import { randomBytes } from "crypto";
 import { rateLimit, retryText } from "@/lib/rate-limit";
 
@@ -169,6 +170,19 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
   // Only delete outright if no worker has claimed the job yet; a claimed job is
   // effectively running (the status flips a moment later), so ask the worker to abort.
   const job = await db.evaluationJob.findUnique({ where: { submissionId: id }, select: { lockedAt: true } });
+  const hasPrevious = sub.version > 1 && !!(await db.evaluationResult.findUnique({ where: { submissionId: id }, select: { id: true } }));
+  if (sub.status === "QUEUED" && !job?.lockedAt && hasPrevious) {
+    // v2+ waiting in the queue: drop the new package, keep the previous result
+    await storage.remove(sub.fileKey);
+    await db.$transaction([
+      db.submission.update({ where: { id }, data: { status: "COMPLETED", version: sub.version - 1, completedAt: new Date() } }),
+      db.evaluationJob.update({ where: { submissionId: id }, data: { lockedAt: null, lockedBy: null, cancelRequestedAt: null } }),
+    ]);
+    await recordRevision({ submissionId: id, kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} cancelled before evaluation — v${sub.version - 1} score kept`, by: (await auth())?.user?.id });
+    revalidatePath("/submissions");
+    revalidatePath(`/submissions/${id}`);
+    return { ok: true, immediate: true };
+  }
   if (sub.status === "QUEUED" && !job?.lockedAt) {
     await storage.remove(sub.fileKey);
     await db.submission.delete({ where: { id } });
@@ -181,6 +195,88 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
   logEvent("submission.cancel_requested", { id, seq: sub.seq });
   revalidatePath(`/submissions/${id}`);
   return { ok: true, immediate: false };
+}
+
+/** Owner/admin: edit name, description and model type. Never touches scores; noted in the score history. */
+export async function updateSubmissionDetailsAction(id: string, input: { modelName: string; description: string; modelType: string }): Promise<{ ok: true } | { ok: false; errors: Record<string, string | undefined> }> {
+  const { sub, session } = await ownedSubmission(id);
+  const parsed = submissionMetaSchema.pick({ modelName: true, description: true, modelType: true }).safeParse(input);
+  if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
+  const contest = sub.contestId ? await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, endsAt: true } }) : null;
+  const locked = !!contest && (contest.status !== "OPEN" || contest.endsAt < new Date());
+  if (locked && (parsed.data.modelName !== sub.modelName || parsed.data.modelType !== sub.modelType)) return { ok: false, errors: { form: "This contest has closed: the name and model type are frozen." } };
+  const changes: string[] = [];
+  if (parsed.data.modelName !== sub.modelName) changes.push(`name "${sub.modelName}" → "${parsed.data.modelName}"`);
+  if (parsed.data.modelType !== sub.modelType) changes.push(`type ${sub.modelType} → ${parsed.data.modelType}`);
+  if (parsed.data.description !== sub.description) changes.push("description updated");
+  if (!changes.length) return { ok: true };
+  await db.submission.update({ where: { id }, data: parsed.data });
+  await recordRevision({ submissionId: id, kind: "edit", evaluatorVersion: "-", note: changes.join("; "), by: session.user.id });
+  logEvent("submission.edited", { id, seq: sub.seq, by: session.user.id, changes: changes.join("; ") });
+  revalidatePath("/leaderboard");
+  revalidatePath("/submissions");
+  revalidatePath(`/submissions/${id}`);
+  return { ok: true };
+}
+
+/**
+ * Owner/admin: upload a new package for the same submission ("version n+1").
+ * The previous result stays in the score history; the submission goes back to
+ * the queue and the leaderboard shows the new score when it completes.
+ */
+export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: true; version: number } | { ok: false; error: string }> {
+  const { sub, session } = await ownedSubmission(id);
+  if (sub.status === "QUEUED" || sub.status === "RUNNING") return { ok: false, error: "An evaluation is already in progress for this submission." };
+  if (sub.contestId) {
+    const contest = await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, endsAt: true } });
+    if (!contest || contest.status !== "OPEN" || contest.endsAt < new Date()) return { ok: false, error: "This contest has closed — its entries are frozen. Submit a new (non-contest) submission instead." };
+  }
+  const perDay = Number(process.env.SUBMISSIONS_PER_DAY ?? 3);
+  if (session.user.role !== "ADMIN" && perDay > 0) {
+    const today = await db.scoreRevision.count({ where: { submission: { userId: sub.userId }, kind: { in: ["resubmission"] }, createdAt: { gt: new Date(Date.now() - 24 * 3600_000) } } }) + (await db.submission.count({ where: { userId: sub.userId, submittedAt: { gt: new Date(Date.now() - 24 * 3600_000) } } }));
+    if (today >= perDay) return { ok: false, error: `Daily limit of ${perDay} full evaluations reached — try again tomorrow, or use "Test your package first" (free).` };
+  }
+
+  let bytes: Buffer;
+  let fileName: string;
+  let preUploadedKey: string | null = null;
+  const uploadedKey = String(fd.get("fileKey") ?? "");
+  if (storage.mode === "supabase" && uploadedKey) {
+    if (!OBJECT_KEY_RE.test(uploadedKey)) return { ok: false, error: "Invalid upload reference" };
+    fileName = String(fd.get("fileName") ?? "model.zip");
+    try {
+      bytes = await storage.getBytes(uploadedKey);
+    } catch {
+      return { ok: false, error: "The uploaded package could not be retrieved. Please try again." };
+    }
+    preUploadedKey = uploadedKey;
+  } else {
+    const file = fd.get("file");
+    if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose a .zip package first." };
+    fileName = file.name;
+    bytes = Buffer.from(await file.arrayBuffer());
+  }
+  const reject = async (error: string) => {
+    if (preUploadedKey) await storage.remove(preUploadedKey);
+    return { ok: false as const, error };
+  };
+  if (!fileName.toLowerCase().endsWith(".zip")) return reject("Only .zip submission packages are accepted.");
+  if (bytes.length > MAX_UPLOAD_BYTES) return reject(`File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB limit.`);
+  const check = checkSubmissionPackage(bytes);
+  if (!check.ok) return reject(check.problems.join(" "));
+
+  const key = preUploadedKey ?? (await storage.put(bytes, "zip"));
+  const version = sub.version + 1;
+  await db.$transaction([
+    db.submission.update({ where: { id }, data: { version, fileKey: key, fileName, fileSize: bytes.length, status: "QUEUED", failureMessage: null, completedAt: null } }),
+    db.evaluationJob.upsert({ where: { submissionId: id }, create: { submissionId: id }, update: { attempts: 0, lockedAt: null, lockedBy: null, log: "", cancelRequestedAt: null } }),
+  ]);
+  await recordRevision({ submissionId: id, kind: "resubmission", evaluatorVersion: "-", note: `v${version}: ${fileName} (${Math.round(bytes.length / 1024)} KB) uploaded — queued for evaluation`, by: session.user.id });
+  logEvent("submission.resubmitted", { id, seq: sub.seq, version, userId: session.user.id, fileKB: Math.round(bytes.length / 1024) });
+  revalidatePath("/leaderboard");
+  revalidatePath("/submissions");
+  revalidatePath(`/submissions/${id}`);
+  return { ok: true, version };
 }
 
 export async function deleteSubmissionAction(id: string) {

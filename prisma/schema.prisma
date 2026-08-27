@@ -118,6 +118,8 @@ model Submission {
   fileType        FileType
   fileSize        Int
   status          SubmissionStatus @default(QUEUED)
+  /// Package version: incremented when the owner uploads a new package for the same submission.
+  version         Int              @default(1)
   failureMessage  String?
   submittedAt     DateTime         @default(now())
   completedAt     DateTime?
