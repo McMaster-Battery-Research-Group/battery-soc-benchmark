@@ -4,6 +4,7 @@ import { LOGOS } from "@/lib/logos";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3, Gauge, ThermometerSnowflake, FileCode2, Target } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
 import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
+import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import { fmtPct, fmtDate } from "@/lib/utils";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,8 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [stats, rows] = await Promise.all([getSiteStats(), getLeaderboardRows()]);
-  const top = [...rows].sort((a, b) => a.weightedError - b.weightedError).slice(0, 5);
+  // same ranking rule as the leaderboard: only current-benchmark rows are ranked (legacy-scored ones are listed there unranked)
+  const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 5);
 
   return (
     <>
