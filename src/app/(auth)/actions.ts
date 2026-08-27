@@ -32,6 +32,7 @@ export async function registerAction(_prev: ActionState, fd: FormData): Promise<
   const vals = values(fd, ["name", "email", "affiliation", "password"]);
   const parsed = registerSchema.safeParse(vals);
   if (!parsed.success) return { errors: zodErrors(parsed.error), values: vals };
+  if (String(fd.get("confirm") ?? "") !== vals.password) return { errors: { confirm: "Passwords do not match" }, values: vals };
   const email = parsed.data.email.toLowerCase();
   const rl = await rateLimit(`register:ip:${await clientIp()}`, 5, 60 * 60_000);
   if (!rl.ok) return { errors: { form: TOO_MANY(rl.retryAfterSec) }, values: vals };
@@ -167,6 +168,7 @@ export async function changePasswordAction(_prev: ActionState, fd: FormData): Pr
   const password = String(fd.get("password") ?? "");
   const pw = passwordSchema.safeParse(password);
   if (!pw.success) return { errors: { password: pw.error.issues[0]?.message } };
+  if (String(fd.get("confirm") ?? "") !== password) return { errors: { confirm: "Passwords do not match" } };
   const user = await db.user.findUnique({ where: { id: session.user.id } });
   const bcrypt = await import("bcryptjs");
   if (!user || !(await bcrypt.compare(current, user.passwordHash))) return { errors: { current: "Current password is incorrect" } };
