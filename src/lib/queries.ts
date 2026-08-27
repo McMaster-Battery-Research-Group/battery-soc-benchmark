@@ -111,7 +111,7 @@ export async function getSiteStats() {
     db.user.count({ where: { emailVerified: { not: null } } }),
     db.user.groupBy({ by: ["affiliation"], where: { submissions: { some: { status: "COMPLETED", isPrivate: false } } } }),
     db.evaluationResult.findFirst({
-      where: { submission: { isPrivate: false, isHidden: false } },
+      where: { submission: { isPrivate: false, isHidden: false, status: "COMPLETED" }, evaluatorVersion: { startsWith: BENCHMARK_VERSION } },
       orderBy: { allCells: "asc" },
       select: { allCells: true, submission: { select: { modelName: true, id: true, user: { select: { name: true } } } } },
     }),
