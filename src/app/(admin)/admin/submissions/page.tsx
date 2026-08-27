@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { fmtDateTime, fmtPct } from "@/lib/utils";
+import { fmtDate, fmtDateTime, fmtPct } from "@/lib/utils";
 import { StatusBadge, Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/input";
 import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-version";
@@ -33,10 +33,10 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
       </div>
       {/* The card scrolls horizontally on narrow screens; the sticky first columns keep the model identifiable. */}
       <div className="card mt-4 max-w-full overflow-x-auto">
-        <table className="w-full min-w-[1040px] text-sm">
+        <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-grey-100">
             <tr className="border-b border-border">
-              {["#", "Model", "User", "Status", "Weighted", "Submitted", "Visibility", "Actions"].map((h) => (
+              {["#", "Model", "User", "Status", "Weighted", "Submitted", "Actions"].map((h) => (
                 <th key={h} className="h-10 whitespace-nowrap px-3 text-left font-heading text-xs font-semibold uppercase tracking-wide text-grey-800">{h}</th>
               ))}
             </tr>
@@ -50,21 +50,17 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                   <td className="max-w-[320px] px-3 py-2.5">
                     <Link href={`/submissions/${s.id}`} className="font-heading font-medium text-ink hover:text-maroon">{s.modelName}</Link>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-grey-600">
+                      {s.isHidden ? <Badge variant="danger">Hidden</Badge> : s.isPrivate ? <Badge>Private</Badge> : null}
                       {s.contest ? <Badge variant="gold">{s.contest.title}</Badge> : null}
                       {s._count.collaborators ? <span>+{s._count.collaborators} co-author{s._count.collaborators > 1 ? "s" : ""}</span> : null}
                       {legacy ? <Badge variant="warning" title={`Evaluated with ${s.result!.evaluatorVersion}; current is ${CURRENT_EVALUATOR_VERSION}`}>legacy scoring</Badge> : null}
                     </div>
                     {s.failureMessage ? <p className="mt-0.5 line-clamp-2 text-xs text-danger" title={s.failureMessage}>{s.failureMessage}</p> : null}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5"><div>{s.user.name}</div><div className="text-xs text-grey-600">{s.user.email}</div></td>
+                  <td className="max-w-[200px] px-3 py-2.5"><div className="truncate">{s.user.name}</div><div className="truncate text-xs text-grey-600" title={s.user.email}>{s.user.email}</div></td>
                   <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
                   <td className="px-3 py-2.5 tabular">{s.result ? fmtPct(s.result.weightedError) : "—"}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-grey-700">{fmtDateTime(s.submittedAt)}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5">
-                    <div className="flex flex-wrap gap-1">
-                      {s.isHidden ? <Badge variant="danger">Hidden</Badge> : s.isPrivate ? <Badge>Private</Badge> : <Badge variant="success">Public</Badge>}
-                    </div>
-                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-grey-700" title={fmtDateTime(s.submittedAt)}>{fmtDate(s.submittedAt)}</td>
                   <td className="px-3 py-2.5"><ModerateButtons id={s.id} isPrivate={s.isPrivate} isHidden={s.isHidden} status={s.status} compact /></td>
                 </tr>
               );
