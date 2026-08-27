@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Clock, PauseCircle } from "lucide-react";
 import { progressFromLog, STAGE_LABEL, fmtDuration } from "@/lib/progress";
 import { queueCelebration } from "@/components/celebration";
@@ -33,21 +33,22 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
 
   // Fresh submission (redirected here with ?new=1): bring the live status card — and its console — into view.
   // Scroll more than once: the browser restores scroll after navigation and the card grows when the log arrives.
-  const isNew = React.useRef(false);
+  // NB: read the query via Next's router state, not window.location — after a server-action redirect this component
+  // mounts while the address bar still shows the previous URL (/submit), so window.location.search would be empty.
+  const isNew = useSearchParams().has("new");
   const scrolledForLog = React.useRef(false);
   const reveal = React.useCallback(() => cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), []);
   React.useEffect(() => {
-    isNew.current = new URLSearchParams(window.location.search).has("new");
-    if (!isNew.current) return;
-    const timers = [100, 600, 1500].map((ms) => setTimeout(reveal, ms));
+    if (!isNew) return;
+    const timers = [100, 600, 1500, 3000].map((ms) => setTimeout(reveal, ms));
     return () => timers.forEach(clearTimeout);
-  }, [reveal]);
+  }, [isNew, reveal]);
   React.useEffect(() => {
-    if (!isNew.current || scrolledForLog.current || !live.log) return;
+    if (!isNew || scrolledForLog.current || !live.log) return;
     scrolledForLog.current = true; // first console output: scroll once more so the terminal is on screen
     const t = setTimeout(reveal, 50);
     return () => clearTimeout(t);
-  }, [live.log, reveal]);
+  }, [isNew, live.log, reveal]);
 
   React.useEffect(() => {
     let stop = false;
