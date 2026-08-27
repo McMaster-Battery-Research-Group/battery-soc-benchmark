@@ -5,6 +5,7 @@ import { StatusBadge, Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/input";
 import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-version";
 import { ModerateButtons } from "./moderate";
+import { Avatar } from "@/components/avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,12 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
     where: status ? { status: status as "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" } : {},
     orderBy: { submittedAt: "desc" },
     take: 200,
-    include: { user: { select: { name: true, email: true } }, result: { select: { weightedError: true, evaluatorVersion: true } }, contest: { select: { title: true } }, _count: { select: { collaborators: true } } },
+    include: {
+      user: { select: { id: true, name: true, email: true, avatarUpdatedAt: true } },
+      collaborators: { include: { user: { select: { id: true, name: true, email: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
+      result: { select: { weightedError: true, evaluatorVersion: true } },
+      contest: { select: { title: true } },
+    },
   });
   return (
     <div>
@@ -36,7 +42,7 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
         <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-grey-100">
             <tr className="border-b border-border">
-              {["#", "Model", "User", "Status", "Weighted", "Submitted", "Actions"].map((h) => (
+              {["#", "Model", "Authors", "Status", "Weighted", "Submitted", "Actions"].map((h) => (
                 <th key={h} className="h-10 whitespace-nowrap px-3 text-left font-heading text-xs font-semibold uppercase tracking-wide text-grey-800">{h}</th>
               ))}
             </tr>
@@ -52,12 +58,26 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-grey-600">
                       {s.isHidden ? <Badge variant="danger">Hidden</Badge> : s.isPrivate ? <Badge>Private</Badge> : null}
                       {s.contest ? <Badge variant="gold">{s.contest.title}</Badge> : null}
-                      {s._count.collaborators ? <span>+{s._count.collaborators} co-author{s._count.collaborators > 1 ? "s" : ""}</span> : null}
                       {legacy ? <Badge variant="warning" title={`Evaluated with ${s.result!.evaluatorVersion}; current is ${CURRENT_EVALUATOR_VERSION}`}>legacy scoring</Badge> : null}
                     </div>
                     {s.failureMessage ? <p className="mt-0.5 line-clamp-2 text-xs text-danger" title={s.failureMessage}>{s.failureMessage}</p> : null}
                   </td>
-                  <td className="max-w-[200px] px-3 py-2.5"><div className="truncate">{s.user.name}</div><div className="truncate text-xs text-grey-600" title={s.user.email}>{s.user.email}</div></td>
+                  <td className="max-w-[260px] px-3 py-2.5">
+                    <ul className="space-y-1">
+                      {[{ u: s.user, role: "owner", state: "" }, ...s.collaborators.map((c) => ({ u: c.user, role: "co-author", state: c.acceptedAt ? "" : c.notifiedAt ? "invited" : "pending" }))].map(({ u, role, state }) => (
+                        <li key={u.id} className="flex items-center gap-2">
+                          <Avatar userId={u.id} name={u.name} hasAvatar={!!u.avatarUpdatedAt} version={u.avatarUpdatedAt?.getTime() ?? null} size={26} className={state ? "opacity-60" : undefined} />
+                          <span className="min-w-0">
+                            <Link href={`/users/${u.id}`} className="block truncate text-grey-900 hover:text-maroon hover:underline">
+                              {u.name}
+                              {role === "co-author" ? <span className="ml-1 text-[10px] font-heading font-semibold uppercase tracking-wide text-grey-500">{state || "co-author"}</span> : null}
+                            </Link>
+                            <span className="block truncate text-xs text-grey-600" title={u.email}>{u.email}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </td>
                   <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
                   <td className="px-3 py-2.5 tabular">{s.result ? fmtPct(s.result.weightedError) : "—"}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-grey-700" title={fmtDateTime(s.submittedAt)}>{fmtDate(s.submittedAt)}</td>
