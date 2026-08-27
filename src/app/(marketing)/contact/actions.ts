@@ -1,6 +1,6 @@
 "use server";
 
-import { adminNotifyTargets } from "@/lib/admin-list";
+import { adminNotifyTargets } from "@/lib/admin-notify";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { contactSchema, zodErrors, type FieldErrors } from "@/lib/validation";
