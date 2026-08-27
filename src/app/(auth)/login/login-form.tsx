@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { loginAction, resendVerificationAction, type ActionState } from "../actions";
-import { Field, SubmitButton } from "@/components/forms/field";
+import { Field, PasswordField, SubmitButton } from "@/components/forms/field";
 import { Alert } from "@/components/ui/misc";
 
 export function LoginForm({ next }: { next?: string }) {
@@ -30,7 +30,7 @@ export function LoginForm({ next }: { next?: string }) {
       ) : null}
       <Field label="Email" name="email" type="email" autoComplete="email" required defaultValue={state.values?.email} error={state.errors?.email} />
       <div>
-        <Field label="Password" name="password" type="password" autoComplete="current-password" required error={state.errors?.password} />
+        <PasswordField label="Password" name="password" autoComplete="current-password" required error={state.errors?.password} />
         <div className="mt-1.5 text-right">
           <Link href="/forgot-password" className="text-sm text-maroon underline">Forgot password?</Link>
         </div>

@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { resetPasswordAction, type ActionState } from "../actions";
-import { Field, SubmitButton } from "@/components/forms/field";
+import { Field, PasswordField, SubmitButton } from "@/components/forms/field";
 import { Alert } from "@/components/ui/misc";
 
 function ResetForm() {
@@ -14,8 +14,8 @@ function ResetForm() {
     <form action={action} className="mt-6 space-y-4" noValidate>
       <input type="hidden" name="token" value={token} />
       {state.errors?.form ? <Alert variant="danger">{state.errors.form}</Alert> : null}
-      <Field label="New password" name="password" type="password" autoComplete="new-password" required error={state.errors?.password} hint="At least 8 characters with upper- and lowercase letters and a number." />
-      <Field label="Confirm password" name="confirm" type="password" autoComplete="new-password" required error={state.errors?.confirm} />
+      <PasswordField label="New password" name="password" autoComplete="new-password" required error={state.errors?.password} hint="At least 8 characters with upper- and lowercase letters and a number." />
+      <PasswordField label="Confirm password" name="confirm" autoComplete="new-password" required error={state.errors?.confirm} />
       <SubmitButton className="w-full" size="lg">Set new password</SubmitButton>
     </form>
   );

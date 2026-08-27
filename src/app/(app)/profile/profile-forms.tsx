@@ -4,7 +4,7 @@ import * as React from "react";
 import { useActionState } from "react";
 import { Camera, Trash2 } from "lucide-react";
 import { updateProfileAction, changePasswordAction, type ActionState } from "@/app/(auth)/actions";
-import { Field, SubmitButton } from "@/components/forms/field";
+import { Field, PasswordField, SubmitButton } from "@/components/forms/field";
 import { Alert } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -145,8 +145,9 @@ export function ProfileForms(v: ProfileValues) {
         {pw.ok ? <Alert variant="success" className="mt-4">{pw.message}</Alert> : null}
         {pw.errors?.form ? <Alert variant="danger" className="mt-4">{pw.errors.form}</Alert> : null}
         <div className="mt-5 space-y-4">
-          <Field label="Current password" name="current" type="password" autoComplete="current-password" required error={pw.errors?.current} />
-          <Field label="New password" name="password" type="password" autoComplete="new-password" required error={pw.errors?.password} hint="At least 8 characters with upper- and lowercase letters and a number." />
+          <PasswordField label="Current password" name="current" autoComplete="current-password" required error={pw.errors?.current} />
+          <PasswordField label="New password" name="password" autoComplete="new-password" required error={pw.errors?.password} hint="At least 8 characters with upper- and lowercase letters and a number." />
+          <PasswordField label="Confirm new password" name="confirm" autoComplete="new-password" required error={pw.errors?.confirm} />
         </div>
         <SubmitButton className="mt-6" variant="secondary">Update password</SubmitButton>
       </form>
