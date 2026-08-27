@@ -1,6 +1,6 @@
 "use server";
 
-import { accountEventEmail } from "@/lib/mail";
+import { accountEventEmail, roleChangedEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
 import { revalidatePath } from "next/cache";
@@ -138,7 +138,12 @@ export async function toggleHiddenAction(id: string, isHidden: boolean) {
 export async function setRoleAction(userId: string, role: "USER" | "ADMIN") {
   const me = await requireAdmin();
   if (me.id === userId) throw new Error("You cannot change your own role");
-  await db.user.update({ where: { id: userId }, data: { role } });
+  const before = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
+  const user = await db.user.update({ where: { id: userId }, data: { role } });
+  if (before && before.role !== role) {
+    logEvent("admin.role_changed", { by: me.id, userId, role });
+    roleChangedEmail(user, role, me.name).catch(() => {});
+  }
   revalidatePath("/admin/users");
 }
 
