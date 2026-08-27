@@ -272,7 +272,8 @@ export function SocTrace({
   const errDomain: [number, number] = yZoom.err ?? (errScale === "fixed" ? [-20, 20] : [-round2(errMax), round2(errMax)]);
   const socMin = Math.min(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
   const socMax = Math.max(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
-  const socDomain: [number, number] = yZoom.soc ?? (fitSoc ? [Math.max(0, Math.floor(socMin - 2)), Math.min(100, Math.ceil(socMax + 2))] : [0, 100]);
+  // fitted domain snaps to multiples of 5 so the tick labels stay round (e.g. 25 … 100 rather than 29 … 100)
+  const socDomain: [number, number] = yZoom.soc ?? (fitSoc ? [Math.max(0, Math.floor((socMin - 1) / 5) * 5), Math.min(100, Math.ceil((socMax + 1) / 5) * 5)] : [0, 100]);
   domainsRef.current = { soc: socDomain, err: errDomain };
   const legend = [{ label: "Actual SOC", color: CHART.actual }, ...traces.map((_, k) => ({ label: names[k] ?? `Model ${k + 1}`, color: color(k) }))];
   const tFmt = (v: number) => `${Number(v).toFixed(view.length < 60 ? 2 : 1)}h`;
@@ -375,7 +376,7 @@ export function SocTrace({
               }}
               className="accent-maroon"
             />{" "}
-            Fit SOC axis
+            Fit SOC axis <span className="text-grey-500">(error axis fits itself when set to Auto)</span>
           </label>
           {zoomed ? <span className="ml-auto text-grey-500">Double-click a plot to restore.</span> : null}
         </div>
