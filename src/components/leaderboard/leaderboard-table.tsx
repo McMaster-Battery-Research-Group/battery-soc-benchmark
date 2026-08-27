@@ -213,14 +213,14 @@ export function LeaderboardTable({
                       key={row.id}
                       className={cn(
                         "border-b border-border transition-colors hover:bg-maroon-100/50",
-                        row.original.isPrivate ? "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-gold-100/60",
+                        row.original.isPrivate ? "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-[#fffaef]",
                       )}
                       title={row.original.isPrivate ? "Private — visible only to you; not on the public leaderboard" : undefined}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
-                          <td key={cell.id} className={cn("px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : "bg-white"))}>
+                          <td key={cell.id} className={cn("px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : row.original.userId === viewerId ? "bg-[#fffaef]" : "bg-white"))}>
                             {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} unranked={rankById.get(row.original.id)!.unranked} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
