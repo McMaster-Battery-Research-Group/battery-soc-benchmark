@@ -15,6 +15,8 @@ export interface ReportInput {
   submission: { id: string; seq: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean };
   user: { name: string; affiliation: string };
   collaborators?: { name: string; affiliation: string }[];
+  /** score history (append-only); rendered after the test-case table when it has more than one entry */
+  history?: { createdAt: Date; kind: string; evaluatorVersion: string; weightedError: number | null; note: string | null }[];
   result: Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string; perCycle: PerCycleRow[]; timeSeries: TimeSeriesTrace[] };
   siteUrl: string;
 }
@@ -117,6 +119,29 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       y += h;
     }
     doc.fillColor(GREY).font("Helvetica").fontSize(8.5).text(`Weighted error = sum over tests of (weight × RMSE) = ${fmt(r.weightedError)} %`, X0, y + 10);
+    y += 30;
+    const hist = input.history ?? [];
+    if (hist.length > 1) {
+      if (y + 40 + hist.length * 14 > doc.page.height - 60) {
+        doc.addPage();
+        y = 48;
+      }
+      sectionTitle(doc, "Score history", "Every evaluation, re-evaluation and re-score of this submission. The current score is the last row.", X0, y);
+      y = doc.y + 6;
+      const hc = [110, 130, 150, W - 110 - 130 - 150];
+      tableHeader(doc, X0, y, hc, ["When", "Event", "Weighted error", "Note"]);
+      y += 18;
+      const KIND: Record<string, string> = { evaluation: "Evaluated", failure: "Failed", rescore: "Re-scored", reevaluation: "Re-evaluated" };
+      for (const h of hist) {
+        const rowH = Math.max(14, doc.heightOfString(h.note ?? "", { width: hc[3] - 8 }) + 6);
+        doc.moveTo(X0, y + rowH).lineTo(X0 + W, y + rowH).lineWidth(0.5).strokeColor(LINE).stroke();
+        doc.fillColor(GREY).font("Helvetica").fontSize(8).text(date(h.createdAt), X0 + 4, y + 4, { width: hc[0] - 8 });
+        doc.fillColor(INK).font("Helvetica-Bold").text(`${KIND[h.kind] ?? h.kind} · ${h.evaluatorVersion.split("/")[0]}`, X0 + hc[0] + 4, y + 4, { width: hc[1] - 8 });
+        doc.font("Helvetica").text(h.weightedError === null ? "—" : `${fmt(h.weightedError)} %`, X0 + hc[0] + hc[1] + 4, y + 4, { width: hc[2] - 8 });
+        doc.fillColor(GREY).text(h.note ?? "", X0 + hc[0] + hc[1] + hc[2] + 4, y + 4, { width: hc[3] - 8 });
+        y += rowH;
+      }
+    }
 
     // ---------- page 3: time-domain traces
     doc.addPage();

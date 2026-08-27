@@ -10,6 +10,8 @@ import { evaluationCompleteEmail } from "@/lib/mail";
 import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getEvaluator } from "./index";
 import { EvaluationError, EvaluationCancelled } from "./types";
+import { recordRevision, getHistory } from "@/lib/history";
+import { METRIC_KEYS, type MetricKey } from "@/lib/test-cases";
 
 export const STALE_LOCK_MS = 30 * 60 * 1000;
 export const MAX_ATTEMPTS = 2;
@@ -153,11 +155,12 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null } }),
     ]);
     await log(`completed — weighted error ${out.weightedError.toFixed(3)} %`);
+    await recordRevision({ submissionId: sub.id, kind: job.attempts > 1 || sub.completedAt ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `attempt ${job.attempts}`, by: workerId() });
     await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
     let report: Buffer | undefined;
     try {
       const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
-      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, collaborators: fresh.collaborators.map((c) => c.user), result: fresh.result as unknown as ReportInput["result"], siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
+      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, collaborators: fresh.collaborators.map((c) => c.user), result: fresh.result as unknown as ReportInput["result"], history: await getHistory(sub.id), siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
     } catch (e) {
       await log(`report generation failed (email sent without attachment): ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -191,6 +194,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       return { submissionId: sub.id, status: "RETRY" };
     }
     await db.submission.update({ where: { id: sub.id }, data: { status: "FAILED", failureMessage: message, completedAt: new Date() } });
+    await recordRevision({ submissionId: sub.id, kind: "failure", evaluatorVersion: evaluator.name, note: `attempt ${job.attempts}: ${message}`, by: workerId() });
     await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, attempts: MAX_ATTEMPTS } });
     for (const r of await recipients()) {
       const sent = await evaluationCompleteEmail(r.email, r.name, sub.modelName, sub.id, false, message);

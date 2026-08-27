@@ -165,6 +165,23 @@ export function moderationEmail(to: string, name: string, modelName: string, sub
   });
 }
 
+/** Sent when a submission's score is recomputed (e.g. the weights changed). The new PDF is attached. */
+export function rescoreEmail(to: string, name: string, modelName: string, submissionId: string, oldScore: number, newScore: number, note: string, report?: Buffer) {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const href = `${site()}/submissions/${submissionId}`;
+  const dir = newScore < oldScore ? "improved" : newScore > oldScore ? "increased" : "changed";
+  return sendMail({
+    to: addr(name, to),
+    subject: `Score updated: ${modelName} (${oldScore.toFixed(2)} → ${newScore.toFixed(2)} %)`,
+    html: layout(
+      "Your score has been recomputed",
+      `<p>Hi ${esc(name)},</p><p>The benchmark's scoring was updated and the weighted error of <strong>${esc(modelName)}</strong> has ${dir} from <strong>${oldScore.toFixed(3)} %</strong> to <strong>${newScore.toFixed(3)} %</strong>. Your model was <em>not</em> re-run — the per-test results are unchanged; only how they are combined into the headline score.</p><p style="margin:16px 0;padding:12px 16px;border-left:4px solid #7a003c;background:#f6f7f7"><strong>What changed:</strong><br>${esc(note)}</p>${button(href, "View the submission")}<p style="font-size:13px;color:#6d7a84">The full score history is listed on the submission page and in the attached report.</p>`,
+    ),
+    text: `Score updated for "${modelName}": ${oldScore.toFixed(3)} → ${newScore.toFixed(3)} %. ${note}\n${href}`,
+    attachments: report ? [{ filename: `${modelName.replace(/[^a-z0-9]+/gi, "_")}-soc-benchmark-report.pdf`, content: report, contentType: "application/pdf" }] : undefined,
+  });
+}
+
 export function feedbackNotificationEmail(to: string, msg: { id: string; name: string; email: string; category: string; subject: string; body: string; pageUrl?: string | null }) {
   const href = `${site()}/admin/messages`;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

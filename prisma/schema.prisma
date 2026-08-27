@@ -127,10 +127,30 @@ model Submission {
   result        EvaluationResult?
   job           EvaluationJob?
   collaborators SubmissionCollaborator[]
+  revisions     ScoreRevision[]
 
   @@index([userId])
   @@index([contestId])
   @@index([status])
+}
+
+/// Append-only score history: one row per evaluation attempt, failure,
+/// re-evaluation or re-score. EvaluationResult holds the current numbers.
+model ScoreRevision {
+  id               String     @id @default(cuid())
+  submissionId     String
+  submission       Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  createdAt        DateTime   @default(now())
+  kind             String // evaluation | failure | rescore | reevaluation
+  evaluatorVersion String
+  weightedError    Float?
+  complexity       Int?
+  maxError         Float?
+  metrics          Json? // the 18 per-test values at that time
+  note             String? // reason / failure message
+  by               String? // worker id, script, or admin user id
+
+  @@index([submissionId, createdAt])
 }
 
 /// Co-authors on a submission (must have an account). They can view it even when
