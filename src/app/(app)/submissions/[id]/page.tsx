@@ -21,6 +21,7 @@ import { StatusPoller } from "./status-poller";
 import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
+import { getHistory, KIND_LABEL, type RevisionKind } from "@/lib/history";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function SubmissionPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ new?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
-  const [session, sub] = await Promise.all([auth(), getSubmissionDetail(id)]);
+  const [session, sub, history] = await Promise.all([auth(), getSubmissionDetail(id), getHistory(id)]);
   if (!sub || !canViewSubmission(sub, session?.user)) notFound();
   const isOwner = session?.user?.id === sub.userId;
   const isAdmin = session?.user?.role === "ADMIN";
@@ -135,6 +136,31 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
                 <Row k="Submission ID" v={sub.id} />
               </dl>
+              {history.length ? (
+                <div className="card p-5">
+                  <h3 className="font-heading font-semibold text-ink">Score history</h3>
+                  <p className="mt-1 text-xs text-grey-600">Every evaluation attempt and every change to how this submission is scored. The current score is the last row; each change was e-mailed to the authors.</p>
+                  <ol className="mt-3 divide-y divide-border text-sm">
+                    {history.map((h, i) => {
+                      const prev = history.slice(0, i).reverse().find((p) => p.weightedError !== null)?.weightedError ?? null;
+                      const delta = h.weightedError !== null && prev !== null ? h.weightedError - prev : null;
+                      return (
+                        <li key={h.id} className="grid gap-1 py-2 sm:grid-cols-[170px_1fr_140px]">
+                          <span className="text-grey-700">{fmtDateTime(h.createdAt)}</span>
+                          <span>
+                            <span className="font-heading font-medium text-ink">{KIND_LABEL[h.kind as RevisionKind] ?? h.kind}</span>
+                            <span className="text-grey-600"> · {h.evaluatorVersion.split("/")[0]}</span>
+                            {h.note ? <span className="block text-xs text-grey-600">{h.note}</span> : null}
+                          </span>
+                          <span className="tabular sm:text-right">
+                            {h.weightedError === null ? <span className="text-danger">failed</span> : <><span className="font-heading font-semibold text-ink">{fmtPct(h.weightedError)} %</span>{delta !== null && Math.abs(delta) > 0.0005 ? <span className={`ml-1 text-xs ${delta < 0 ? "text-forest" : "text-danger"}`}>({delta > 0 ? "+" : ""}{delta.toFixed(3)})</span> : null}</>}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> PDF report</a></Button>
                 <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> Results JSON</a></Button>
