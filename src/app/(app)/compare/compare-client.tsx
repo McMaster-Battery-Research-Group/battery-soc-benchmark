@@ -145,7 +145,7 @@ function Picker({ rows, ids, onApply, viewerId, compact }: { rows: LeaderboardRo
           <Button variant="outline" size="sm"><SlidersHorizontal /> Change models</Button>
         ) : (
         <button className="flex min-h-24 items-center justify-center gap-2 rounded-brand border-2 border-dashed border-border p-4 font-heading text-sm font-medium text-grey-700 hover:border-maroon hover:text-maroon">
-          <Plus className="size-4" /> {ids.length ? `Add models (${ids.length} of ${MAX})` : "Choose models to compare"}
+          <Plus className="size-4" /> {ids.length ? `Add or change models (${ids.length} of ${MAX})` : "Choose models to compare"}
         </button>
         )}
       </DialogTrigger>
