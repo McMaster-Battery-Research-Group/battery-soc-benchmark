@@ -47,7 +47,10 @@ const nextConfig: NextConfig = {
   // the serverless functions that build PDFs.
   outputFileTracingIncludes: {
     "/api/submissions/[id]/report.pdf": ["./node_modules/pdfkit/**"],
-    "/api/jobs/run": ["./node_modules/pdfkit/**"],
+    "/api/jobs/run": ["./node_modules/pdfkit/**", "./src/lib/assets/*.gif"],
+    // Inline confetti GIF for results e-mails sent from the web tier (rescore / re-send).
+    "/api/**": ["./src/lib/assets/*.gif"],
+    "/admin/**": ["./src/lib/assets/*.gif"],
     // Example packages are read from disk (fs.readFile), which the tracer cannot see.
     "/examples": ["./evaluator/examples/*.zip"],
     "/examples/download/[file]": ["./evaluator/examples/*.zip"],
