@@ -231,7 +231,7 @@ export function feedbackNotificationEmail(to: string, msg: { id: string; name: s
 
 /** Admin notification: a new account was created, or an account was verified. Fire-and-forget to every admin target. */
 export async function accountEventEmail(kind: "registered" | "verified", user: { id: string; name: string; email: string; affiliation: string; role?: string; createdAt?: Date }, via?: string) {
-  const { adminNotifyTargets } = await import("@/lib/admin-list");
+  const { adminNotifyTargets } = await import("@/lib/admin-notify");
   const { fmtDateTime } = await import("@/lib/utils");
   const targets = (await adminNotifyTargets()).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   if (!targets.length) return;
@@ -261,7 +261,7 @@ export async function accountEventEmail(kind: "registered" | "verified", user: {
 
 /** Role change: tell the person, CC every other administrator so the whole admin group sees who granted/revoked what. */
 export async function roleChangedEmail(user: { name: string; email: string }, role: "USER" | "ADMIN", byName: string) {
-  const { adminNotifyTargets } = await import("@/lib/admin-list");
+  const { adminNotifyTargets } = await import("@/lib/admin-notify");
   const cc = (await adminNotifyTargets()).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   const granted = role === "ADMIN";
   const href = `${site()}/admin`;
