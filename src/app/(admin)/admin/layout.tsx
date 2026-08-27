@@ -5,7 +5,7 @@ import { AdminNav } from "./admin-nav";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
   return (
-    <div className="container-site grid gap-8 py-8 lg:grid-cols-[220px_1fr]">
+    <div className="container-site grid gap-8 py-8 lg:grid-cols-[200px_1fr] xl:max-w-[1600px]">
       <aside>
         <p className="mb-3 font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">Administration</p>
         <AdminNav />
