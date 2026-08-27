@@ -278,3 +278,34 @@ export async function roleChangedEmail(user: { name: string; email: string }, ro
     text: granted ? `${byName} made you an administrator: ${href}` : `${byName} removed your administrator access.`,
   });
 }
+
+/** Admin notification: a submission was deleted — by its owner, or by an administrator (moderation). Sent to every admin target. */
+export async function submissionDeletedEmail(sub: { seq: number; modelName: string; modelType: string; status: string; isPrivate: boolean; weightedError?: number | null; owner: { name: string; email: string; affiliation: string } }, by: { name: string; email: string; role: string }, reason?: string) {
+  const { adminNotifyTargets } = await import("@/lib/admin-notify");
+  const { fmtDateTime } = await import("@/lib/utils");
+  const targets = await adminNotifyTargets();
+  if (!targets.length) return;
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const isOwner = by.email.toLowerCase() === sub.owner.email.toLowerCase();
+  const who = isOwner ? `its owner, ${by.name}${by.role === "ADMIN" ? " (who is also an administrator)" : ""}` : by.role === "ADMIN" ? `administrator ${by.name}` : `${by.name}`;
+  const title = `Submission #${sub.seq} deleted by ${isOwner ? "its owner" : by.role === "ADMIN" ? "an administrator" : by.name}`;
+  const rows: [string, string][] = [
+    ["Model", `${sub.modelName} (#${sub.seq}, ${sub.modelType.replace(/_/g, " ").toLowerCase()})`],
+    ["Owner", `${sub.owner.name} <${sub.owner.email}>, ${sub.owner.affiliation}`],
+    ["Status at deletion", `${sub.status.toLowerCase()}${sub.weightedError != null ? ` · weighted error ${sub.weightedError.toFixed(3)} %` : ""}${sub.isPrivate ? " · private" : ""}`],
+    ["Deleted by", `${by.name} <${by.email}> — ${isOwner ? "owner" : by.role === "ADMIN" ? "administrator" : "user"}`],
+    ["When", fmtDateTime(new Date())],
+    ...(reason ? [["Reason given", reason] as [string, string]] : []),
+  ];
+  const table = `<table style="border-collapse:collapse;font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#6d7a84;vertical-align:top">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`).join("")}</table>`;
+  await Promise.all(
+    targets.map((to) =>
+      sendMail({
+        to,
+        subject: `[SOC Benchmark] ${title}`,
+        html: layout(title, `<p>Submission <strong>#${sub.seq} ${esc(sub.modelName)}</strong> was permanently deleted by ${esc(who)}. The package, results and score history are gone; this notice is the record.</p>${table}${button(`${site()}/admin/submissions`, "Open submissions")}`),
+        text: [title, ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n"),
+      }),
+    ),
+  );
+}

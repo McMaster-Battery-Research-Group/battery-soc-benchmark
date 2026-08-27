@@ -1,6 +1,6 @@
 "use server";
 
-import { accountEventEmail, roleChangedEmail } from "@/lib/mail";
+import { accountEventEmail, roleChangedEmail, submissionDeletedEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
 import { revalidatePath } from "next/cache";
@@ -96,7 +96,7 @@ export async function adminModerateAction(id: string, action: ModerationAction, 
   if (why.length < 10) return { ok: false, error: "Please give a reason (at least 10 characters) — it is sent to the author." };
   const sub = await db.submission.findUnique({
     where: { id },
-    include: { user: { select: { email: true, name: true } }, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
+    include: { user: { select: { email: true, name: true, affiliation: true } }, result: { select: { weightedError: true } }, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
   });
   if (!sub) return { ok: false, error: "Submission not found." };
   if (action === "delete" && sub.status === "RUNNING") return { ok: false, error: "Cancel the running evaluation first, then delete." };
@@ -105,6 +105,7 @@ export async function adminModerateAction(id: string, action: ModerationAction, 
   if (action === "delete") {
     await storage.remove(sub.fileKey);
     await db.submission.delete({ where: { id } });
+    submissionDeletedEmail({ ...sub, weightedError: sub.result?.weightedError ?? null, owner: sub.user }, { name: admin.name ?? "administrator", email: admin.email ?? "", role: "ADMIN" }, why).catch(() => {});
   } else if (action === "private" || action === "public") {
     await db.submission.update({ where: { id }, data: { isPrivate: action === "private" } });
   } else {

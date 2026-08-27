@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage } from "@/lib/package-check";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
-import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail } from "@/lib/mail";
+import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail, submissionDeletedEmail } from "@/lib/mail";
 import { recordRevision } from "@/lib/history";
 import { randomBytes } from "crypto";
 import { rateLimit, retryText } from "@/lib/rate-limit";
@@ -280,10 +280,17 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
 }
 
 export async function deleteSubmissionAction(id: string) {
-  const { sub } = await ownedSubmission(id);
+  const { sub, session } = await ownedSubmission(id);
   if (sub.status === "RUNNING") throw new Error("Cannot delete a submission while it is being evaluated — cancel it first");
+  const [owner, result, actor] = await Promise.all([
+    db.user.findUnique({ where: { id: sub.userId }, select: { name: true, email: true, affiliation: true } }),
+    db.evaluationResult.findUnique({ where: { submissionId: id }, select: { weightedError: true } }),
+    db.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true, role: true } }),
+  ]);
   await storage.remove(sub.fileKey);
   await db.submission.delete({ where: { id } });
+  logEvent("submission.deleted", { id, seq: sub.seq, by: session.user.id, owner: sub.userId });
+  if (owner && actor) submissionDeletedEmail({ ...sub, weightedError: result?.weightedError ?? null, owner }, actor).catch(() => {});
   revalidatePath("/leaderboard");
   revalidatePath("/submissions");
   redirect("/submissions");
