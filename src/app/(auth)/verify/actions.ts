@@ -1,5 +1,7 @@
 "use server";
 
+import { logEvent } from "@/lib/log";
+
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 
@@ -18,5 +20,6 @@ export async function confirmEmailAction(fd: FormData) {
   // Verify, but keep the token until it expires so a second visit (or a scanner
   // that fires after the click) lands on "already verified" instead of an error.
   await db.user.update({ where: { id: rec.userId }, data: { emailVerified: new Date() } });
+  logEvent("user.verified", { userId: rec.userId });
   redirect("/login?verified=1");
 }

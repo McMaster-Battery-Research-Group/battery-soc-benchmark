@@ -41,8 +41,10 @@ export async function runDryRun(id: string) {
     if (cur) await db.dryRun.update({ where: { id }, data: { log: cur.log + `${new Date().toISOString()} ${line}\n` } }).catch(() => {});
   };
   try {
+    await log(`${workerId()} started dry run of ${dr.fileName} (${Math.round(dr.fileSize / 1024)} KB)`);
     const localPath = await storage.materialize(dr.fileKey);
     const out = await evaluator.dryRun({ submissionId: dr.id, filePath: localPath, fileType: "ZIP", modelType: "OTHER", evaluationLevel: "DYNAMIC", log });
+    await log(`dry run OK — ${out.runtime} runtime, RMSE ${out.rmse.toFixed(3)} % on the open cycle, ${out.elapsedSec} s`);
     await db.dryRun.update({ where: { id }, data: { status: "COMPLETED", result: out as object, completedAt: new Date(), lockedAt: null } });
   } catch (err) {
     const message = err instanceof EvaluationError && err.userFacing ? err.message : "The evaluator encountered an internal error.";

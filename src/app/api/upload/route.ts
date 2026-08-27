@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { storage, SupabaseStorage, MAX_UPLOAD_BYTES } from "@/lib/storage";
 import { rateLimit, TOO_MANY } from "@/lib/rate-limit";
+import { logEvent } from "@/lib/log";
 
 /**
  * Issues a short-lived signed upload URL so the browser can PUT a submission
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
   if (!body.size || body.size > MAX_UPLOAD_BYTES) return NextResponse.json({ error: `File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB limit` }, { status: 400 });
   try {
     const signed = await storage.createSignedUpload(body.purpose === "dry-run" ? "dry-runs" : "submissions");
+    logEvent("upload.signed", { userId: session.user.id, purpose: body.purpose ?? "submission", name: body.name, sizeKB: Math.round(body.size / 1024), key: signed.key });
     return NextResponse.json(signed);
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Upload failed" }, { status: 500 });

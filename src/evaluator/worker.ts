@@ -175,7 +175,26 @@ async function slot(item: WorkItem) {
 
 async function main() {
   console.log(`[worker] ${workerId()} online — evaluator "${getEvaluator().name}", concurrency ${CONCURRENCY}, polling every ${POLL_MS} ms`);
+  {
+    // Startup summary: everything an operator needs to see at a glance (no secrets).
+    const d = diagnostics();
+    const dbHost = (() => { try { return new URL(process.env.DATABASE_URL ?? "").hostname || "(unset)"; } catch { return "(unset)"; } })();
+    console.log(`[worker] env: site ${process.env.NEXT_PUBLIC_SITE_URL ?? "(unset)"} · db ${dbHost} · storage ${process.env.STORAGE ?? "local"} · smtp ${process.env.SMTP_HOST ?? "(ethereal test inbox)"}`);
+    console.log(`[worker] host: ${d.platform} · node ${process.version} · ${os.cpus().length} cpus · ${Math.round(os.totalmem() / 1073741824)} GB RAM · code ${d.gitSha || "?"}`);
+    console.log(`[worker] python: ${d.pythonInfo}`);
+    console.log(`[worker] matlab: ${d.matlabInfo}`);
+    console.log(`[worker] blinded data: ${d.blindData ? `present (${process.env.SOCBENCH_BLIND_DATA})` : "MISSING — real evaluations will fail"}`);
+    if (getEvaluator().name === "real") {
+      if (sandboxMode() === "docker") {
+        const up = dockerUp();
+        console.log(`[worker] sandbox: docker — daemon ${up ? "running" : "NOT running (will try to start Docker Desktop)"} · image ${process.env.EVAL_SANDBOX_IMAGE ?? "socbench-eval"} · ${process.env.EVAL_CPUS ?? 2} cpu / ${process.env.EVAL_MEMORY ?? "4g"} · MATLAB image ${process.env.EVAL_SANDBOX_MATLAB_IMAGE || "none (MATLAB packages run on the host)"}`);
+      } else {
+        console.warn("[worker] sandbox: NONE — submissions run on this host with an allow-listed environment (EVAL_SANDBOX=none)");
+      }
+    }
+  }
   await heartbeat();
+  console.log("[worker] heartbeat registered — visible on /admin/workers");
   const hb = setInterval(() => void heartbeat(), HEARTBEAT_MS);
   const running = new Set<Promise<void>>();
   let exiting = false;
@@ -208,9 +227,12 @@ async function main() {
   let sandboxOk = true;
   let lastDockerAttempt = 0;
   const needSandbox = getEvaluator().name === "real" && sandboxMode() === "docker";
-  if (needSandbox && !(await ensureDocker(90_000, (l) => console.log(`[worker] ${l}`)))) {
-    console.error("[worker] Docker is not available — evaluations are ON HOLD until it is (set EVAL_SANDBOX=none to run unsandboxed on a dedicated machine)");
+  if (needSandbox) {
+    if (await ensureDocker(90_000, (l) => console.log(`[worker] ${l}`))) console.log("[worker] sandbox ready — Docker daemon reachable");
+    else console.error("[worker] Docker is not available — evaluations are ON HOLD until it is (set EVAL_SANDBOX=none to run unsandboxed on a dedicated machine)");
   }
+  console.log("[worker] waiting for work…");
+  let lastIdleLog = Date.now();
 
   while (true) {
     if (stopping && running.size === 0 && !exiting) return bye(); // admin "stop" after current work drained
@@ -232,6 +254,8 @@ async function main() {
       if (!paused && !stopping && sandboxOk && running.size < CONCURRENCY) {
         const item = await claimNext();
         if (item) {
+          console.log(`[worker] claimed ${item.kind === "dry" ? "dry run" : "submission"} ${item.id} (${running.size + 1}/${CONCURRENCY} slots busy)`);
+          lastIdleLog = Date.now();
           const p = slot(item).finally(() => running.delete(p));
           running.add(p);
           continue; // try to fill the next slot immediately
@@ -239,6 +263,10 @@ async function main() {
       }
     } catch (err) {
       console.error("[worker] loop error", err);
+    }
+    if (running.size === 0 && Date.now() - lastIdleLog > 10 * 60_000) {
+      lastIdleLog = Date.now();
+      console.log(`[worker] idle — no queued work (${stats.completed} completed, ${stats.failed} failed since start${sandboxOk ? "" : "; sandbox unavailable"})`);
     }
     await new Promise((r) => setTimeout(r, POLL_MS));
   }

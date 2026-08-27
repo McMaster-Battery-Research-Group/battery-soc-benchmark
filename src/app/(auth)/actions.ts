@@ -1,5 +1,7 @@
 "use server";
 
+import { logEvent } from "@/lib/log";
+
 import { randomBytes } from "crypto";
 import { redirect } from "next/navigation";
 import { AuthError as NextAuthError } from "next-auth";
@@ -44,7 +46,8 @@ export async function registerAction(_prev: ActionState, fd: FormData): Promise<
     data: { email, name: parsed.data.name, affiliation: parsed.data.affiliation, passwordHash: await hashPassword(parsed.data.password), role: isListedAdmin(email) ? "ADMIN" : "USER" },
   });
   const token = await issueToken(user.id, "VERIFY_EMAIL", 24 * 3600 * 1000);
-  await verificationEmail(user.email, user.name, token);
+  const sent = await verificationEmail(user.email, user.name, token);
+  logEvent("user.registered", { userId: user.id, email, role: user.role, verificationMailSent: sent });
   redirect(`/verify?sent=1&email=${encodeURIComponent(email)}`);
 }
 
@@ -77,10 +80,12 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
       if (cause?.message === "EMAIL_NOT_VERIFIED") {
         return { errors: { form: "unverified" }, values: { email: vals.email } };
       }
+      logEvent("login.failed", { email: parsed.data.email.toLowerCase(), ip });
       return { errors: { form: "Incorrect email or password." }, values: { email: vals.email } };
     }
     throw err;
   }
+  logEvent("login.ok", { email: parsed.data.email.toLowerCase(), ip });
   redirect(next && next.startsWith("/") ? next : "/leaderboard");
 }
 
@@ -119,6 +124,7 @@ export async function resetPasswordAction(_prev: ActionState, fd: FormData): Pro
     db.user.update({ where: { id: rec.userId }, data: { passwordHash: await hashPassword(password), emailVerified: new Date() } }),
     db.userToken.deleteMany({ where: { userId: rec.userId, type: "RESET_PASSWORD" } }),
   ]);
+  logEvent("password.reset", { userId: rec.userId });
   redirect("/login?reset=1");
 }
 
