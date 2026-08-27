@@ -13,9 +13,10 @@ import { signOutAction } from "@/app/(auth)/actions";
 
 type HeaderUser = { id: string; name: string; email?: string | null; role: "USER" | "ADMIN"; affiliation: string } | null;
 
-/** Three destinations + one "Learn" group. Compare lives inside the results area. */
+/** Four destinations + one "Learn" group. */
 const NAV = [
-  { href: "/leaderboard", label: "Leaderboard", match: ["/leaderboard", "/compare", "/submissions/"] },
+  { href: "/leaderboard", label: "Leaderboard", match: ["/leaderboard", "/submissions/"] },
+  { href: "/compare", label: "Compare", match: ["/compare"] },
   { href: "/contest", label: "Contest", match: ["/contest"] },
 ];
 
