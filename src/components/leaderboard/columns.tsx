@@ -30,17 +30,17 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
       header: "Model",
       enableHiding: false,
       cell: ({ row }) => (
-        <div className="min-w-44">
-          <Link href={`/submissions/${row.original.id}`} className="font-heading font-semibold text-ink hover:text-maroon hover:underline">
+        <div className="min-w-52 py-0.5">
+          <Link href={`/submissions/${row.original.id}`} className="font-heading font-semibold leading-snug text-ink hover:text-maroon hover:underline">
             {row.original.modelName}
           </Link>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-grey-600">
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-grey-600">
             <span>#{row.original.seq}{row.original.version > 1 ? ` · v${row.original.version}` : ""}</span>
             <span aria-hidden>·</span>
-            <span>{MODEL_TYPE_LABELS[row.original.modelType] ?? row.original.modelType}</span>
+            <span className="whitespace-nowrap">{MODEL_TYPE_LABELS[row.original.modelType] ?? row.original.modelType}</span>
             {row.original.isPrivate ? (
               <Tooltip content="Only you can see this row. Make it public from the submission page to appear on the leaderboard.">
-                <span className="inline-flex items-center gap-1 rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900"><Lock className="size-3" /> Private · only you</span>
+                <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900"><Lock className="size-3" /> Private · only you</span>
               </Tooltip>
             ) : null}
             {row.original.isHidden ? (
@@ -48,7 +48,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             ) : null}
             {!isCurrentBenchmark(row.original.evaluatorVersion) ? (
               <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Kept for reference but NOT ranked — submit a new version to be scored on the current benchmark and ranked again.`}>
-                <span className="rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span>
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span>
               </Tooltip>
             ) : null}
           </div>
