@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { resetPasswordAction, type ActionState } from "../actions";
-import { Field, PasswordField, SubmitButton } from "@/components/forms/field";
+import { PasswordField, SubmitButton } from "@/components/forms/field";
 import { Alert } from "@/components/ui/misc";
 
 function ResetForm() {
