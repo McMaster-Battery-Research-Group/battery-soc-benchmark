@@ -1,9 +1,11 @@
+import { ListOrdered } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getLeaderboardRows } from "@/lib/queries";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/misc";
-import { ResultsNav } from "@/components/layout/results-nav";
 import { CompareClient } from "./compare-client";
 import type { TimeSeriesTrace } from "@/evaluator/types";
 
@@ -22,8 +24,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <ResultsNav />
-      <PageHeader eyebrow="Side by side" title="Compare models" description="Pick two to four evaluated models to overlay their test-case errors, temperature sensitivity and time-domain SOC traces on the same blinded cycles." />
+      <PageHeader eyebrow="Side by side" title="Compare models" description="Pick two to four evaluated models to overlay their test-case errors, temperature sensitivity and time-domain SOC traces on the same blinded cycles." actions={<Button asChild variant="outline"><Link href="/leaderboard"><ListOrdered /> Back to leaderboard</Link></Button>} />
       <div className="container-site py-10">
         <CompareClient rows={rows} initialIds={ids} tracesById={tracesById} />
       </div>
