@@ -11,6 +11,7 @@ import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getEvaluator } from "./index";
 import { EvaluationError, EvaluationCancelled } from "./types";
 import { recordRevision, getHistory } from "@/lib/history";
+import { getActiveWeights } from "@/lib/scoring-config";
 import { METRIC_KEYS, type MetricKey } from "@/lib/test-cases";
 
 export const STALE_LOCK_MS = 30 * 60 * 1000;
@@ -160,7 +161,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     let report: Buffer | undefined;
     try {
       const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
-      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, collaborators: fresh.collaborators.map((c) => c.user), result: fresh.result as unknown as ReportInput["result"], history: await getHistory(sub.id), siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
+      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, collaborators: fresh.collaborators.map((c) => c.user), result: fresh.result as unknown as ReportInput["result"], history: await getHistory(sub.id), weights: await getActiveWeights(), siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
     } catch (e) {
       await log(`report generation failed (email sent without attachment): ${e instanceof Error ? e.message : String(e)}`);
     }

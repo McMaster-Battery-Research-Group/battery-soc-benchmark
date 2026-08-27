@@ -1,6 +1,7 @@
 import { EvaluationError, type EvaluationOutput } from "./types";
 import { weightedError } from "@/lib/scoring";
 import { METRIC_KEYS } from "@/lib/test-cases";
+import { getActiveScoring } from "@/lib/scoring-config";
 
 /** Shared parser for results.json emitted by both Evaluate_Submission.m and socbench_eval. */
 export async function parseResultsJson(text: string, log: (line: string) => Promise<void> | void): Promise<EvaluationOutput> {
@@ -11,13 +12,18 @@ export async function parseResultsJson(text: string, log: (line: string) => Prom
     return v;
   };
   const metrics = Object.fromEntries(METRIC_KEYS.map((k) => [k, num(k)])) as Record<(typeof METRIC_KEYS)[number], number>;
-  const site = weightedError(metrics);
+  const scoring = await getActiveScoring();
+  const site = weightedError(metrics, scoring.weights);
   const script = num("weightedError");
-  if (Math.abs(site - script) > 0.01) await log(`NOTE weighted error differs: evaluator ${script} vs site ${site} — using evaluator value`);
+  let headline = script;
+  if (!scoring.isDefault) {
+    headline = site;
+    await log(`custom scoring weights are active (set ${scoring.updatedAt?.toISOString() ?? "?"}): weighted error ${site} (evaluator's default-weight value ${script})`);
+  } else if (Math.abs(site - script) > 0.01) await log(`NOTE weighted error differs: evaluator ${script} vs site ${site} — using evaluator value`);
   if (raw.suspicious) await log("NOTE evaluator flagged this submission as suspicious (mean RMSE > 25 %)");
   return {
     ...metrics,
-    weightedError: script,
+    weightedError: headline,
     complexity: Math.max(1, Math.min(10, Math.round(num("complexity")))),
     complexityUncertainty: 1,
     maxError: num("maxError"),

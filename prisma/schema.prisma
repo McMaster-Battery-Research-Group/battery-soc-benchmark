@@ -223,6 +223,18 @@ model EvaluationResult {
   createdAt        DateTime @default(now())
 }
 
+/// Append-only scoring configuration; the newest row is active. Absent → the
+/// published V2 defaults in src/lib/test-cases.ts.
+model ScoringConfig {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  createdBy String? // admin user id or script name
+  note      String
+  weights   Json // { metricKey: weight }
+  rescored  Int      @default(0)
+  notified  Int      @default(0)
+}
+
 /// Sliding-window rate limiting for sensitive actions (login, register, reset,
 /// contact, uploads). One row per hit; counted per key within a window and
 /// pruned opportunistically. Works across Vercel's stateless functions.

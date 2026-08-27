@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { canViewSubmission } from "@/lib/queries";
 import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getHistory } from "@/lib/history";
+import { getActiveWeights } from "@/lib/scoring-config";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     user: sub.user,
     collaborators: sub.collaborators.map((c) => c.user),
     history: await getHistory(id),
+    weights: await getActiveWeights(),
     result: sub.result as unknown as ReportInput["result"],
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://batterysocbenchmark.ca",
   });

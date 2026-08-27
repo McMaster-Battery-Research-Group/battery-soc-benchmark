@@ -17,6 +17,8 @@ export interface ReportInput {
   collaborators?: { name: string; affiliation: string }[];
   /** score history (append-only); rendered after the test-case table when it has more than one entry */
   history?: { createdAt: Date; kind: string; evaluatorVersion: string; weightedError: number | null; note: string | null }[];
+  /** active scoring weights (defaults when omitted) */
+  weights?: Partial<Record<MetricKey, number>>;
   result: Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string; perCycle: PerCycleRow[]; timeSeries: TimeSeriesTrace[] };
   siteUrl: string;
 }
@@ -97,7 +99,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
 
     // ---------- page 2: test-case table
     doc.addPage();
-    sectionTitle(doc, "All test cases", "Weights follow the Blind Modeling Tool V2 specification and sum to 1; test 1 is weighted 0 because every other test is a subset of it.", X0, 48);
+    sectionTitle(doc, "All test cases", input.weights ? "Weights as configured by the benchmark administrators at the time of this report (sum to 1); test 1 is weighted 0 because every other test is a subset of it." : "Weights follow the Blind Modeling Tool V2 specification and sum to 1; test 1 is weighted 0 because every other test is a subset of it.", X0, 48);
     y = doc.y + 8;
     const cols = [36, 190, W - 36 - 190 - 60 - 60, 60, 60];
     tableHeader(doc, X0, y, cols, ["Test", "Name", "Data", "Weight", "RMSE %"]);
@@ -114,7 +116,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       doc.fillColor(GREY).font("Helvetica").fontSize(8.5).text(String(t.test), X0 + 4, y + 4, { width: cols[0] - 8 });
       doc.fillColor(INK).font("Helvetica-Bold").text(t.label, X0 + cols[0] + 4, y + 4, { width: cols[1] - 8 });
       doc.fillColor(GREY).font("Helvetica").text(t.description, X0 + cols[0] + cols[1] + 4, y + 4, { width: cols[2] - 8 });
-      doc.text(t.weight.toFixed(3), X0 + cols[0] + cols[1] + cols[2], y + 4, { width: cols[3] - 6, align: "right" });
+      doc.text((input.weights?.[t.key] ?? t.weight).toFixed(3), X0 + cols[0] + cols[1] + cols[2], y + 4, { width: cols[3] - 6, align: "right" });
       doc.fillColor(INK).font("Helvetica-Bold").text(fmt(r[t.key]), X0 + cols[0] + cols[1] + cols[2] + cols[3], y + 4, { width: cols[4] - 6, align: "right" });
       y += h;
     }
@@ -151,6 +153,55 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
         y += rowH;
       }
     }
+
+    // ---------- page: how the score is computed (metric definitions + this submission's arithmetic)
+    doc.addPage();
+    sectionTitle(doc, "How this score is computed", "Definitions of every metric and the exact arithmetic behind the numbers in this report, so results can be checked by hand.", X0, 48);
+    y = doc.y + 8;
+    const para = (title: string, body: string) => {
+      doc.fillColor(INK).font("Helvetica-Bold").fontSize(9.5).text(title, X0, y, { width: W });
+      y = doc.y + 1;
+      doc.fillColor(GREY).font("Helvetica").fontSize(8.5).text(body, X0, y, { width: W, lineGap: 1 });
+      y = doc.y + 7;
+    };
+    para("Model interface", "Your function is called once per measured sample, in order, with X = [current (A), voltage (V), temperature (°C)] and its own state z from the previous call; it returns the SOC estimate for that sample (0–1) and the updated state. Every cycle is preceded by one hour of rest at constant conditions so stateful models can settle; that hour is excluded from all metrics.");
+    para("Per-cycle errors (Per-cycle errors table)", "For each blinded drive cycle the estimate is compared with the reference SOC measured in the laboratory: RMSE = sqrt(mean((SOC_est − SOC_ref)²)), MAE = mean(|SOC_est − SOC_ref|), max error = max(|SOC_est − SOC_ref|), all in % SOC over the samples of that cycle (excluding the padding).");
+    para("Test cases 1–8", "Each test case is the arithmetic mean of the per-cycle RMSE values of the cycles that belong to it (all cells; the blinded m448 cell; the three non-blinded cells; the charging profiles; the m80 / m448 / m448-N / m1000 payload conditions; the standard UDDS/HWFET/LA92/US06 cycles; the non-standard HWCUST/HWGRADE cycles).");
+    para("Test 9 — temperature", "For the m80 cell, the mean per-cycle RMSE at each chamber temperature (−20, −10, 0, 10, 25, 40 °C) is reported as six separate entries.");
+    para("Test 10 — initial-SOC error", "Three blinded cycles are re-run with the model started at a wrong initial SOC of 90 %, 60 % and 30 % (instead of 100 %). The nine RMSE values are averaged with weights 3 : 2 : 1 for the 90 / 60 / 30 % starts, so the smaller, more realistic offsets count more.");
+    para("Test 11 — current-sensor offset", "Blinded cycles are re-run with a constant offset added to the measured current (±0.05, ±0.1 and ±0.3 A); the test value is the mean RMSE of the offset runs that count towards the score (the ±0.1 A and ±0.3 A cases).");
+    para("Complexity", "Wall-clock time per sample of your model, divided by the time per sample of a plain Coulomb counter measured on the same machine (the calibration constant), then placed into one of ten bins one third of a decade wide. It is informational and does not enter the weighted error.");
+    para("Weighted error", "weighted error = Σ (weight_i × RMSE_i) over the test cases listed on the previous page. Test 1 (all cells) carries weight 0 because every other test is a subset of it. The weights sum to 1 and were " + (input.weights ? "set by the benchmark administrators (see the change log on the site)." : "published with the Blind Modeling Tool V2."));
+
+    // the arithmetic for THIS submission
+    y += 2;
+    doc.fillColor(INK).font("Helvetica-Bold").fontSize(9.5).text("This submission", X0, y, { width: W });
+    y = doc.y + 4;
+    const ac = [200, 90, 90, 110];
+    if (y + 20 + TEST_CASES.length * 13 > doc.page.height - 70) {
+      doc.addPage();
+      y = 48;
+    }
+    tableHeader(doc, X0, y, ac, ["Test case", "RMSE %", "Weight", "Weight × RMSE"]);
+    y += 18;
+    let acc = 0;
+    for (const t of TEST_CASES) {
+      const wgt = input.weights?.[t.key] ?? t.weight;
+      const term = wgt * r[t.key];
+      acc += term;
+      doc.moveTo(X0, y + 13).lineTo(X0 + W, y + 13).lineWidth(0.4).strokeColor(LINE).stroke();
+      doc.fillColor(GREY).font("Helvetica").fontSize(8).text(`${t.test}. ${t.label}`, X0 + 4, y + 3, { width: ac[0] - 8 });
+      doc.text(fmt(r[t.key], 3), X0 + ac[0], y + 3, { width: ac[1] - 6, align: "right" });
+      doc.text(wgt.toFixed(4), X0 + ac[0] + ac[1], y + 3, { width: ac[2] - 6, align: "right" });
+      doc.fillColor(INK).text(fmt(term, 4), X0 + ac[0] + ac[1] + ac[2], y + 3, { width: ac[3] - 6, align: "right" });
+      y += 13;
+    }
+    doc.fillColor(INK).font("Helvetica-Bold").fontSize(9).text("Sum = weighted error", X0 + 4, y + 4, { width: ac[0] + ac[1] + ac[2] - 8 });
+    doc.text(`${fmt(acc, 3)} %`, X0 + ac[0] + ac[1] + ac[2], y + 4, { width: ac[3] - 6, align: "right" });
+    y += 20;
+    doc.fillColor(GREY).font("Helvetica").fontSize(8).text(`Stored headline score: ${fmt(r.weightedError, 3)} %${Math.abs(acc - r.weightedError) > 0.002 ? "  (differs from the sum above because the weights were changed after this score was stored — see the score history)" : "  (matches the sum above to rounding)."}`, X0, y, { width: W });
+    y = doc.y + 6;
+    doc.text(`Complexity: measured ${r.complexity} ±${r.complexityUncertainty} on a 1–10 scale (${COMPLEXITY_LABELS[r.complexity] ?? ""}). Max error: ${fmt(r.maxError, 1)} % is the largest instantaneous |SOC_est − SOC_ref| over every blinded cycle.`, X0, y, { width: W });
 
     // ---------- page 3: time-domain traces
     doc.addPage();
