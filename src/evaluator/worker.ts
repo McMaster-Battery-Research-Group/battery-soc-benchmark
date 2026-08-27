@@ -22,6 +22,7 @@ import { statfsSync, accessSync, constants } from "fs";
 import { db } from "@/lib/db";
 import { claimNext, runNext, workerId, inflight, SHUTDOWN, type WorkItem } from "./run-job";
 import { getEvaluator } from "./index";
+import { dockerUp, ensureDocker, sandboxMode } from "./python-evaluator";
 
 const POLL_MS = 2000;
 const HEARTBEAT_MS = 15_000;
@@ -202,10 +203,33 @@ async function main() {
   process.on("SIGINT", () => void bye());
   process.on("SIGTERM", () => void bye());
 
+  // Sandbox gate: with EVAL_SANDBOX=docker (the default) we never evaluate without the daemon.
+  // If it is down, try to start Docker Desktop, otherwise hold the queue and say so.
+  let sandboxOk = true;
+  let lastDockerAttempt = 0;
+  const needSandbox = getEvaluator().name === "real" && sandboxMode() === "docker";
+  if (needSandbox && !(await ensureDocker(90_000, (l) => console.log(`[worker] ${l}`)))) {
+    console.error("[worker] Docker is not available — evaluations are ON HOLD until it is (set EVAL_SANDBOX=none to run unsandboxed on a dedicated machine)");
+  }
+
   while (true) {
     if (stopping && running.size === 0 && !exiting) return bye(); // admin "stop" after current work drained
     try {
-      if (!paused && !stopping && running.size < CONCURRENCY) {
+      if (needSandbox) {
+        const up = dockerUp();
+        if (!up && Date.now() - lastDockerAttempt > 5 * 60_000) {
+          lastDockerAttempt = Date.now();
+          await ensureDocker(60_000, (l) => console.log(`[worker] ${l}`));
+        }
+        const nowOk = up || dockerUp();
+        if (nowOk !== sandboxOk) {
+          sandboxOk = nowOk;
+          stats.lastError = nowOk ? null : "Docker daemon not running — sandbox required, queue on hold";
+          console.log(nowOk ? "[worker] sandbox available — resuming" : "[worker] sandbox unavailable — holding the queue");
+          void heartbeat();
+        }
+      }
+      if (!paused && !stopping && sandboxOk && running.size < CONCURRENCY) {
         const item = await claimNext();
         if (item) {
           const p = slot(item).finally(() => running.delete(p));

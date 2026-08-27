@@ -19,12 +19,13 @@ export type EvaluatorStatus = {
 export async function getEvaluatorStatus(): Promise<EvaluatorStatus> {
   const since = new Date(Date.now() - ONLINE_WINDOW_MS);
   const [live, latest, queued, running] = await Promise.all([
-    db.workerHeartbeat.findMany({ where: { lastSeenAt: { gte: since } }, select: { id: true, evaluator: true, busyWith: true, concurrency: true, paused: true } }),
+    db.workerHeartbeat.findMany({ where: { lastSeenAt: { gte: since } }, select: { id: true, evaluator: true, busyWith: true, concurrency: true, paused: true, lastError: true } }),
     db.workerHeartbeat.findFirst({ orderBy: { lastSeenAt: "desc" }, select: { lastSeenAt: true } }),
     db.submission.count({ where: { status: "QUEUED" } }),
     db.submission.count({ where: { status: "RUNNING" } }),
   ]);
-  const active = live.filter((w) => !w.paused);
+  // paused workers and workers holding for the Docker sandbox contribute no capacity
+  const active = live.filter((w) => !w.paused && !/sandbox required/.test(w.lastError ?? ""));
   return { online: active.length > 0, lastSeenAt: latest?.lastSeenAt ?? null, workers: live, capacity: active.reduce((n, w) => n + w.concurrency, 0), queued, running };
 }
 
