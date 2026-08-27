@@ -128,6 +128,6 @@ export async function getOpenContest() {
 export async function publicRankOf(submissionId: string): Promise<number | null> {
   const me = await db.submission.findUnique({ where: { id: submissionId }, select: { isPrivate: true, isHidden: true, status: true, result: { select: { weightedError: true, evaluatorVersion: true } } } });
   if (!me?.result || me.isPrivate || me.isHidden || me.status !== "COMPLETED" || !isCurrentBenchmark(me.result.evaluatorVersion)) return null;
-  const better = await db.submission.count({ where: { isPrivate: false, isHidden: false, status: "COMPLETED", result: { weightedError: { lt: me.result.weightedError }, evaluatorVersion: BENCHMARK_VERSION } } });
+  const better = await db.submission.count({ where: { isPrivate: false, isHidden: false, status: "COMPLETED", result: { weightedError: { lt: me.result.weightedError }, evaluatorVersion: { startsWith: BENCHMARK_VERSION } } } }); // stamp is "<benchmark>/<runtime>"
   return better + 1;
 }
