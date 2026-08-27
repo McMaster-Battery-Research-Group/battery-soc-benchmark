@@ -1,5 +1,6 @@
 "use server";
 
+import { accountEventEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
 import { revalidatePath } from "next/cache";
@@ -142,8 +143,9 @@ export async function setRoleAction(userId: string, role: "USER" | "ADMIN") {
 }
 
 export async function verifyUserAction(userId: string) {
-  await requireAdmin();
-  await db.user.update({ where: { id: userId }, data: { emailVerified: new Date() } });
+  const admin = await requireAdmin();
+  const verified = await db.user.update({ where: { id: userId }, data: { emailVerified: new Date() } });
+  accountEventEmail("verified", verified, `administrator ${admin.name}`).catch(() => {});
   revalidatePath("/admin/users");
 }
 
