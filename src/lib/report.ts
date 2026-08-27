@@ -12,7 +12,7 @@ const M = "#7A003C", G = "#FDBF57", GREY = "#495965", LINE = "#DBDBDD", INK = "#
 const SERIES = ["#8f2555", "#1f7fb5", "#c98a2e", "#6b62b8"];
 
 export interface ReportInput {
-  submission: { id: string; seq: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean };
+  submission: { id: string; seq: number; version?: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean };
   user: { name: string; affiliation: string };
   collaborators?: { name: string; affiliation: string }[];
   /** score history (append-only); rendered after the test-case table when it has more than one entry */
@@ -57,7 +57,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     doc.fillColor(INK).font("Helvetica-Bold").fontSize(22).text(s.modelName, X0, 48, { width: W });
     const authors = [user, ...(input.collaborators ?? [])];
     const authorLine = authors.length === 1 ? `${user.name}, ${user.affiliation}` : authors.map((a) => `${a.name} (${a.affiliation})`).join(", ");
-    doc.fillColor(GREY).font("Helvetica").fontSize(10).text(`Submission #${s.seq}  ·  ${MODEL_TYPE_LABELS[s.modelType] ?? s.modelType}  ·  ${authorLine}`, { width: W });
+    doc.fillColor(GREY).font("Helvetica").fontSize(10).text(`Submission #${s.seq}${(s.version ?? 1) > 1 ? ` (v${s.version})` : ""}  ·  ${MODEL_TYPE_LABELS[s.modelType] ?? s.modelType}  ·  ${authorLine}`, { width: W });
     doc.text(`Submitted ${date(s.submittedAt)}  ·  Evaluated ${date(s.completedAt)}  ·  Evaluator ${r.evaluatorVersion}${s.isPrivate ? "  ·  PRIVATE" : ""}`, { width: W });
     doc.moveDown(0.6);
     doc.fillColor(INK).fontSize(10).text(s.description, { width: W, lineGap: 1 });

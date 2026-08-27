@@ -155,7 +155,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null } }),
     ]);
     await log(`completed — weighted error ${out.weightedError.toFixed(3)} %`);
-    await recordRevision({ submissionId: sub.id, kind: job.attempts > 1 || sub.completedAt ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `attempt ${job.attempts}`, by: workerId() });
+    await recordRevision({ submissionId: sub.id, kind: sub.version > 1 || job.attempts > 1 ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `v${sub.version} · attempt ${job.attempts}`, by: workerId() });
     await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
     let report: Buffer | undefined;
     try {
@@ -180,9 +180,18 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       return { submissionId: sub.id, status: "RETRY" };
     }
     if (err instanceof EvaluationCancelled || abort.signal.aborted) {
-      process.stdout.write(`[${sub.seq}] cancelled by the submitter — evaluator stopped, submission removed\n`);
       await storage.remove(sub.fileKey);
-      await db.submission.delete({ where: { id: sub.id } }).catch(() => {}); // cascades to job + result
+      const previous = sub.version > 1 ? await db.evaluationResult.findUnique({ where: { submissionId: sub.id }, select: { id: true } }).catch(() => null) : null;
+      if (previous) {
+        // a new version was cancelled mid-run: keep the previous version's score
+        process.stdout.write(`[${sub.seq}] v${sub.version} cancelled by the submitter — evaluator stopped, previous score kept\n`);
+        await db.submission.update({ where: { id: sub.id }, data: { status: "COMPLETED", version: sub.version - 1, completedAt: new Date() } }).catch(() => {});
+        await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, cancelRequestedAt: null } }).catch(() => {});
+        await recordRevision({ submissionId: sub.id, kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} evaluation cancelled — v${sub.version - 1} score kept`, by: workerId() }).catch(() => {});
+        return { submissionId: sub.id, status: "CANCELLED" };
+      }
+      process.stdout.write(`[${sub.seq}] cancelled by the submitter — evaluator stopped, submission removed\n`);
+      await db.submission.delete({ where: { id: sub.id } }).catch(() => {}); // cascades to job + result + history
       return { submissionId: sub.id, status: "CANCELLED" };
     }
     const message = err instanceof EvaluationError && err.userFacing ? err.message : "The evaluator encountered an internal error. The administrators have been notified.";

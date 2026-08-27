@@ -35,7 +35,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             {row.original.modelName}
           </Link>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-grey-600">
-            <span>#{row.original.seq}</span>
+            <span>#{row.original.seq}{row.original.version > 1 ? ` · v${row.original.version}` : ""}</span>
             <span aria-hidden>·</span>
             <span>{MODEL_TYPE_LABELS[row.original.modelType] ?? row.original.modelType}</span>
             {row.original.isPrivate ? (

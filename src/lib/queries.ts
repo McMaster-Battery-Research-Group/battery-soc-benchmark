@@ -5,6 +5,7 @@ import { METRIC_KEYS, type MetricKey } from "./test-cases";
 export type LeaderboardRow = {
   id: string;
   seq: number;
+  version: number;
   modelName: string;
   modelType: string;
   evaluationLevel: string;
@@ -41,7 +42,8 @@ const resultSelect = {
  */
 export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: boolean; contestId?: string | null; includeAllContestRows?: boolean } = {}): Promise<LeaderboardRow[]> {
   const where: Prisma.SubmissionWhereInput = {
-    status: "COMPLETED",
+    // completed, or re-evaluating a new version (its previous score stays visible meanwhile)
+    status: { in: ["COMPLETED", "QUEUED", "RUNNING"] },
     result: { isNot: null },
     ...(opts.contestId ? { contestId: opts.contestId } : {}),
     AND: [
@@ -64,6 +66,7 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
     .map((s) => ({
       id: s.id,
       seq: s.seq,
+      version: s.version,
       modelName: s.modelName,
       modelType: s.modelType,
       evaluationLevel: s.evaluationLevel,

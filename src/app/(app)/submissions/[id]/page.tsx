@@ -22,6 +22,7 @@ import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 import { getHistory, KIND_LABEL, type RevisionKind } from "@/lib/history";
+import { EditDetailsDialog, NewVersionDialog } from "./edit-and-resubmit";
 
 export const dynamic = "force-dynamic";
 
@@ -58,13 +59,23 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             {sub.contest ? <Badge variant="gold"><Trophy className="size-3" /> {sub.contest.title}</Badge> : null}
           </div>
           <p className="mt-1 text-sm text-grey-700">
-            Submission #{sub.seq} · {MODEL_TYPE_LABELS[sub.modelType]} · by <Link href={`/users/${sub.user.id}`} className="text-ink hover:text-maroon hover:underline">{sub.user.name}</Link>
+            Submission #{sub.seq}{sub.version > 1 ? ` · v${sub.version}` : ""} · {MODEL_TYPE_LABELS[sub.modelType]} · by <Link href={`/users/${sub.user.id}`} className="text-ink hover:text-maroon hover:underline">{sub.user.name}</Link>
             {sub.collaborators.filter((c) => c.acceptedAt).map((c) => <React.Fragment key={c.userId}>, <Link href={`/users/${c.user.id}`} className="text-ink hover:text-maroon hover:underline">{c.user.name}</Link></React.Fragment>)}
             {sub.collaborators.some((c) => c.acceptedAt) ? "" : `, ${sub.user.affiliation}`} · {fmtDateTime(sub.submittedAt)}
           </p>
           <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
         </div>
-        {(isOwner || isAdmin) ? <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} isOwner={isOwner} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} /> : null}
+        {(isOwner || isAdmin) ? (
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} modelType={sub.modelType} locked={!!sub.contest && (sub.contest.status !== "OPEN")} />
+              {sub.status === "COMPLETED" || sub.status === "FAILED" ? (
+                <NewVersionDialog id={sub.id} version={sub.version} directUpload={(process.env.STORAGE ?? "local") === "supabase"} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} disabledReason={sub.contest && sub.contest.status !== "OPEN" ? "Contest closed — entries are frozen" : undefined} />
+              ) : null}
+            </div>
+            <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} isOwner={isOwner} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} />
+          </div>
+        ) : null}
       </div>
 
       {sp.new ? <Alert variant="success" className="mt-6" title="Submission received">Your package passed the structural checks and is queued for blinded evaluation. This page updates automatically; you will also receive an email when it finishes.</Alert> : null}
