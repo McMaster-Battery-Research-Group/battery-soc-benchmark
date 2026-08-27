@@ -56,6 +56,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-heading text-3xl font-bold">{sub.modelName}</h1>
             <StatusBadge status={sub.status} />
+            {rank ? (
+              <Link href="/leaderboard" className="inline-flex items-center gap-1.5 rounded-full border border-gold-400 bg-gold-100 px-2.5 py-0.5 font-heading text-sm font-semibold text-ink hover:bg-gold-200" title="Current position on the public leaderboard (by weighted error)">
+                <Trophy className="size-3.5 text-maroon" /> Rank #{rank}
+              </Link>
+            ) : null}
             {sub.isPrivate ? <Badge variant="neutral"><Lock className="size-3" /> Private</Badge> : null}
             {sub.contest ? <Badge variant="gold"><Trophy className="size-3" /> {sub.contest.title}</Badge> : null}
           </div>
