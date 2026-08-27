@@ -1,3 +1,4 @@
+import { progressFromLog, fmtDuration } from "@/lib/progress";
 import Link from "next/link";
 import { Activity, PauseCircle, XCircle, Cpu, MemoryStick, HardDrive, GitCommit, Boxes } from "lucide-react";
 import { db } from "@/lib/db";
@@ -16,7 +17,7 @@ export default async function WorkersPage() {
     db.submission.findMany({
       where: { status: { in: ["QUEUED", "RUNNING"] } },
       orderBy: [{ status: "desc" }, { submittedAt: "asc" }],
-      include: { user: { select: { name: true } }, job: { select: { attempts: true, lockedAt: true, lockedBy: true, createdAt: true } } },
+      include: { user: { select: { name: true } }, job: { select: { attempts: true, lockedAt: true, lockedBy: true, createdAt: true, log: true } } },
     }),
     db.submission.findMany({ where: { status: "FAILED" }, orderBy: { completedAt: "desc" }, take: 8, include: { user: { select: { name: true } }, job: { select: { attempts: true } } } }),
   ]);
@@ -74,7 +75,25 @@ export default async function WorkersPage() {
                   <Diag label="Python" value={w.pythonInfo || "—"} warn={/not found/.test(w.pythonInfo)} />
                   <Diag label="MATLAB" value={w.matlabInfo || "—"} warn={/not found/.test(w.matlabInfo)} />
                   <Diag label="Blinded data" value={w.blindData ? "present" : w.evaluator === "real" ? "MISSING — real evaluations will fail" : "not needed (mock)"} warn={!w.blindData && w.evaluator === "real"} />
-                  {w.busyWith.length ? <Diag label="Working on" value={<>{w.busyWith.map((id) => <Link key={id} href={`/submissions/${id}`} className="mr-2 text-maroon underline">{id.slice(0, 10)}…</Link>)}</>} /> : null}
+                  {w.busyWith.length ? (
+                    <Diag
+                      label="Working on"
+                      value={
+                        <>
+                          {w.busyWith.map((id) => {
+                            const s = active.find((x) => x.id === id);
+                            const p = s?.job?.log ? progressFromLog(s.job.log) : null;
+                            return (
+                              <span key={id} className="mr-3 inline-block">
+                                <Link href={`/submissions/${id}`} className="text-maroon underline">{s ? `#${s.seq} ${s.modelName}` : `${id.slice(0, 10)}…`}</Link>
+                                {p && p.pct !== null ? <span className="ml-1.5 text-grey-700">{p.pct.toFixed(0)} %{p.etaSec !== null ? ` · ${fmtDuration(p.etaSec)} left` : ""}</span> : null}
+                              </span>
+                            );
+                          })}
+                        </>
+                      }
+                    />
+                  ) : null}
                   {w.lastError ? <Diag label="Last error" value={w.lastError} warn /> : null}
                 </dl>
 

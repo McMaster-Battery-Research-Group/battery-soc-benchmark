@@ -9,6 +9,7 @@ import { storage } from "@/lib/storage";
 import { evaluationCompleteEmail } from "@/lib/mail";
 import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getEvaluator } from "./index";
+import { pushConsole } from "./console-ring";
 import { EvaluationError, EvaluationCancelled } from "./types";
 import { recordRevision, getHistory } from "@/lib/history";
 import { getActiveWeights } from "@/lib/scoring-config";
@@ -39,7 +40,8 @@ export async function runDryRun(id: string) {
   const dr = await db.dryRun.findUnique({ where: { id } });
   if (!dr) return;
   const log = async (line: string) => {
-    process.stdout.write(`[dry ${id.slice(-6)}] ${line}\n`); // visible in the worker terminal / admin console too
+    process.stdout.write(`[dry ${id.slice(-6)}] ${line}\n`);
+    pushConsole(`[dry ${id.slice(-6)}] ${line}`); // admin console (heartbeat)
     const cur = await db.dryRun.findUnique({ where: { id }, select: { log: true } }).catch(() => null);
     if (cur) await db.dryRun.update({ where: { id }, data: { log: cur.log + `${new Date().toISOString()} ${line}\n` } }).catch(() => {});
   };
@@ -118,6 +120,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
   const log = async (line: string) => {
     const stamped = `${new Date().toISOString()} ${line}\n`;
     process.stdout.write(`[${sub.seq}] ${line}\n`);
+    pushConsole(`[#${sub.seq}] ${line}`); // admin console (heartbeat)
     const cur = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { log: true, cancelRequestedAt: true } }).catch(() => undefined);
     if (cur === null) {
       // job row gone: the submission was cancelled/deleted while we were evaluating it

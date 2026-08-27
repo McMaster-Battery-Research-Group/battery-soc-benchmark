@@ -23,25 +23,13 @@ import { db } from "@/lib/db";
 import { claimNext, runNext, workerId, inflight, SHUTDOWN, type WorkItem } from "./run-job";
 import { getEvaluator } from "./index";
 import { dockerUp, ensureDocker, sandboxMode } from "./python-evaluator";
+import { installConsoleMirror, consoleTail } from "./console-ring";
 
 const POLL_MS = 2000;
 const HEARTBEAT_MS = 15_000;
 const CONCURRENCY = Math.max(1, Number(process.env.WORKER_CONCURRENCY ?? 1) || 1);
-const LOG_LINES = 200;
-
-// ---- ring-buffer console log (mirrored to the heartbeat row)
-const ring: string[] = [];
-const push = (line: string) => {
-  ring.push(`${new Date().toISOString()} ${line}`);
-  if (ring.length > LOG_LINES) ring.splice(0, ring.length - LOG_LINES);
-};
-for (const k of ["log", "error", "warn"] as const) {
-  const orig = console[k].bind(console);
-  console[k] = (...a: unknown[]) => {
-    orig(...a);
-    push(a.map((x) => (x instanceof Error ? x.stack ?? x.message : typeof x === "string" ? x : JSON.stringify(x))).join(" "));
-  };
-}
+// ---- ring-buffer console log (mirrored to the heartbeat row); job progress lines are pushed by run-job.ts
+installConsoleMirror();
 
 // ---- one-off diagnostics (cheap, cached; refreshed hourly)
 type Diag = { pythonInfo: string; matlabInfo: string; blindData: boolean; gitSha: string; platform: string };
@@ -132,7 +120,7 @@ async function heartbeat() {
     completed: stats.completed,
     failed: stats.failed,
     lastError: stats.lastError,
-    log: ring.join("\n"),
+    log: consoleTail(),
   };
   try {
     const row = await db.workerHeartbeat.upsert({ where: { id: workerId() }, create: { id: workerId(), ...data }, update: data, select: { command: true } });
