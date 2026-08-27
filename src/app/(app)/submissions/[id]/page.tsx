@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Lock, ArrowLeft, Trophy, Download, FileText } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { getSubmissionDetail, canViewSubmission } from "@/lib/queries";
+import { getSubmissionDetail, canViewSubmission, publicRankOf } from "@/lib/queries";
 import { TEST_CASES, MODEL_TYPE_LABELS, COMPLEXITY_LABELS, type MetricKey } from "@/lib/test-cases";
 import { fmtPct, fmtDateTime, fmtBytes } from "@/lib/utils";
 import type { PerCycleRow, TimeSeriesTrace } from "@/evaluator/types";
@@ -18,6 +18,7 @@ import { PerCycleTable } from "@/components/charts/per-cycle-table";
 import { ModelSchematic, specForModelType } from "@/components/model-schematic";
 import * as React from "react";
 import { StatusPoller } from "./status-poller";
+import { Celebration } from "@/components/celebration";
 import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function SubmissionPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ new?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
-  const [session, sub, history] = await Promise.all([auth(), getSubmissionDetail(id), getHistory(id)]);
+  const [session, sub, history, rank] = await Promise.all([auth(), getSubmissionDetail(id), getHistory(id), publicRankOf(id)]);
   if (!sub || !canViewSubmission(sub, session?.user)) notFound();
   const isOwner = session?.user?.id === sub.userId;
   const isAdmin = session?.user?.role === "ADMIN";
@@ -84,6 +85,10 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
       {sub.status === "QUEUED" || sub.status === "RUNNING" ? (
         <div className="mt-6"><StatusPoller id={sub.id} status={sub.status} log={canSee ? sub.job?.log ?? "" : ""} /></div>
+      ) : null}
+
+      {sub.status === "COMPLETED" && r && (isOwner || isCollaborator) ? (
+        <Celebration id={sub.id} modelName={sub.modelName} score={fmtPct(r.weightedError)} rank={rank} recentlyCompleted={!!sub.completedAt && Date.now() - sub.completedAt.getTime() < 14 * 86400_000} />
       ) : null}
 
       {sub.status === "FAILED" ? (

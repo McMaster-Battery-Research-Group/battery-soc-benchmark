@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Clock, PauseCircle } from "lucide-react";
 import { progressFromLog, STAGE_LABEL, fmtDuration } from "@/lib/progress";
+import { queueCelebration } from "@/components/celebration";
 
 type Live = {
   status: string;
@@ -51,6 +52,7 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
         if (stop) return;
         setLive(j);
         if (j.status === "COMPLETED" || j.status === "FAILED") {
+          if (j.status === "COMPLETED") queueCelebration(id);
           router.refresh();
           setTimeout(() => window.location.replace(`/submissions/${id}`), 800);
           return;
