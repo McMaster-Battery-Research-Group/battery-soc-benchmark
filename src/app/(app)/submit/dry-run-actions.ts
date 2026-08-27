@@ -1,5 +1,7 @@
 "use server";
 
+import { logEvent } from "@/lib/log";
+
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
@@ -50,5 +52,6 @@ export async function startDryRunAction(fd: FormData): Promise<DryRunStart> {
 
   const key = preUploadedKey ?? (await storage.put(bytes, "zip"));
   const dr = await db.dryRun.create({ data: { userId: session.user.id, fileKey: key, fileName, fileSize: bytes.length } });
+  logEvent("dryrun.queued", { id: dr.id, userId: session.user.id, fileName, fileKB: Math.round(bytes.length / 1024) });
   return { ok: true, id: dr.id };
 }

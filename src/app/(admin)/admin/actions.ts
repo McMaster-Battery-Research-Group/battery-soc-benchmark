@@ -1,5 +1,7 @@
 "use server";
 
+import { logEvent } from "@/lib/log";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -12,6 +14,7 @@ import { contestSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 export async function workerCommandAction(workerId: string, command: "pause" | "resume" | "stop") {
   await requireAdmin();
   await db.workerHeartbeat.update({ where: { id: workerId }, data: { command } });
+  logEvent("admin.worker_command", { workerId, command });
   revalidatePath("/admin/workers");
 }
 
@@ -47,6 +50,7 @@ export async function retryJobAction(submissionId: string) {
 export async function toggleHiddenAction(id: string, isHidden: boolean) {
   await requireAdmin();
   await db.submission.update({ where: { id }, data: { isHidden } });
+  logEvent("admin.submission_hidden", { id, isHidden });
   revalidatePath("/leaderboard");
   revalidatePath(`/submissions/${id}`);
   revalidatePath("/admin/submissions");

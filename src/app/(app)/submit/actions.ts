@@ -1,5 +1,7 @@
 "use server";
 
+import { logEvent } from "@/lib/log";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -73,7 +75,10 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   if (ext !== "zip") return reject("Only .zip submission packages are accepted — see the submission format guide.");
   if (fileSize > MAX_UPLOAD_BYTES) return reject(`File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB limit`);
   const check = checkSubmissionPackage(bytes);
-  if (!check.ok) return reject(check.problems.join(" "));
+  if (!check.ok) {
+    logEvent("submission.rejected", { userId: session.user.id, fileName, reason: check.problems[0] });
+    return reject(check.problems.join(" "));
+  }
 
   // Collaborators chosen on the form (must be existing accounts, not the owner, ≤ 10)
   let collaborators: { id: string; email: string; name: string }[] = [];
@@ -127,6 +132,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     },
   });
   // Collaborators start as pending; the owner confirms the e-mails on the submission page.
+  logEvent("submission.created", { seq: sub.seq, id: sub.id, userId: session.user.id, modelType: parsed.data.modelType, fileKB: Math.round(fileSize / 1024), contestId, collaborators: collaborators.length });
   revalidatePath("/submissions");
   redirect(`/submissions/${sub.id}?new=1`);
 }
@@ -165,11 +171,13 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
   if (sub.status === "QUEUED" && !job?.lockedAt) {
     await storage.remove(sub.fileKey);
     await db.submission.delete({ where: { id } });
+    logEvent("submission.cancelled_queued", { id, seq: sub.seq });
     revalidatePath("/submissions");
     revalidatePath("/leaderboard");
     return { ok: true, immediate: true };
   }
   await db.evaluationJob.update({ where: { submissionId: id }, data: { cancelRequestedAt: new Date() } });
+  logEvent("submission.cancel_requested", { id, seq: sub.seq });
   revalidatePath(`/submissions/${id}`);
   return { ok: true, immediate: false };
 }
@@ -223,6 +231,7 @@ export async function notifyCollaboratorsAction(id: string): Promise<{ ok: true;
       await db.submissionCollaborator.update({ where: { submissionId_userId: { submissionId: id, userId: c.userId } }, data: { notifiedAt: new Date(), inviteToken: token } });
     }
   }
+  logEvent("collaborators.invited", { submissionId: id, sent, pending: pending.length });
   revalidatePath(`/submissions/${id}`);
   return sent ? { ok: true, sent } : { ok: false, error: "E-mails could not be sent — check the mail settings." };
 }
@@ -250,6 +259,7 @@ export async function respondToInviteAction(input: { submissionId: string } | { 
     await db.submissionCollaborator.delete({ where: { submissionId_userId: { submissionId: row.submissionId, userId: row.userId } } });
     await collaboratorDeclinedEmail(submission.user.email, submission.user.name, row.user.name, submission.modelName, submission.id);
   }
+  logEvent(accept ? "collaborator.accepted" : "collaborator.declined", { submissionId: submission.id, userId: row.userId });
   revalidatePath("/leaderboard");
   revalidatePath("/submissions");
   revalidatePath(`/submissions/${submission.id}`);

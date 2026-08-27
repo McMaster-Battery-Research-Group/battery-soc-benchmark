@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { logEvent } from "@/lib/log";
 
 /**
  * DB-backed sliding-window rate limiter (Vercel functions are stateless, so
@@ -12,6 +13,7 @@ export async function rateLimit(key: string, limit: number, windowMs: number): P
   if (count >= limit) {
     const oldest = await db.rateLimitHit.findFirst({ where: { key, createdAt: { gt: since } }, orderBy: { createdAt: "asc" }, select: { createdAt: true } });
     const retryAfterSec = oldest ? Math.max(1, Math.ceil((oldest.createdAt.getTime() + windowMs - Date.now()) / 1000)) : Math.ceil(windowMs / 1000);
+    logEvent("ratelimit.blocked", { key, limit, retryAfterSec });
     return { ok: false, retryAfterSec };
   }
   await db.rateLimitHit.create({ data: { key } });
