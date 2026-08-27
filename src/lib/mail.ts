@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import nodemailer, { type Transporter } from "nodemailer";
 import { LOGOS, ACKNOWLEDGEMENT, logoPngPath } from "@/lib/logos";
 
@@ -31,6 +33,8 @@ export interface MailAttachment {
   filename: string;
   content: Buffer;
   contentType?: string;
+  /** Content-ID for inline images (<img src="cid:…">) */
+  cid?: string;
 }
 
 export async function sendMail(opts: { to: string; cc?: string; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) {
@@ -92,25 +96,31 @@ export function passwordResetEmail(to: string, name: string, token: string) {
   });
 }
 
-/** Static "confetti" band for the results e-mail — e-mail clients block scripts and most CSS animation, so this is pure HTML. */
-function celebrationBanner() {
-  const bits = ["#7a003c", "#fdbf57", "#fee5bc", "#7a003c", "#fdbf57", "#7a003c", "#fee5bc", "#fdbf57", "#7a003c", "#fdbf57", "#fee5bc", "#7a003c"];
-  const row = (offset: number) =>
-    bits.map((c, i) => `<span style="display:inline-block;width:${6 + ((i + offset) % 3) * 2}px;height:${10 - ((i + offset) % 2) * 4}px;margin:${(i * 7 + offset * 5) % 14}px ${5 + ((i + offset) % 4) * 3}px 0;background:${c};transform:rotate(${((i + offset) * 37) % 90 - 45}deg);border-radius:1px"></span>`).join("");
-  return `<div style="text-align:center;padding:6px 0 2px;line-height:0;white-space:nowrap;overflow:hidden">${row(0)}${row(1)}</div><p style="text-align:center;font-size:30px;line-height:1;margin:4px 0 14px">🎉</p>`;
+/** Animated confetti for the results e-mail. Mail clients block scripts and CSS animation, but an animated GIF plays in
+ *  Gmail, Apple Mail, Outlook web/mobile and most others (Outlook desktop shows the first frame). Embedded inline via CID so
+ *  it needs no external host and shows even with remote images blocked. */
+const CONFETTI_CID = "confetti@batterysocbenchmark";
+function confettiGif(): MailAttachment | null {
+  try {
+    return { filename: "confetti.gif", content: readFileSync(path.join(process.cwd(), "src/lib/assets/confetti.gif")), contentType: "image/gif", cid: CONFETTI_CID };
+  } catch {
+    return null;
+  }
 }
+const confettiBanner = (gif: MailAttachment | null) => (gif ? `<img src="cid:${CONFETTI_CID}" width="600" height="150" alt="🎉" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 8px" />` : `<p style="text-align:center;font-size:30px;line-height:1;margin:4px 0 14px">🎉</p>`);
 
 export function evaluationCompleteEmail(to: string, name: string, modelName: string, submissionId: string, ok: boolean, summary?: string, report?: Buffer) {
   const href = `${site()}/submissions/${submissionId}`;
+  const gif = ok ? confettiGif() : null;
   return sendMail({
     to: addr(name, to),
     subject: ok ? `Evaluation complete: ${modelName}` : `Evaluation failed: ${modelName}`,
     html: layout(
       ok ? "Your model has been evaluated" : "Your evaluation could not be completed",
-      `${ok ? celebrationBanner() : ""}<p>Hi ${name},</p><p>${ok ? `🎉 Congratulations — <strong>${modelName}</strong> finished blinded evaluation. ${summary ?? ""}` : `<strong>${modelName}</strong> failed during evaluation. ${summary ?? ""}`}</p>${button(href, "View results")}${report ? `<p style="font-size:13px;color:#6d7a84">The full report (summary, all test cases, time-domain traces and per-cycle errors) is attached as a PDF.</p>` : ""}`,
+      `${ok ? confettiBanner(gif) : ""}<p>Hi ${name},</p><p>${ok ? `🎉 Congratulations — <strong>${modelName}</strong> finished blinded evaluation. ${summary ?? ""}` : `<strong>${modelName}</strong> failed during evaluation. ${summary ?? ""}`}</p>${button(href, "View results")}${report ? `<p style="font-size:13px;color:#6d7a84">The full report (summary, all test cases, time-domain traces and per-cycle errors) is attached as a PDF.</p>` : ""}`,
     ),
     text: `${ok ? "Evaluation complete" : "Evaluation failed"}: ${href}`,
-    attachments: report ? [{ filename: `${modelName.replace(/[^a-z0-9]+/gi, "_")}-soc-benchmark-report.pdf`, content: report, contentType: "application/pdf" }] : undefined,
+    attachments: [...(gif ? [gif] : []), ...(report ? [{ filename: `${modelName.replace(/[^a-z0-9]+/gi, "_")}-soc-benchmark-report.pdf`, content: report, contentType: "application/pdf" }] : [])],
   });
 }
 
