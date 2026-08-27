@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { hashPassword, signIn, signOut, auth } from "@/lib/auth";
 import { isListedAdmin } from "@/lib/admin-list";
 import { rateLimit, clientIp, TOO_MANY } from "@/lib/rate-limit";
-import { verificationEmail, passwordResetEmail } from "@/lib/mail";
+import { accountEventEmail, verificationEmail, passwordResetEmail } from "@/lib/mail";
 import { loginSchema, registerSchema, passwordSchema, profileSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
@@ -48,6 +48,7 @@ export async function registerAction(_prev: ActionState, fd: FormData): Promise<
   const token = await issueToken(user.id, "VERIFY_EMAIL", 24 * 3600 * 1000);
   const sent = await verificationEmail(user.email, user.name, token);
   logEvent("user.registered", { userId: user.id, email, role: user.role, verificationMailSent: sent });
+  accountEventEmail("registered", user).catch(() => {});
   redirect(`/verify?sent=1&email=${encodeURIComponent(email)}`);
 }
 
@@ -116,10 +117,11 @@ export async function resetPasswordAction(_prev: ActionState, fd: FormData): Pro
   const pw = passwordSchema.safeParse(password);
   if (!pw.success) return { errors: { password: pw.error.issues[0]?.message } };
   if (password !== confirm) return { errors: { confirm: "Passwords do not match" } };
-  const rec = await db.userToken.findUnique({ where: { token } });
+  const rec = await db.userToken.findUnique({ where: { token }, include: { user: true } });
   if (!rec || rec.type !== "RESET_PASSWORD" || rec.expiresAt < new Date()) {
     return { errors: { form: "This reset link is invalid or has expired. Request a new one." } };
   }
+  if (!rec.user.emailVerified) accountEventEmail("verified", rec.user, "password reset link").catch(() => {});
   await db.$transaction([
     db.user.update({ where: { id: rec.userId }, data: { passwordHash: await hashPassword(password), emailVerified: new Date() } }),
     db.userToken.deleteMany({ where: { userId: rec.userId, type: "RESET_PASSWORD" } }),

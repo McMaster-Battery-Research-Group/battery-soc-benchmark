@@ -228,3 +228,33 @@ export function feedbackNotificationEmail(to: string, msg: { id: string; name: s
     text: `${msg.category}: ${msg.subject}\n\n${msg.body}\n\nFrom ${msg.name} <${msg.email}>\n${href}`,
   });
 }
+
+/** Admin notification: a new account was created, or an account was verified. Fire-and-forget to every admin target. */
+export async function accountEventEmail(kind: "registered" | "verified", user: { id: string; name: string; email: string; affiliation: string; role?: string; createdAt?: Date }, via?: string) {
+  const { adminNotifyTargets } = await import("@/lib/admin-list");
+  const { fmtDateTime } = await import("@/lib/utils");
+  const targets = (await adminNotifyTargets()).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
+  if (!targets.length) return;
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const href = `${site()}/admin/users`;
+  const title = kind === "registered" ? `New account: ${user.name}` : `Account verified: ${user.name}`;
+  const rows = [
+    ["Name", user.name],
+    ["E-mail", user.email],
+    ["Affiliation", user.affiliation],
+    ...(user.role ? [["Role", user.role]] : []),
+    ...(user.createdAt ? [["Joined", fmtDateTime(user.createdAt)]] : []),
+    ...(via ? [["Verified via", via]] : []),
+  ];
+  const table = `<table style="border-collapse:collapse;font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#6d7a84">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`).join("")}</table>`;
+  await Promise.all(
+    targets.map((to) =>
+      sendMail({
+        to,
+        subject: `[SOC Benchmark] ${title}`,
+        html: layout(title, `<p>${kind === "registered" ? "Someone just created an account on the benchmark site. They still need to verify their e-mail before they can submit." : "This account has completed e-mail verification and can now submit models."}</p>${table}${button(href, "Open user list")}`),
+        text: `${title}\n${rows.map(([k, v]) => `${k}: ${v}`).join("\n")}\n${href}`,
+      }),
+    ),
+  );
+}

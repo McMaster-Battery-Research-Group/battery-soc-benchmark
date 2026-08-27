@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { fmtDate } from "@/lib/utils";
+import { fmtDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { UserActions } from "./user-actions";
 import { auth } from "@/lib/auth";
@@ -23,7 +23,7 @@ export default async function AdminUsers() {
                 <td className="px-3 py-2"><Badge variant={u.role === "ADMIN" ? "maroon" : "neutral"}>{u.role}</Badge></td>
                 <td className="px-3 py-2">{u.emailVerified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning">Pending</Badge>}</td>
                 <td className="px-3 py-2 tabular">{u._count.submissions}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-grey-700">{fmtDate(u.createdAt)}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-grey-700">{fmtDateTime(u.createdAt)}</td>
                 <td className="px-3 py-2 text-right"><UserActions id={u.id} role={u.role} verified={!!u.emailVerified} isSelf={u.id === session?.user?.id} /></td>
               </tr>
             ))}

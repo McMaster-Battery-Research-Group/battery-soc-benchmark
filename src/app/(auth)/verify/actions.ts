@@ -1,5 +1,6 @@
 "use server";
 
+import { accountEventEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
 import { redirect } from "next/navigation";
@@ -13,7 +14,7 @@ import { db } from "@/lib/db";
  */
 export async function confirmEmailAction(fd: FormData) {
   const token = String(fd.get("token") ?? "");
-  const rec = await db.userToken.findUnique({ where: { token }, include: { user: { select: { emailVerified: true } } } });
+  const rec = await db.userToken.findUnique({ where: { token }, include: { user: true } });
   if (!rec || rec.type !== "VERIFY_EMAIL") redirect("/verify?invalid=1");
   if (rec.user.emailVerified) redirect("/login?verified=1");
   if (rec.expiresAt < new Date()) redirect("/verify?invalid=1");
@@ -21,5 +22,6 @@ export async function confirmEmailAction(fd: FormData) {
   // that fires after the click) lands on "already verified" instead of an error.
   await db.user.update({ where: { id: rec.userId }, data: { emailVerified: new Date() } });
   logEvent("user.verified", { userId: rec.userId });
+  accountEventEmail("verified", rec.user, "e-mail link").catch(() => {});
   redirect("/login?verified=1");
 }

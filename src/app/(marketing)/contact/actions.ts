@@ -1,5 +1,6 @@
 "use server";
 
+import { adminNotifyTargets } from "@/lib/admin-list";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { contactSchema, zodErrors, type FieldErrors } from "@/lib/validation";
@@ -22,9 +23,7 @@ export async function sendContactAction(_prev: ContactState, fd: FormData): Prom
   const { pageUrl, ...rest } = parsed.data;
   const msg = await db.contactMessage.create({ data: { ...rest, pageUrl: pageUrl || null, userId: session?.user?.id ?? null } });
   // Notify administrators (best effort). ADMIN_NOTIFY_EMAIL overrides; otherwise every ADMIN account.
-  const targets = process.env.ADMIN_NOTIFY_EMAIL
-    ? process.env.ADMIN_NOTIFY_EMAIL.split(",").map((s) => s.trim()).filter(Boolean)
-    : (await db.user.findMany({ where: { role: "ADMIN" }, select: { email: true } })).map((u) => u.email);
+  const targets = await adminNotifyTargets();
   await Promise.all(targets.map((to) => feedbackNotificationEmail(to, msg)));
   return { ok: true };
 }
