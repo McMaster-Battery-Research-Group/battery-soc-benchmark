@@ -1,3 +1,4 @@
+import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { METRIC_KEYS, type MetricKey } from "./test-cases";
@@ -121,4 +122,12 @@ export async function getSiteStats() {
 
 export async function getOpenContest() {
   return db.contest.findFirst({ where: { status: "OPEN" }, orderBy: { endsAt: "asc" } });
+}
+
+/** 1-based public rank (lower weighted error is better) among current-benchmark, public, visible, completed submissions; null when the submission itself is not ranked. */
+export async function publicRankOf(submissionId: string): Promise<number | null> {
+  const me = await db.submission.findUnique({ where: { id: submissionId }, select: { isPrivate: true, isHidden: true, status: true, result: { select: { weightedError: true, evaluatorVersion: true } } } });
+  if (!me?.result || me.isPrivate || me.isHidden || me.status !== "COMPLETED" || !isCurrentBenchmark(me.result.evaluatorVersion)) return null;
+  const better = await db.submission.count({ where: { isPrivate: false, isHidden: false, status: "COMPLETED", result: { weightedError: { lt: me.result.weightedError }, evaluatorVersion: BENCHMARK_VERSION } } });
+  return better + 1;
 }
