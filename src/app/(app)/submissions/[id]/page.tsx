@@ -142,7 +142,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               <dl className="card grid gap-x-8 gap-y-3 p-5 text-sm sm:grid-cols-2">
                 <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}) — deleted after evaluation`} />
                 <Row k="Evaluation level" v={sub.evaluationLevel.toLowerCase()} />
-                <Row k="Evaluator version" v={`${r.evaluatorVersion}${isCurrentBenchmark(r.evaluatorVersion) ? "" : ` — legacy; current benchmark is ${BENCHMARK_VERSION}. Re-submit to be scored on the current version.`}`} />
+                <Row k="Evaluator version" v={`${r.evaluatorVersion}${isCurrentBenchmark(r.evaluatorVersion) ? "" : ` — legacy; current benchmark is ${BENCHMARK_VERSION}. This score is kept for reference but UNRANKED on the leaderboard until you submit a new version.`}`} />
                 <Row k="Completed" v={fmtDateTime(sub.completedAt)} />
                 <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
                 <Row k="Submission ID" v={sub.id} />

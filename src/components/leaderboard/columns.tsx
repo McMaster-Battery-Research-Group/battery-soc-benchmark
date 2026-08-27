@@ -47,8 +47,8 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
               <Tooltip content="Hidden by an administrator"><EyeOff className="size-3 text-danger" /></Tooltip>
             ) : null}
             {!isCurrentBenchmark(row.original.evaluatorVersion) ? (
-              <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Scores across versions are not directly comparable — re-submit to be scored on the current version.`}>
-                <span className="rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy scoring</span>
+              <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Kept for reference but NOT ranked — submit a new version to be scored on the current benchmark and ranked again.`}>
+                <span className="rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span>
               </Tooltip>
             ) : null}
           </div>
@@ -93,6 +93,8 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
       meta: { ...NUMERIC_META, tooltip: "Weighted mean of the 12 blinded test-case RMSE values (% SOC). Lower is better. See Methodology for weights." },
       cell: (c) => <span className="font-heading font-semibold text-ink tabular">{fmtPct(c.getValue())}</span>,
       enableHiding: false,
+      // legacy-scored rows always sort after current ones so the ranked block stays on top
+      sortingFn: (a, b) => (Number(!isCurrentBenchmark(a.original.evaluatorVersion)) - Number(!isCurrentBenchmark(b.original.evaluatorVersion))) || a.original.weightedError - b.original.weightedError,
     }),
     col.accessor("complexity", {
       id: "complexity",

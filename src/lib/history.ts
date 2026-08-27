@@ -9,7 +9,7 @@ import { METRIC_KEYS, type MetricKey } from "@/lib/test-cases";
  * EvaluationResult row always holds the *current* numbers; the revisions are
  * the audit trail shown on the submission page and in the PDF.
  */
-export type RevisionKind = "evaluation" | "failure" | "rescore" | "reevaluation" | "resubmission" | "edit" | "cancelled";
+export type RevisionKind = "evaluation" | "failure" | "rescore" | "reevaluation" | "resubmission" | "edit" | "cancelled" | "legacy";
 
 export interface RevisionInput {
   submissionId: string;
@@ -55,4 +55,5 @@ export const KIND_LABEL: Record<RevisionKind, string> = {
   resubmission: "New package uploaded",
   edit: "Details edited",
   cancelled: "Evaluation cancelled",
+  legacy: "Benchmark version changed",
 };

@@ -4,7 +4,14 @@ import { cn } from "@/lib/utils";
  * Rank medal. `ghost` marks a viewer-only private submission: it shows the
  * position it WOULD take among the public rows ("~16") without displacing them.
  */
-export function RankBadge({ rank, ghost = false, className }: { rank: number; ghost?: boolean; className?: string }) {
+export function RankBadge({ rank, ghost = false, unranked = false, className }: { rank: number; ghost?: boolean; unranked?: boolean; className?: string }) {
+  if (unranked) {
+    return (
+      <span className={cn("inline-flex size-8 items-center justify-center rounded-full border border-dashed border-[#f2dcb6] bg-[#fdf4e3] font-heading text-xs font-semibold text-[#7a4f0e]", className)} aria-label="Unranked — legacy scoring" title="Scored by an older benchmark version; unranked until re-submitted">
+        —
+      </span>
+    );
+  }
   if (ghost) {
     return (
       <span className={cn("inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-dashed border-grey-400 px-1.5 font-heading text-xs font-semibold tabular text-grey-600", className)} aria-label={`Would rank ${rank} if public`} title="Private — would rank here if made public">

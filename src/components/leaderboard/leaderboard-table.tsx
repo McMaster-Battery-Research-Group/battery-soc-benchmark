@@ -24,6 +24,7 @@ import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/misc";
 import { buildColumns, DEFAULT_HIDDEN } from "./columns";
 import { RankBadge } from "./rank-badge";
+import { isCurrentBenchmark } from "@/lib/benchmark-version";
 
 const STORAGE_KEY = "socbench.leaderboard.columns";
 
@@ -78,10 +79,13 @@ export function LeaderboardTable({
   // PUBLIC rows only — so it matches what everyone else sees. A viewer's own private model gets a
   // "would rank here" ghost position without displacing anyone.
   const rankById = React.useMemo(() => {
-    const m = new Map<string, { rank: number; ghost: boolean }>();
-    const pub = filtered.filter((r) => !r.isPrivate).sort((a, b) => a.weightedError - b.weightedError);
-    pub.forEach((r, i) => m.set(r.id, { rank: i + 1, ghost: false }));
-    for (const r of filtered) if (r.isPrivate) m.set(r.id, { rank: pub.filter((p) => p.weightedError < r.weightedError).length + 1, ghost: true });
+    const m = new Map<string, { rank: number; ghost: boolean; unranked: boolean }>();
+    // Only public rows scored by the CURRENT benchmark are ranked; legacy-scored rows stay listed but unranked.
+    const current = filtered.filter((r) => isCurrentBenchmark(r.evaluatorVersion));
+    const pub = current.filter((r) => !r.isPrivate).sort((a, b) => a.weightedError - b.weightedError);
+    pub.forEach((r, i) => m.set(r.id, { rank: i + 1, ghost: false, unranked: false }));
+    for (const r of current) if (r.isPrivate) m.set(r.id, { rank: pub.filter((p) => p.weightedError < r.weightedError).length + 1, ghost: true, unranked: false });
+    for (const r of filtered) if (!m.has(r.id)) m.set(r.id, { rank: 0, ghost: false, unranked: true });
     return m;
   }, [filtered]);
 
@@ -100,7 +104,7 @@ export function LeaderboardTable({
 
   const download = () => {
     const cols = table.getVisibleLeafColumns().filter((c) => c.id !== "rank").map((c) => ({ key: c.id, header: typeof c.columnDef.header === "string" ? c.columnDef.header : c.id }));
-    const data = table.getSortedRowModel().rows.map((r) => ({ rank: rankById.get(r.original.id)?.ghost ? `~${rankById.get(r.original.id)?.rank} (private)` : rankById.get(r.original.id)?.rank, ...r.original }));
+    const data = table.getSortedRowModel().rows.map((r) => ({ rank: rankById.get(r.original.id)?.unranked ? "unranked (legacy scoring)" : rankById.get(r.original.id)?.ghost ? `~${rankById.get(r.original.id)?.rank} (private)` : rankById.get(r.original.id)?.rank, ...r.original }));
     const csv = toCsv(data, [{ key: "rank", header: "Rank" }, ...cols, { key: "affiliation", header: "Affiliation" }]);
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
@@ -203,7 +207,7 @@ export function LeaderboardTable({
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
                           <td key={cell.id} className={cn("px-3 py-2.5 align-middle", meta.align === "right" && "text-right", cell.column.id === "modelName" && "sticky left-0 z-[1]", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : "bg-white"))}>
-                            {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} unranked={rankById.get(row.original.id)!.unranked} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
                       })}
@@ -219,7 +223,7 @@ export function LeaderboardTable({
                 const r = row.original;
                 return (
                   <li key={r.id} className={cn("flex items-start gap-3 p-4", r.isPrivate && "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]")}>
-                    <RankBadge rank={rankById.get(r.id)!.rank} ghost={rankById.get(r.id)!.ghost} />
+                    <RankBadge rank={rankById.get(r.id)!.rank} ghost={rankById.get(r.id)!.ghost} unranked={rankById.get(r.id)!.unranked} />
                     <div className="min-w-0 flex-1">
                       <Link href={`/submissions/${r.id}`} className="font-heading font-semibold text-ink">{r.modelName}</Link>
                       {r.isPrivate ? <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900">Private · only you</span> : null}

@@ -182,6 +182,21 @@ export function rescoreEmail(to: string, name: string, modelName: string, submis
   });
 }
 
+/** Sent when the benchmark version changes: the submission is kept but unranked until re-submitted. */
+export function legacyNoticeEmail(to: string, name: string, modelName: string, submissionId: string, oldVersion: string, newVersion: string, note: string) {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const href = `${site()}/submissions/${submissionId}`;
+  return sendMail({
+    to: addr(name, to),
+    subject: `Action needed: "${modelName}" is unranked until re-submitted (benchmark ${newVersion})`,
+    html: layout(
+      "The benchmark has been updated",
+      `<p>Hi ${esc(name)},</p><p>The Battery SOC Benchmark now scores submissions with <strong>${esc(newVersion)}</strong>. Your submission <strong>${esc(modelName)}</strong> was scored by <strong>${esc(oldVersion)}</strong>, and because scores from different benchmark versions are not directly comparable it is <strong>kept on the site for reference but no longer ranked</strong> on the leaderboard.</p><p style="margin:16px 0;padding:12px 16px;border-left:4px solid #7a003c;background:#f6f7f7"><strong>What changed:</strong><br>${esc(note)}</p><p><strong>To be ranked again</strong>, open your submission and use <em>Submit new version</em> (same package or an updated one). It will be evaluated on the current benchmark; your previous score stays in the submission's history. Nothing is deleted.</p>${button(href, "Open the submission")}`,
+    ),
+    text: `The benchmark moved to ${newVersion}. "${modelName}" (scored by ${oldVersion}) is kept but unranked until you re-submit it: ${href}\n\nWhat changed: ${note}`,
+  });
+}
+
 export function feedbackNotificationEmail(to: string, msg: { id: string; name: string; email: string; category: string; subject: string; body: string; pageUrl?: string | null }) {
   const href = `${site()}/admin/messages`;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
