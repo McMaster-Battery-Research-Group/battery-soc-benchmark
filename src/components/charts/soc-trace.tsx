@@ -272,8 +272,10 @@ export function SocTrace({
   const errDomain: [number, number] = yZoom.err ?? (errScale === "fixed" ? [-20, 20] : [-round2(errMax), round2(errMax)]);
   const socMin = Math.min(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
   const socMax = Math.max(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
-  // fitted domain snaps to multiples of 5 so the tick labels stay round (e.g. 25 … 100 rather than 29 … 100)
-  const socDomain: [number, number] = yZoom.soc ?? (fitSoc ? [Math.max(0, Math.floor((socMin - 1) / 5) * 5), Math.min(100, Math.ceil((socMax + 1) / 5) * 5)] : [0, 100]);
+  // Fit = data extent with 2 % padding, then expanded to the nearest "nice" tick (1-2-5 steps, as MATLAB does), so labels are round.
+  const socDomain: [number, number] = yZoom.soc ?? (fitSoc ? niceDomain(Math.max(0, socMin - 2), Math.min(100, socMax + 2)) : [0, 100]);
+  const socTicks = niceTicks(socDomain[0], socDomain[1]);
+  const errTicks = niceTicks(errDomain[0], errDomain[1]);
   domainsRef.current = { soc: socDomain, err: errDomain };
   const legend = [{ label: "Actual SOC", color: CHART.actual }, ...traces.map((_, k) => ({ label: names[k] ?? `Model ${k + 1}`, color: color(k) }))];
   const tFmt = (v: number) => `${Number(v).toFixed(view.length < 60 ? 2 : 1)}h`;
@@ -389,7 +391,7 @@ export function SocTrace({
               <LineChart data={view} margin={{ top: PLOT.soc.top, right: RIGHT, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} height={PLOT.soc.xAxis} />
-                <YAxis {...axisProps} width={Y_AXIS_W} unit="%" domain={socDomain} allowDataOverflow />
+                <YAxis {...axisProps} width={Y_AXIS_W} unit="%" domain={socDomain} ticks={socTicks} allowDataOverflow />
                 <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
                 <Line type="monotone" dataKey="actual" name="Actual" stroke={CHART.actual} strokeWidth={2} dot={false} isAnimationActive={false} />
                 {traces.map((_, k) => (
@@ -406,7 +408,7 @@ export function SocTrace({
               <LineChart data={view} margin={{ top: PLOT.err.top, right: RIGHT, left: 0, bottom: 0 }} syncId={`soc-${ref.key}`}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="t" {...axisProps} type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} height={PLOT.err.xAxis} />
-                <YAxis {...axisProps} width={Y_AXIS_W} unit="%" domain={errDomain} allowDataOverflow tickFormatter={(v) => (Math.abs(v) < 1 ? Number(v).toFixed(2) : Number(v).toFixed(1))} />
+                <YAxis {...axisProps} width={Y_AXIS_W} unit="%" domain={errDomain} ticks={errTicks} allowDataOverflow tickFormatter={(v) => (Math.abs(v) < 1 ? Number(v).toFixed(2) : Number(v).toFixed(1))} />
                 <ReferenceLine y={0} stroke={CHART.axis} />
                 <Tooltip content={({ active, payload, label }) => <ChartTooltip active={active} label={`t = ${Number(label).toFixed(3)} h`} rows={(payload ?? []).map((p) => ({ name: String(p.name), value: `${Number(p.value) >= 0 ? "+" : ""}${fmtPct(Number(p.value), 2)} %`, color: String(p.stroke) }))} />} />
                 {traces.map((_, k) => (
@@ -474,4 +476,24 @@ export function SocTracePicker({ tracesByModel, names }: { tracesByModel: TimeSe
   const traces = tracesByModel.map((list) => list.find((t) => t.key === key)).filter(Boolean) as TimeSeriesTrace[];
   if (!traces.length) return null;
   return <SocTrace traces={traces} names={names} selectable options={options} onSelect={setKey} />;
+}
+
+/** Tick step from the 1-2-5 series that yields roughly `target` intervals over [lo, hi]. */
+function niceStep(lo: number, hi: number, target = 5) {
+  const raw = Math.max(1e-9, (hi - lo) / target);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const r = raw / mag;
+  return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * mag;
+}
+/** Expand [lo, hi] outward to multiples of the nice step. */
+function niceDomain(lo: number, hi: number): [number, number] {
+  const st = niceStep(lo, hi);
+  return [round3(Math.floor(lo / st) * st), round3(Math.ceil(hi / st) * st)];
+}
+/** Explicit tick positions inside [lo, hi] on the nice step (the default Recharts ticks are simply the domain split in five). */
+function niceTicks(lo: number, hi: number): number[] {
+  const st = niceStep(lo, hi);
+  const out: number[] = [];
+  for (let v = Math.ceil(lo / st - 1e-9) * st; v <= hi + 1e-9; v += st) out.push(round3(v));
+  return out;
 }
