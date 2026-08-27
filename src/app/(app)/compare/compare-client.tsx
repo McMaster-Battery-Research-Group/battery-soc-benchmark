@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Search, GitCompareArrows, Lock } from "lucide-react";
+import { Plus, X, Search, GitCompareArrows, Lock, SlidersHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import type { LeaderboardRow } from "@/lib/queries";
@@ -31,6 +31,12 @@ export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows
 
   return (
     <div className="space-y-6">
+      {ids.length >= MAX ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-grey-700">Comparing {MAX} models (the maximum).</p>
+          <Picker rows={rows} ids={ids} onApply={(next) => apply(next.slice(0, MAX))} viewerId={viewerId} compact />
+        </div>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {selected.map((s, i) => (
           <div key={s.id} className="card flex items-start gap-3 p-4" style={{ borderTopColor: SERIES[i], borderTopWidth: 3 }}>
@@ -106,7 +112,7 @@ function MetricRow({ label, vals, bold, fmt = (v) => `${fmtPct(v)} %`, lowerBett
 
 const MAX = 4;
 
-function Picker({ rows, ids, onApply, viewerId }: { rows: LeaderboardRow[]; ids: string[]; onApply: (ids: string[]) => void; viewerId?: string }) {
+function Picker({ rows, ids, onApply, viewerId, compact }: { rows: LeaderboardRow[]; ids: string[]; onApply: (ids: string[]) => void; viewerId?: string; compact?: boolean }) {
   const [q, setQ] = React.useState("");
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<string[]>(ids);
@@ -135,9 +141,13 @@ function Picker({ rows, ids, onApply, viewerId }: { rows: LeaderboardRow[]; ids:
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
+        {compact ? (
+          <Button variant="outline" size="sm"><SlidersHorizontal /> Change models</Button>
+        ) : (
         <button className="flex min-h-24 items-center justify-center gap-2 rounded-brand border-2 border-dashed border-border p-4 font-heading text-sm font-medium text-grey-700 hover:border-maroon hover:text-maroon">
           <Plus className="size-4" /> {ids.length ? `Add models (${ids.length} of ${MAX})` : "Choose models to compare"}
         </button>
+        )}
       </DialogTrigger>
       <DialogContent title="Choose models to compare" description={`Tick up to ${MAX}. Public evaluated submissions in leaderboard order; your private models are included and marked.`} size="lg">
         <div className="relative mb-3">
