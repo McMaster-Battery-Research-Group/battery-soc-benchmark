@@ -123,9 +123,9 @@ export function LeaderboardTable({
   return (
     <TooltipProvider>
       <div className="card overflow-hidden">
-        {/* Filters */}
-        <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 lg:max-w-3xl">
+        {/* Filters: row 1 = search fields (equal columns), row 2 = toggles left / actions right */}
+        <div className="space-y-3 border-b border-border p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <Label htmlFor="f-author">Author</Label>
               <div className="relative">
@@ -147,21 +147,25 @@ export function LeaderboardTable({
               </NativeSelect>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {hasPrivate ? (
-              <label className="mr-2 flex items-center gap-2 text-sm text-grey-800">
-                <Checkbox checked={showPrivate} onCheckedChange={(v) => setShowPrivate(!!v)} /> Show where my private models would rank (only you can see them)
-              </label>
-            ) : null}
-            {legacyCount ? (
-              <Tooltip content="Submissions scored by an older benchmark version. They are never ranked; untick to hide them.">
-                <label className="mr-2 flex items-center gap-2 text-sm text-grey-800">
-                  <Checkbox checked={showLegacy} onCheckedChange={(v) => setShowLegacy(!!v)} /> Include legacy-scored ({legacyCount}, unranked)
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-grey-800">
+              {hasPrivate ? (
+                <label className="flex items-center gap-2">
+                  <Checkbox checked={showPrivate} onCheckedChange={(v) => setShowPrivate(!!v)} /> Show my private models <span className="text-grey-500">(only you see them)</span>
                 </label>
-              </Tooltip>
-            ) : null}
-            <ColumnPicker visibility={visibility} onChange={updateVisibility} />
-            <Button variant="outline" size="sm" onClick={download}><Download /> CSV</Button>
+              ) : null}
+              {legacyCount ? (
+                <Tooltip content="Submissions scored by an older benchmark version. They are never ranked; untick to hide them.">
+                  <label className="flex items-center gap-2">
+                    <Checkbox checked={showLegacy} onCheckedChange={(v) => setShowLegacy(!!v)} /> Include legacy-scored <span className="text-grey-500">({legacyCount}, unranked)</span>
+                  </label>
+                </Tooltip>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <ColumnPicker visibility={visibility} onChange={updateVisibility} />
+              <Button variant="outline" size="sm" onClick={download}><Download /> CSV</Button>
+            </div>
           </div>
         </div>
 
