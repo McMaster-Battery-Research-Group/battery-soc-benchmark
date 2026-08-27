@@ -220,7 +220,7 @@ export function LeaderboardTable({
                       {row.getVisibleCells().map((cell) => {
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
-                          <td key={cell.id} className={cn("px-3 py-2.5 align-middle", meta.align === "right" && "text-right", cell.column.id === "modelName" && "sticky left-0 z-[1]", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : "bg-white"))}>
+                          <td key={cell.id} className={cn("px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : "bg-white"))}>
                             {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} unranked={rankById.get(row.original.id)!.unranked} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
