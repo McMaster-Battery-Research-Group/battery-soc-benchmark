@@ -67,7 +67,7 @@ export async function ensureDocker(waitMs = 90_000, log?: (l: string) => void): 
   if (dockerUp()) return true;
   const candidates =
     process.platform === "win32"
-      ? [path.join(process.env["ProgramFiles"] ?? "C:\Program Files", "Docker", "Docker", "Docker Desktop.exe")]
+      ? [path.join(process.env["ProgramFiles"] ?? "C:\\Program Files", "Docker", "Docker", "Docker Desktop.exe")]
       : process.platform === "darwin"
         ? ["/Applications/Docker.app"]
         : [];
