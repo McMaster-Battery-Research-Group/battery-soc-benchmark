@@ -23,6 +23,7 @@ export type LeaderboardRow = {
   complexity: number;
   complexityUncertainty: number;
   maxError: number;
+  evaluatorVersion: string;
 } & Record<MetricKey, number>;
 
 const resultSelect = {
@@ -30,6 +31,7 @@ const resultSelect = {
   complexity: true,
   complexityUncertainty: true,
   maxError: true,
+  evaluatorVersion: true,
   ...Object.fromEntries(METRIC_KEYS.map((k) => [k, true])),
 } as Prisma.EvaluationResultSelect;
 
@@ -75,7 +77,7 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null,
       collaborators: s.collaborators.map((c) => ({ id: c.user.id, name: c.user.name, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null })),
       contestId: s.contestId,
-      ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number }),
+      ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string }),
     }));
 }
 

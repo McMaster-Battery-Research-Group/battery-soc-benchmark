@@ -183,6 +183,14 @@ Everything on the leaderboard derives from the 18 numbers the evaluator produces
 
 The leaderboard shows only **public, completed, non-hidden** submissions. A signed-in user may tick *show where my private models would rank*, which adds their private ones with a dashed "~16" ghost badge without changing anyone else's rank.
 
+### What happens if we change the grading?
+
+Every stored result carries the evaluator stamp that produced it (`EvaluationResult.evaluatorVersion`, e.g. `socbench-eval-0.1.0/python`). `src/lib/benchmark-version.ts` names the **current** benchmark version; anything older is shown with a *legacy scoring* badge on the leaderboard, the admin table and the submission page, with a note to re-submit. The rules:
+
+- **Only the weights change** (a policy decision): edit `src/lib/test-cases.ts` and `pipeline.py` together, then run `npx tsx scripts/rescore.ts --apply` — it recomputes every weighted error from the 18 stored per-test values, no re-evaluation needed, and the leaderboard stays comparable.
+- **Metrics, data, padding, sweeps or complexity bins change**: bump `__version__` in `socbench_eval/__init__.py` and `BENCHMARK_VERSION` in `benchmark-version.ts`. Old results cannot be recomputed — the uploaded packages are deleted after evaluation on purpose (third-party IP) — so they stay as historical entries marked legacy, and authors are invited to re-submit. Announce the change on the Methodology page and, for a contest, freeze its leaderboard before the switch.
+- Keeping packages to allow automatic re-evaluation would require explicit consent from submitters; if the lab wants that, add an opt-in checkbox at submission time and a retention policy before enabling it.
+
 ---
 
 # Part 2 — Working on the code
