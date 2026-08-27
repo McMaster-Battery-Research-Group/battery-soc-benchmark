@@ -20,6 +20,7 @@ import * as React from "react";
 import { StatusPoller } from "./status-poller";
 import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
+import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           </p>
           <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
         </div>
-        {(isOwner || isAdmin) ? <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} /> : null}
+        {(isOwner || isAdmin) ? <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} isOwner={isOwner} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} /> : null}
       </div>
 
       {sp.new ? <Alert variant="success" className="mt-6" title="Submission received">Your package passed the structural checks and is queued for blinded evaluation. This page updates automatically; you will also receive an email when it finishes.</Alert> : null}
@@ -129,7 +130,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               <dl className="card grid gap-x-8 gap-y-3 p-5 text-sm sm:grid-cols-2">
                 <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}) — deleted after evaluation`} />
                 <Row k="Evaluation level" v={sub.evaluationLevel.toLowerCase()} />
-                <Row k="Evaluator version" v={r.evaluatorVersion} />
+                <Row k="Evaluator version" v={`${r.evaluatorVersion}${isCurrentBenchmark(r.evaluatorVersion) ? "" : ` — legacy; current benchmark is ${BENCHMARK_VERSION}. Re-submit to be scored on the current version.`}`} />
                 <Row k="Completed" v={fmtDateTime(sub.completedAt)} />
                 <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
                 <Row k="Submission ID" v={sub.id} />

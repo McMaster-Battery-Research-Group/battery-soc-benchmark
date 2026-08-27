@@ -9,6 +9,7 @@ import { fmtPct, fmtDate } from "@/lib/utils";
 import { RankBadge } from "./rank-badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Avatar } from "@/components/avatar";
+import { isCurrentBenchmark, benchmarkOf, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 
 const col = createColumnHelper<LeaderboardRow>();
 
@@ -44,6 +45,11 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             ) : null}
             {row.original.isHidden ? (
               <Tooltip content="Hidden by an administrator"><EyeOff className="size-3 text-danger" /></Tooltip>
+            ) : null}
+            {!isCurrentBenchmark(row.original.evaluatorVersion) ? (
+              <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Scores across versions are not directly comparable — re-submit to be scored on the current version.`}>
+                <span className="rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy scoring</span>
+              </Tooltip>
             ) : null}
           </div>
         </div>

@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Unlock, RotateCcw, Trash2, EyeOff, Eye, Ban } from "lucide-react";
+import { Lock, Unlock, RotateCcw, Trash2, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { togglePrivateAction, deleteSubmissionAction, requeueSubmissionAction, cancelSubmissionAction } from "../../submit/actions";
-import { toggleHiddenAction } from "@/app/(admin)/admin/actions";
+import { ModerateButtons } from "@/app/(admin)/admin/submissions/moderate";
 
-export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inContest, cancelRequested }: { id: string; status: string; isPrivate: boolean; isHidden: boolean; isAdmin: boolean; inContest: boolean; cancelRequested?: boolean }) {
+export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, isOwner = true, inContest, cancelRequested }: { id: string; status: string; isPrivate: boolean; isHidden: boolean; isAdmin: boolean; isOwner?: boolean; inContest: boolean; cancelRequested?: boolean }) {
   const { push } = useToast();
   const router = useRouter();
   const [pending, start] = React.useTransition();
@@ -39,7 +39,7 @@ export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inConte
   const inProgress = status === "QUEUED" || status === "RUNNING";
   return (
     <div className="flex shrink-0 flex-wrap gap-2">
-      {!inContest && !inProgress ? (
+      {isOwner && !inContest && !inProgress ? (
         <Button variant="outline" size="sm" disabled={pending} onClick={() => run(() => togglePrivateAction(id, !isPrivate), isPrivate ? "Model is now public" : "Model is now private")}>
           {isPrivate ? <Unlock /> : <Lock />} {isPrivate ? "Make public" : "Make private"}
         </Button>
@@ -47,11 +47,7 @@ export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inConte
       {status === "FAILED" ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => run(() => requeueSubmissionAction(id), "Re-queued for evaluation")}><RotateCcw /> Re-run</Button>
       ) : null}
-      {isAdmin && !inProgress ? (
-        <Button variant="outline" size="sm" disabled={pending} onClick={() => run(() => toggleHiddenAction(id, !isHidden), isHidden ? "Submission unhidden" : "Submission hidden from leaderboard")}>
-          {isHidden ? <Eye /> : <EyeOff />} {isHidden ? "Unhide" : "Hide"}
-        </Button>
-      ) : null}
+      {isAdmin && !isOwner ? <ModerateButtons id={id} isPrivate={isPrivate} isHidden={isHidden} status={status} /> : null}
       {inProgress ? (
         <Dialog>
           <DialogTrigger asChild><Button variant="danger" size="sm" disabled={pending || cancelling} loading={cancelling}><Ban /> {cancelling ? "Cancelling…" : "Cancel evaluation"}</Button></DialogTrigger>
@@ -62,7 +58,7 @@ export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inConte
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      ) : (
+      ) : isOwner ? (
         <Dialog>
           <DialogTrigger asChild><Button variant="danger" size="sm" disabled={pending}><Trash2 /> Delete</Button></DialogTrigger>
           <DialogContent title="Delete this submission?" description="Its results are removed from the leaderboard permanently. This cannot be undone." size="sm">
@@ -72,7 +68,7 @@ export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, inConte
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      )}
+      ) : null}
     </div>
   );
 }

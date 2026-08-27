@@ -143,6 +143,28 @@ export function collaboratorDeclinedEmail(to: string, ownerName: string, collabo
   });
 }
 
+/** Sent to the owner and accepted collaborators when an administrator moderates a submission. */
+export function moderationEmail(to: string, name: string, modelName: string, submissionId: string | null, action: "private" | "public" | "hide" | "unhide" | "delete", reason: string, adminName: string) {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const what = {
+    private: "was made private by an administrator — it is no longer shown on the public leaderboard, but you and your collaborators can still see it",
+    public: "was made public by an administrator — it now appears on the public leaderboard",
+    hide: "was hidden by an administrator — it is not visible to anyone except administrators",
+    unhide: "was unhidden by an administrator — it is visible again",
+    delete: "was deleted by an administrator — its results and leaderboard entry have been removed permanently",
+  }[action];
+  const href = submissionId ? `${site()}/submissions/${submissionId}` : `${site()}/submissions`;
+  return sendMail({
+    to: addr(name, to),
+    subject: `Your submission "${modelName}" ${action === "delete" ? "was removed" : action === "hide" ? "was hidden" : `is now ${action === "private" ? "private" : action === "public" ? "public" : "visible"}`}`,
+    html: layout(
+      "Submission moderated",
+      `<p>Hi ${esc(name)},</p><p>Your submission <strong>${esc(modelName)}</strong> ${what}.</p><p style="margin:16px 0;padding:12px 16px;border-left:4px solid #7a003c;background:#f6f7f7"><strong>Reason given by ${esc(adminName)}:</strong><br>${esc(reason)}</p>${submissionId ? button(href, "View the submission") : ""}<p style="font-size:13px;color:#6d7a84">Questions or think this was a mistake? Reply to this e-mail or use the <a href="${site()}/contact" style="color:#7a003c">contact form</a>.</p>`,
+    ),
+    text: `Your submission "${modelName}" ${what}.\n\nReason (${adminName}): ${reason}\n${href}`,
+  });
+}
+
 export function feedbackNotificationEmail(to: string, msg: { id: string; name: string; email: string; category: string; subject: string; body: string; pageUrl?: string | null }) {
   const href = `${site()}/admin/messages`;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
