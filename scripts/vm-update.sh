@@ -20,7 +20,8 @@ if [ "$before" = "$after" ]; then
   if [ -f /run/socbench-restart-pending ]; then :; else exit 0; fi
 else
   log "updating $before -> $after"
-  run 'git merge -q --ff-only origin/main'
+  # deploy target: no local edits are ever expected here, so hard-reset (a stray chmod or edit must not block updates)
+  run 'git reset -q --hard origin/main'
   changed=$(run "git diff --name-only $before $after")
   if grep -q '^package-lock.json$' <<<"$changed"; then log "dependencies changed — npm ci"; run 'npm ci --no-audit --no-fund --loglevel=error'; fi
   if grep -q '^prisma/schema.prisma$' <<<"$changed"; then log "schema changed — prisma generate"; run 'npx prisma generate >/dev/null'; fi
