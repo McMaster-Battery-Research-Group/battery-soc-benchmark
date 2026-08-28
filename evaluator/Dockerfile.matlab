@@ -12,20 +12,13 @@
 # the container with `--user <socbench>` like the Python sandbox, (b) the blinded data can stay mode 600, and (c) the
 # licence token written to /home/matlab by the one-time login below is owned by the same uid.
 #
-# Licensing — campus-wide licence via MathWorks *online licensing* (docs/drac-migration.md → "MATLAB on the VM"):
-#   1. one-time, interactive, on the worker host:
-#        sudo docker run -it --name socbench-matlab-login --user $(id -u socbench) --entrypoint matlab socbench-eval-matlab -licmode onlinelicensing
-#      log in with the licence holder's MathWorks account, wait for the MATLAB prompt, type `exit`
-#   2. sudo docker commit socbench-matlab-login socbench-eval-matlab:licensed && sudo docker rm socbench-matlab-login
-#   3. EVAL_SANDBOX_MATLAB_IMAGE=socbench-eval-matlab:licensed on the worker. The committed image carries the login
-#      token — keep it on the evaluation host only, never push it to a registry.
-#   Online licensing talks to MathWorks at start-up, so MATLAB containers need egress: EVAL_MATLAB_NETWORK (see runbook);
-#   Python containers keep --network none.
-#   Alternative (network licence manager): EVAL_MATLAB_LICENSE="27000@server" → MLM_LICENSE_FILE, no login step.
-#
-# Updating the harness later WITHOUT logging in again: rebuild on top of the licensed image —
-#   sudo docker build -t socbench-eval-matlab:licensed -f evaluator/Dockerfile.matlab --build-arg BASE=socbench-eval-matlab:licensed ... .
-# (the login token lives in /home/matlab and survives; scripts/vm-update.sh does this automatically).
+# Licensing — campus-wide licence via MathWorks *online licensing* (docs/drac-migration.md → "MATLAB on the VM").
+#   No token is baked into this image. The licence holder signs in once through the browser UI on the evaluation
+#   host (scripts/matlab-mhlm-setup.sh); that leaves a one-year identity token in /etc/socbench/matlab-mhlm.json
+#   (mode 600). Before each MATLAB evaluation the worker exchanges it for a 24 h access token and passes only that
+#   into the container (MLM_WEB_LICENSE / MLM_WEB_USER_CRED / MLM_WEB_ID). The exchange needs egress to
+#   login.mathworks.com, so MATLAB containers run with EVAL_MATLAB_NETWORK (Python ones keep --network none).
+#   Alternative (network licence manager): EVAL_MATLAB_LICENSE="27000@server" → MLM_LICENSE_FILE.
 ARG BASE=mathworks/matlab-deep-learning:r2026a
 FROM ${BASE}
 
