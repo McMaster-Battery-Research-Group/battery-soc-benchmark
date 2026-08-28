@@ -9,31 +9,43 @@ export type EvaluatorStatus = {
   online: boolean;
   /** most recent heartbeat across all workers, null if none ever */
   lastSeenAt: Date | null;
-  workers: { id: string; evaluator: string; busyWith: string[]; concurrency: number; paused: boolean }[];
-  /** total parallel slots across online, un-paused workers */
+  workers: { id: string; evaluator: string; busyWith: string[]; concurrency: number; paused: boolean; runtimes: string }[];
+  /** total parallel slots across online, un-paused workers (that can run `runtime`, when given) */
   capacity: number;
   queued: number;
   running: number;
+  /** the runtime this status was computed for (null = any) */
+  runtime: string | null;
 };
 
-export async function getEvaluatorStatus(): Promise<EvaluatorStatus> {
+const canRun = (w: { runtimes: string }, runtime: string | null | undefined) => !runtime || w.runtimes.split(",").map((s) => s.trim()).includes(runtime);
+
+/**
+ * Evaluator availability, optionally for one package runtime ("python" | "matlab"): a worker only
+ * counts if it declares that runtime (WORKER_RUNTIMES), so a MATLAB submission is reported as
+ * "no evaluator available" while only the Python-only VM is online.
+ */
+export async function getEvaluatorStatus(runtime?: string | null): Promise<EvaluatorStatus> {
   const since = new Date(Date.now() - ONLINE_WINDOW_MS);
-  const [live, latest, queued, running] = await Promise.all([
-    db.workerHeartbeat.findMany({ where: { lastSeenAt: { gte: since } }, select: { id: true, evaluator: true, busyWith: true, concurrency: true, paused: true, lastError: true } }),
-    db.workerHeartbeat.findFirst({ orderBy: { lastSeenAt: "desc" }, select: { lastSeenAt: true } }),
-    db.submission.count({ where: { status: "QUEUED" } }),
-    db.submission.count({ where: { status: "RUNNING" } }),
+  const [all, queued, running] = await Promise.all([
+    db.workerHeartbeat.findMany({ orderBy: { lastSeenAt: "desc" }, select: { id: true, evaluator: true, busyWith: true, concurrency: true, paused: true, lastError: true, runtimes: true, lastSeenAt: true } }),
+    db.submission.count({ where: { status: "QUEUED", ...(runtime ? { OR: [{ runtime }, { runtime: null }] } : {}) } }),
+    db.submission.count({ where: { status: "RUNNING", ...(runtime ? { OR: [{ runtime }, { runtime: null }] } : {}) } }),
   ]);
+  const capable = all.filter((w) => canRun(w, runtime));
+  const live = capable.filter((w) => w.lastSeenAt >= since);
   // paused workers and workers holding for the Docker sandbox contribute no capacity
   const active = live.filter((w) => !w.paused && !/sandbox required/.test(w.lastError ?? ""));
-  return { online: active.length > 0, lastSeenAt: latest?.lastSeenAt ?? null, workers: live, capacity: active.reduce((n, w) => n + w.concurrency, 0), queued, running };
+  return { online: active.length > 0, lastSeenAt: capable[0]?.lastSeenAt ?? null, workers: live, capacity: active.reduce((n, w) => n + w.concurrency, 0), queued, running, runtime: runtime ?? null };
 }
 
 /** 1-based position of a queued submission among all queued submissions (FIFO by job creation). */
 export async function queuePosition(submissionId: string): Promise<number | null> {
-  const job = await db.evaluationJob.findUnique({ where: { submissionId }, select: { createdAt: true } });
+  const job = await db.evaluationJob.findUnique({ where: { submissionId }, select: { createdAt: true, submission: { select: { runtime: true } } } });
   if (!job) return null;
-  const ahead = await db.evaluationJob.count({ where: { createdAt: { lt: job.createdAt }, submission: { status: "QUEUED" } } });
+  // only jobs the same kind of worker will process count as "ahead"
+  const rt = job.submission.runtime;
+  const ahead = await db.evaluationJob.count({ where: { createdAt: { lt: job.createdAt }, submission: { status: "QUEUED", ...(rt ? { OR: [{ runtime: rt }, { runtime: null }] } : {}) } } });
   return ahead + 1;
 }
 
@@ -66,20 +78,22 @@ export async function averageRunSec(modelType?: string): Promise<number> {
  * every queued job ahead of it, spread over the available slots.
  */
 export async function estimateQueueWaitSec(submissionId: string): Promise<{ position: number; capacity: number; running: number; waitSec: number | null }> {
-  const [status, pos] = await Promise.all([getEvaluatorStatus(), queuePosition(submissionId)]);
+  const me = await db.submission.findUnique({ where: { id: submissionId }, select: { runtime: true } });
+  const [status, pos] = await Promise.all([getEvaluatorStatus(me?.runtime), queuePosition(submissionId)]);
   const position = pos ?? 1;
   const capacity = Math.max(1, status.capacity);
   if (!status.online) return { position, capacity, running: status.running, waitSec: null };
 
   // remaining time of each running evaluation (live), else its type's average
-  const runningJobs = await db.submission.findMany({ where: { status: "RUNNING" }, select: { modelType: true, job: { select: { log: true } } } });
+  const rtWhere = me?.runtime ? { OR: [{ runtime: me.runtime }, { runtime: null }] } : {};
+  const runningJobs = await db.submission.findMany({ where: { status: "RUNNING", ...rtWhere }, select: { modelType: true, job: { select: { log: true } } } });
   const remaining: number[] = [];
   for (const r of runningJobs) {
     const p = progressFromLog(r.job?.log ?? "");
     remaining.push(p.etaSec ?? Math.max(0, (await averageRunSec(r.modelType)) - (p.elapsedSec ?? 0)));
   }
   // queued jobs ahead of us, each with its type's average
-  const ahead = await db.submission.findMany({ where: { status: "QUEUED" }, orderBy: { job: { createdAt: "asc" } }, take: Math.max(0, position - 1), select: { modelType: true } });
+  const ahead = await db.submission.findMany({ where: { status: "QUEUED", ...rtWhere }, orderBy: { job: { createdAt: "asc" } }, take: Math.max(0, position - 1), select: { modelType: true } });
   const aheadSec: number[] = [];
   for (const a of ahead) aheadSec.push(await averageRunSec(a.modelType));
 

@@ -8,6 +8,7 @@ import { queueCelebration } from "@/components/celebration";
 
 type Live = {
   status: string;
+  runtime?: string | null;
   log: string;
   evaluator?: { online: boolean; lastSeenAt: string | null; queued: number; running: number; capacity?: number } | null;
   queuePosition?: number | null;
@@ -92,7 +93,8 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
   const { pct, etaSec, stage } = running ? progressFromLog(live.log) : { pct: null, etaSec: null, stage: null };
   const stageLabel = stage ? STAGE_LABEL[stage.split(":")[0]] ?? stage : null;
 
-  const title = running ? "Evaluating against blinded data…" : offline ? "Queued — evaluation machine is currently paused" : "Queued for evaluation";
+  const rtName = live.runtime === "matlab" ? "MATLAB" : live.runtime === "python" ? "Python" : null;
+  const title = running ? "Evaluating against blinded data…" : offline ? (rtName ? `Queued — no evaluator for ${rtName} packages is online right now` : "Queued — evaluation machine is currently paused") : "Queued for evaluation";
   let body: string;
   if (running) {
     body =
@@ -100,7 +102,9 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
         ? `${pct.toFixed(0)} % done${stageLabel ? ` · ${stageLabel}` : ""}${etaSec !== null ? ` · ${fmtDuration(etaSec)} remaining` : ""}. This page updates automatically; you will also be e-mailed with the PDF report.`
         : "Starting up — running all blinded drive cycles across four cells and six temperatures, plus the robustness sweeps. This page updates automatically and you will be e-mailed with the PDF report.";
   } else if (offline) {
-    body = `The evaluator runs on a lab machine that is offline right now (last seen ${ago(ev?.lastSeenAt ?? null)}). Nothing is lost: your submission${pos ? ` is #${pos} in the queue and` : ""} will start automatically as soon as it is back. You can close this page — the results arrive by e-mail.`;
+    body = rtName
+      ? `${rtName} packages are evaluated on a lab machine that is offline right now (last seen ${ago(ev?.lastSeenAt ?? null)}); other evaluators cannot run ${rtName} code. Nothing is lost: your submission${pos ? ` is #${pos} in the ${rtName} queue and` : ""} will start automatically as soon as it is back. You can close this page — the results arrive by e-mail.`
+      : `The evaluator runs on a lab machine that is offline right now (last seen ${ago(ev?.lastSeenAt ?? null)}). Nothing is lost: your submission${pos ? ` is #${pos} in the queue and` : ""} will start automatically as soon as it is back. You can close this page — the results arrive by e-mail.`;
   } else {
     const busy = ev?.running ?? 0;
     const slots = ev?.capacity ?? 1;
