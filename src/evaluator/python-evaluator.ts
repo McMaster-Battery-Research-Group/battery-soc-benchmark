@@ -236,7 +236,9 @@ export class PythonEvaluator implements Evaluator {
       env = { ...allowListedEnv(), PYTHONPATH: pkgDir, PYTHONUNBUFFERED: "1", PYTHONIOENCODING: "utf-8" };
       await input.log(mode === "docker" ? `[eval] sandbox: MATLAB package but EVAL_SANDBOX_MATLAB_IMAGE is not set — running on the host with an allow-listed environment` : `[eval] sandbox: none — running on the host with an allow-listed environment`);
     }
-    await input.log(`[eval] ${cmd} ${args.join(" ")}`);
+    // never echo credentials into the job log (it is shown to the submitter): mask licence tokens / licence strings
+    const redacted = args.map((x) => x.replace(/^(MLM_WEB_USER_CRED|MLM_LICENSE_FILE|MLM_WEB_ID)=.*$/, "$1=<redacted>"));
+    await input.log(`[eval] ${cmd} ${redacted.join(" ")}`);
 
     try {
       await new Promise<void>((resolve, reject) => {
