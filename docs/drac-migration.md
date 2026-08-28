@@ -84,7 +84,23 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 | Pause / stop | *Admin → Evaluation workers* buttons, or `sudo systemctl stop socbench-worker` (graceful: in-flight jobs are returned to the queue) |
 | Change env | edit `/etc/socbench/worker.env`, then `sudo systemctl restart socbench-worker` |
 
-**MATLAB on Linux** — not yet. Options, in order of preference: (1) build `evaluator/Dockerfile.matlab` (needs a licence reachable from the VM — the campus network-licence server, or a MathWorks licence file) and set `EVAL_SANDBOX_MATLAB_IMAGE` + `WORKER_RUNTIMES=python,matlab`; (2) install MATLAB Runtime and run MATLAB packages on the host with the allow-listed environment (weaker isolation). Until then the laptop remains the MATLAB worker.
+**MATLAB on the VM** — via MathWorks *online licensing* with the lab's campus-wide licence (Dr. Kollmeyer's MathWorks account; he has confirmed the licence permits this use). The base image `mathworks/matlab-deep-learning:r2026a` (7.4 GB compressed, ~20 GB on disk) already contains every toolbox submissions have needed, so `evaluator/Dockerfile.matlab` only adds Python + the harness and remaps the `matlab` user to the `socbench` uid.
+
+1. Build (done by the updater/provisioning; manual form):
+   `sudo docker build -t socbench-eval-matlab -f /opt/socbench/evaluator/Dockerfile.matlab --build-arg MATLAB_UID=$(id -u socbench) --build-arg MATLAB_GID=$(id -g socbench) /opt/socbench`
+2. **One-time interactive login** (the licence holder types the credentials; nobody else should hold them):
+   ```bash
+   sudo docker run -it --name socbench-matlab-login --user $(id -u socbench) --entrypoint matlab socbench-eval-matlab -licmode onlinelicensing
+   #   → follow the prompt: MathWorks e-mail + password, pick the campus-wide licence, wait for the ">>" prompt, type: exit
+   sudo docker commit socbench-matlab-login socbench-eval-matlab:licensed && sudo docker rm socbench-matlab-login
+   ```
+   The `:licensed` image carries the login token in `/home/matlab` — it stays on this VM, is never pushed anywhere, and MATLAB inside it starts licensed with no prompt. Harness updates are rebuilt *on top of it* by `vm-update.sh` (`--build-arg BASE=socbench-eval-matlab:licensed`), so the login is done once per MATLAB release.
+3. Worker env (`/etc/socbench/worker.env`): `EVAL_SANDBOX_MATLAB_IMAGE="socbench-eval-matlab:licensed"`, `EVAL_MATLAB_NETWORK="bridge"` (online licensing contacts MathWorks at start-up, so MATLAB containers cannot run with `--network none`; Python ones still do), `WORKER_RUNTIMES="python,matlab"`, MATLAB memory: raise `EVAL_MEMORY` to `6g` for MATLAB-capable workers. Restart the service.
+4. Parity: submit the four MATLAB example packages (private) and compare with the laptop's host-MATLAB scores; re-measure `SOCBENCH_CAL_MATLAB` from the CC example's `secondsPerSample`.
+5. Egress hardening (todo): replace `bridge` with a Docker network whose only allowed destinations are MathWorks' licensing endpoints (`*.mathworks.com`, 443) — e.g. an allow-listing HTTP proxy container + `HTTPS_PROXY` in the sandbox. Until then a MATLAB submission has general outbound network access (still no inbound, read-only FS, no privileges, no secrets).
+6. Known issue reported by Paarth (earlier attempt): MATLAB in Docker "wouldn't close". Our harness runs `matlab -batch` (exits on its own) with a hard timeout, and the worker `docker kill`s the container on timeout/cancel, so a hung MATLAB cannot pin the slot.
+
+Alternative if online licensing proves unreliable: a **network licence manager** (`EVAL_MATLAB_LICENSE="27000@server"` → `MLM_LICENSE_FILE`), which needs UTS to expose the campus licence server to the VM's IP.
 
 **Complexity calibration** — `SOCBENCH_CAL_PYTHON` is machine-specific (seconds per sample of the reference Coulomb counter). Re-measure whenever the VM flavour changes: evaluate `evaluator/examples/coulomb-counter.python.zip` and set the constant to its `secondsPerSample` so that the Coulomb counter lands in complexity bin 1. Measured 2026-08-28 on p8-12gb: **1.80 µs/sample** (laptop: 0.92 µs) → `SOCBENCH_CAL_PYTHON="1.8e-6"` in `worker.env`. Parity check the same day: the CC reference package scored weighted error 15.366 % on both hosts.
 
