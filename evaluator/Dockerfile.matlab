@@ -4,8 +4,9 @@
 # Statistics & ML, Parallel Computing, Image Processing, Computer Vision, Text Analytics, MATLAB/GPU Coder).
 # That already covers every toolbox submissions have needed, so nothing is downloaded with mpm. Linux x86-64 only.
 #
+#   # build context is the REPO ROOT (the harness lives in evaluator/python, the MATLAB shim in matlab/)
 #   sudo docker build -t socbench-eval-matlab -f evaluator/Dockerfile.matlab \
-#     --build-arg MATLAB_RELEASE=r2026a --build-arg MATLAB_UID=$(id -u socbench) --build-arg MATLAB_GID=$(id -g socbench) evaluator
+#     --build-arg MATLAB_UID=$(id -u socbench) --build-arg MATLAB_GID=$(id -g socbench) .
 #
 # MATLAB_UID/GID: the image's `matlab` user is remapped to the worker's service account so that (a) the worker can run
 # the container with `--user <socbench>` like the Python sandbox, (b) the blinded data can stay mode 600, and (c) the
@@ -21,23 +22,28 @@
 #   Online licensing talks to MathWorks at start-up, so MATLAB containers need egress: EVAL_MATLAB_NETWORK (see runbook);
 #   Python containers keep --network none.
 #   Alternative (network licence manager): EVAL_MATLAB_LICENSE="27000@server" → MLM_LICENSE_FILE, no login step.
-ARG MATLAB_RELEASE=r2026a
-FROM mathworks/matlab-deep-learning:${MATLAB_RELEASE}
+#
+# Updating the harness later WITHOUT logging in again: rebuild on top of the licensed image —
+#   sudo docker build -t socbench-eval-matlab:licensed -f evaluator/Dockerfile.matlab --build-arg BASE=socbench-eval-matlab:licensed ... .
+# (the login token lives in /home/matlab and survives; scripts/vm-update.sh does this automatically).
+ARG BASE=mathworks/matlab-deep-learning:r2026a
+FROM ${BASE}
 
 ARG MATLAB_UID=1000
 ARG MATLAB_GID=1000
 USER root
-# Python for the benchmark harness (the evaluator is Python; it drives MATLAB with `matlab -batch`).
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && rm -rf /var/lib/apt/lists/* \
- && pip3 install --no-cache-dir --break-system-packages "numpy>=1.26" "scipy>=1.11"
-# Remap the image's user to the worker's service account (see above).
-RUN if [ "$(id -u matlab)" != "${MATLAB_UID}" ] || [ "$(id -g matlab)" != "${MATLAB_GID}" ]; then \
-      groupmod -o -g ${MATLAB_GID} matlab && usermod -o -u ${MATLAB_UID} -g ${MATLAB_GID} matlab && chown -R matlab:matlab /home/matlab; fi
+# Python for the benchmark harness (the evaluator is Python; it drives MATLAB with `matlab -batch`). Skipped on rebuilds.
+RUN if ! python3 -c "import numpy, scipy" 2>/dev/null; then \
+      apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && rm -rf /var/lib/apt/lists/* \
+      && pip3 install --no-cache-dir --break-system-packages "numpy>=1.26" "scipy>=1.11"; fi
+# Remap the image's user to the worker's service account (see above). No-op when already matching.
+RUN ["/bin/bash", "-c", "if [ \"$(id -u matlab)\" != \"${MATLAB_UID}\" ] || [ \"$(id -g matlab)\" != \"${MATLAB_GID}\" ]; then groupmod -o -g ${MATLAB_GID} matlab && usermod -o -u ${MATLAB_UID} -g ${MATLAB_GID} matlab && chown -R matlab:matlab /home/matlab; fi"]
 
 RUN mkdir -p /work /out /in /data /app && chown matlab /work /out
-COPY python/socbench_eval /app/socbench_eval
-COPY python/dryrun_data.mat /app/dryrun_data.mat
+COPY evaluator/python/socbench_eval /app/socbench_eval
+COPY evaluator/python/dryrun_data.mat /app/dryrun_data.mat
 COPY matlab/Run_Model.m /app/matlab/Run_Model.m
+RUN chown -R matlab:matlab /app
 ENV PYTHONPATH=/app TMPDIR=/work PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 \
     MATLAB_BIN=matlab SOCBENCH_MATLAB_SCRIPTS=/app/matlab HOME=/home/matlab
 WORKDIR /work
