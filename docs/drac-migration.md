@@ -84,23 +84,23 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 | Pause / stop | *Admin → Evaluation workers* buttons, or `sudo systemctl stop socbench-worker` (graceful: in-flight jobs are returned to the queue) |
 | Change env | edit `/etc/socbench/worker.env`, then `sudo systemctl restart socbench-worker` |
 
-**MATLAB on the VM** — via MathWorks *online licensing* with the lab's campus-wide licence (Dr. Kollmeyer's MathWorks account; he has confirmed the licence permits this use). The base image `mathworks/matlab-deep-learning:r2026a` (7.4 GB compressed, ~20 GB on disk) already contains every toolbox submissions have needed, so `evaluator/Dockerfile.matlab` only adds Python + the harness and remaps the `matlab` user to the `socbench` uid.
+**MATLAB on the VM** — via MathWorks *online licensing* with the lab's campus-wide licence (Dr. Kollmeyer's MathWorks account; he has confirmed the licence permits this use). The base image `mathworks/matlab-deep-learning:r2026a` (24.5 GB on disk) already contains every toolbox submissions have needed, so `evaluator/Dockerfile.matlab` only adds Python + the harness and remaps the `matlab` user to the `socbench` uid.
 
-1. Build (done by the updater/provisioning; manual form):
+How the licence works here: the browser sign-in yields a **one-year identity token**; the worker keeps it in `/etc/socbench/matlab-mhlm.json` (600, owner socbench) and, before each MATLAB evaluation, exchanges it at `login.mathworks.com` for a **24-hour access token** that is passed into the container as `MLM_WEB_USER_CRED` (the same mechanism MathWorks' own matlab-proxy uses). Nothing licence-related is baked into the image, so a submission can at most read a token that dies within a day. `docker commit` of the logged-in container (the MathWorks Answers recipe) is *not* used — it hangs on Docker's containerd snapshotter with a 24 GB image and would put the year-long token inside the sandbox.
+
+1. Build (auto by `vm-update.sh` once the image exists; first time by hand):
    `sudo docker build -t socbench-eval-matlab -f /opt/socbench/evaluator/Dockerfile.matlab --build-arg MATLAB_UID=$(id -u socbench) --build-arg MATLAB_GID=$(id -g socbench) /opt/socbench`
-2. **One-time interactive login** (the licence holder types the credentials; nobody else should hold them):
+2. **One-time sign-in** (the licence holder or someone he trusts types the credentials; the terminal `-licmode onlinelicensing` prompt does not work with SSO accounts — use the browser UI):
    ```bash
-   sudo docker run -it --name socbench-matlab-login --user $(id -u socbench) --entrypoint matlab socbench-eval-matlab -licmode onlinelicensing
-   #   → follow the prompt: MathWorks e-mail + password, pick the campus-wide licence, wait for the ">>" prompt, type: exit
-   sudo docker commit socbench-matlab-login socbench-eval-matlab:licensed && sudo docker rm socbench-matlab-login
+   sudo docker run -d --name socbench-matlab-login --user $(id -u socbench):$(id -g socbench) -p 127.0.0.1:8888:8888 --entrypoint /bin/run.sh socbench-eval-matlab -browser
+   # laptop:  ssh -L 8888:localhost:8888 ubuntu@<vm>   → open http://localhost:8888, sign in (SSO/2FA fine), pick the licence
    ```
-   The `:licensed` image carries the login token in `/home/matlab` — it stays on this VM, is never pushed anywhere, and MATLAB inside it starts licensed with no prompt. Harness updates are rebuilt *on top of it* by `vm-update.sh` (`--build-arg BASE=socbench-eval-matlab:licensed`), so the login is done once per MATLAB release.
-3. Worker env (`/etc/socbench/worker.env`): `EVAL_SANDBOX_MATLAB_IMAGE="socbench-eval-matlab:licensed"`, `EVAL_MATLAB_NETWORK="bridge"` (online licensing contacts MathWorks at start-up, so MATLAB containers cannot run with `--network none`; Python ones still do), `WORKER_RUNTIMES="python,matlab"`, MATLAB memory: raise `EVAL_MEMORY` to `6g` for MATLAB-capable workers. Restart the service.
-4. Parity: submit the four MATLAB example packages (private) and compare with the laptop's host-MATLAB scores; re-measure `SOCBENCH_CAL_MATLAB` from the CC example's `secondsPerSample`.
-5. Egress hardening (todo): replace `bridge` with a Docker network whose only allowed destinations are MathWorks' licensing endpoints (`*.mathworks.com`, 443) — e.g. an allow-listing HTTP proxy container + `HTTPS_PROXY` in the sandbox. Until then a MATLAB submission has general outbound network access (still no inbound, read-only FS, no privileges, no secrets).
-6. Known issue reported by Paarth (earlier attempt): MATLAB in Docker "wouldn't close". Our harness runs `matlab -batch` (exits on its own) with a hard timeout, and the worker `docker kill`s the container on timeout/cancel, so a hung MATLAB cannot pin the slot.
-
-Alternative if online licensing proves unreliable: a **network licence manager** (`EVAL_MATLAB_LICENSE="27000@server"` → `MLM_LICENSE_FILE`), which needs UTS to expose the campus licence server to the VM's IP.
+3. `sudo bash /opt/socbench/scripts/matlab-mhlm-setup.sh` — extracts the identity token to `/etc/socbench/matlab-mhlm.json`, tests the exchange and a licensed `matlab -batch` inside the image, removes the login container and any copies.
+4. Worker env (`/etc/socbench/worker.env`): `EVAL_SANDBOX_MATLAB_IMAGE="socbench-eval-matlab:latest"`, `EVAL_MATLAB_MHLM_FILE="/etc/socbench/matlab-mhlm.json"`, `EVAL_MATLAB_NETWORK="bridge"` (needed for the licence check-out; Python containers keep `--network none`), `WORKER_RUNTIMES="python,matlab"`, `EVAL_MEMORY="6g"`. Restart the service; the Workers page shows `runtimes python, matlab`.
+5. Parity: submit the four MATLAB example packages (private) and compare with the laptop's host-MATLAB scores; re-measure `SOCBENCH_CAL_MATLAB` from the CC example's `secondsPerSample`.
+6. Renewal: the identity token expires after one year (date is in the json). Repeat steps 2–3; the worker reports "token exchange failed" in the job log when it has lapsed.
+7. Egress hardening (todo): replace `bridge` with a Docker network whose only allowed destinations are `login.mathworks.com` / `licensing.mathworks.com` (443). Until then a MATLAB submission has general outbound network access (still no inbound, read-only FS, no privileges, no secrets).
+8. Known issue reported by Paarth (earlier attempt): MATLAB in Docker "wouldn't close". Our harness runs `matlab -batch` (exits on its own) with a hard timeout, and the worker `docker kill`s the container on timeout/cancel, so a hung MATLAB cannot pin the slot.
 
 **Complexity calibration** — `SOCBENCH_CAL_PYTHON` is machine-specific (seconds per sample of the reference Coulomb counter). Re-measure whenever the VM flavour changes: evaluate `evaluator/examples/coulomb-counter.python.zip` and set the constant to its `secondsPerSample` so that the Coulomb counter lands in complexity bin 1. Measured 2026-08-28 on p8-12gb: **1.80 µs/sample** (laptop: 0.92 µs) → `SOCBENCH_CAL_PYTHON="1.8e-6"` in `worker.env`. Parity check the same day: the CC reference package scored weighted error 15.366 % on both hosts.
 

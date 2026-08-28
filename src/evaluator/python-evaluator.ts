@@ -109,6 +109,50 @@ function killTree(child: ChildProcess, container?: string) {
 
 const toDockerPath = (p: string) => path.resolve(p).replace(/\\/g, "/");
 
+/**
+ * MATLAB online licensing (MathWorks Hosted License Manager) for the MATLAB sandbox.
+ *
+ * EVAL_MATLAB_MHLM_FILE points at a JSON file (mode 600, owned by the worker user) holding the
+ * long-lived *identity token* obtained by the one-time interactive login (docs/drac-migration.md →
+ * "MATLAB on the VM"): { identity_token, source_id, entitlement_id }. Before each MATLAB
+ * evaluation the worker exchanges it for a short-lived (24 h, "MWAS") *access token* — the same
+ * call matlab-proxy makes — and passes only that into the container as MLM_WEB_USER_CRED. The
+ * identity token never enters the sandbox, so a malicious submission can at most read a token
+ * that expires within a day and only licenses MATLAB.
+ */
+type Mhlm = { identity_token: string; source_id: string; entitlement_id: string };
+let mhlmCache: { token: string; expiresAt: number } | null = null;
+export async function mhlmLicenseEnv(log?: (l: string) => Promise<void> | void): Promise<string[]> {
+  const file = process.env.EVAL_MATLAB_MHLM_FILE;
+  if (!file) return [];
+  if (!mhlmCache || Date.now() > mhlmCache.expiresAt) {
+    let cfg: Mhlm;
+    try {
+      cfg = JSON.parse(await readFile(file, "utf8")) as Mhlm;
+    } catch (e) {
+      throw new EvaluationError(`MATLAB licensing: cannot read EVAL_MATLAB_MHLM_FILE (${file}): ${e instanceof Error ? e.message : String(e)}`, false);
+    }
+    const body = new URLSearchParams({ tokenString: cfg.identity_token, type: "MWAS", sourceId: cfg.source_id });
+    const res = await fetch("https://login.mathworks.com/authenticationws/service/v4/tokens/access", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json", X_MW_WS_callerId: "desktop-jupyter" },
+      body,
+      signal: AbortSignal.timeout(30_000),
+    }).catch((e) => {
+      throw new EvaluationError(`MATLAB licensing: could not reach login.mathworks.com (${e instanceof Error ? e.message : String(e)})`, false);
+    });
+    if (!res.ok) throw new EvaluationError(`MATLAB licensing: token exchange failed (${res.status}). The identity token may have expired — repeat the one-time login on the evaluation host (docs/drac-migration.md).`, false);
+    const data = (await res.json()) as { accessTokenString?: string };
+    if (!data.accessTokenString) throw new EvaluationError("MATLAB licensing: unexpected response from login.mathworks.com (no access token).", false);
+    // MWAS tokens last 24 h; refresh well before that so a long evaluation never starts with a stale one
+    mhlmCache = { token: data.accessTokenString, expiresAt: Date.now() + 12 * 3600_000 };
+    await log?.(`[eval] MATLAB licence: online licensing access token obtained (entitlement ${cfg.entitlement_id})`);
+    return ["-e", "MLM_WEB_LICENSE=true", "-e", `MLM_WEB_USER_CRED=${mhlmCache.token}`, "-e", `MLM_WEB_ID=${cfg.entitlement_id}`, "-e", "MHLM_CONTEXT=MATLAB_JAVASCRIPT_DESKTOP"];
+  }
+  const cfg = JSON.parse(await readFile(file, "utf8")) as Mhlm;
+  return ["-e", "MLM_WEB_LICENSE=true", "-e", `MLM_WEB_USER_CRED=${mhlmCache.token}`, "-e", `MLM_WEB_ID=${cfg.entitlement_id}`, "-e", "MHLM_CONTEXT=MATLAB_JAVASCRIPT_DESKTOP"];
+}
+
 function packageRuntime(filePath: string): "python" | "matlab" | "unknown" {
   try {
     // Cheap peek at the central directory: adm-zip is already a dependency of the web tier.
@@ -173,6 +217,7 @@ export class PythonEvaluator implements Evaluator {
         ...(data && !dry ? ["-v", `${toDockerPath(data)}:/data/blind_data.mat:ro`] : []),
         ...["SOCBENCH_CAL_PYTHON", "SOCBENCH_CAL_MATLAB", "SOCBENCH_TIMEOUT_MIN"].flatMap((k) => (process.env[k] ? ["-e", `${k}=${process.env[k]}`] : [])),
         ...(runtime === "matlab" && process.env.EVAL_MATLAB_LICENSE ? ["-e", `MLM_LICENSE_FILE=${process.env.EVAL_MATLAB_LICENSE}`] : []),
+        ...(runtime === "matlab" && !process.env.EVAL_MATLAB_LICENSE ? await mhlmLicenseEnv(input.log) : []),
         image,
         "/in/package.zip", "/out", ...(data && !dry ? ["--data", "/data/blind_data.mat"] : []), ...(dry ? ["--dry-run"] : []),
       ];
