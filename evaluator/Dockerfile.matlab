@@ -1,34 +1,45 @@
 # Sandbox image for evaluating *MATLAB* submissions (Model.m / Model.p).
 #
-# Built on MathWorks' official image (Ubuntu + MATLAB, Linux x86-64 only):
-#   docker build -t socbench-eval-matlab -f evaluator/Dockerfile.matlab \
-#     --build-arg MATLAB_RELEASE=r2025b \
-#     --build-arg PRODUCTS="MATLAB Signal_Processing_Toolbox Deep_Learning_Toolbox Statistics_and_Machine_Learning_Toolbox Control_System_Toolbox System_Identification_Toolbox Optimization_Toolbox Curve_Fitting_Toolbox" \
-#     evaluator
+# Base: MathWorks' official "matlab-deep-learning" image (Ubuntu + MATLAB + Deep Learning, Signal Processing,
+# Statistics & ML, Parallel Computing, Image Processing, Computer Vision, Text Analytics, MATLAB/GPU Coder).
+# That already covers every toolbox submissions have needed, so nothing is downloaded with mpm. Linux x86-64 only.
 #
-# Licensing at run time (set on the worker host):
-#   EVAL_MATLAB_LICENSE = "27000@license.mcmaster.ca"  (network license / TAH server)  -> passed as MLM_LICENSE_FILE
-#   EVAL_MATLAB_NETWORK = "bridge"  only if the license server must be reachable;
-#   otherwise the container runs with --network none like the Python one.
-# See https://github.com/mathworks-ref-arch/matlab-dockerfile for the base image options.
-ARG MATLAB_RELEASE=r2025b
-FROM mathworks/matlab:${MATLAB_RELEASE}
+#   sudo docker build -t socbench-eval-matlab -f evaluator/Dockerfile.matlab \
+#     --build-arg MATLAB_RELEASE=r2026a --build-arg MATLAB_UID=$(id -u socbench) --build-arg MATLAB_GID=$(id -g socbench) evaluator
+#
+# MATLAB_UID/GID: the image's `matlab` user is remapped to the worker's service account so that (a) the worker can run
+# the container with `--user <socbench>` like the Python sandbox, (b) the blinded data can stay mode 600, and (c) the
+# licence token written to /home/matlab by the one-time login below is owned by the same uid.
+#
+# Licensing — campus-wide licence via MathWorks *online licensing* (docs/drac-migration.md → "MATLAB on the VM"):
+#   1. one-time, interactive, on the worker host:
+#        sudo docker run -it --name socbench-matlab-login --user $(id -u socbench) --entrypoint matlab socbench-eval-matlab -licmode onlinelicensing
+#      log in with the licence holder's MathWorks account, wait for the MATLAB prompt, type `exit`
+#   2. sudo docker commit socbench-matlab-login socbench-eval-matlab:licensed && sudo docker rm socbench-matlab-login
+#   3. EVAL_SANDBOX_MATLAB_IMAGE=socbench-eval-matlab:licensed on the worker. The committed image carries the login
+#      token — keep it on the evaluation host only, never push it to a registry.
+#   Online licensing talks to MathWorks at start-up, so MATLAB containers need egress: EVAL_MATLAB_NETWORK (see runbook);
+#   Python containers keep --network none.
+#   Alternative (network licence manager): EVAL_MATLAB_LICENSE="27000@server" → MLM_LICENSE_FILE, no login step.
+ARG MATLAB_RELEASE=r2026a
+FROM mathworks/matlab-deep-learning:${MATLAB_RELEASE}
 
-ARG PRODUCTS="MATLAB Signal_Processing_Toolbox Deep_Learning_Toolbox"
+ARG MATLAB_UID=1000
+ARG MATLAB_GID=1000
 USER root
-# Add the toolboxes the base image lacks, plus Python for the benchmark itself.
-RUN wget -q https://www.mathworks.com/mpm/glnxa64/mpm -O /tmp/mpm && chmod +x /tmp/mpm \
- && /tmp/mpm install --release=${MATLAB_RELEASE} --destination=/opt/matlab/${MATLAB_RELEASE} --products ${PRODUCTS} \
- && rm -f /tmp/mpm \
- && apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && rm -rf /var/lib/apt/lists/* \
+# Python for the benchmark harness (the evaluator is Python; it drives MATLAB with `matlab -batch`).
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && rm -rf /var/lib/apt/lists/* \
  && pip3 install --no-cache-dir --break-system-packages "numpy>=1.26" "scipy>=1.11"
+# Remap the image's user to the worker's service account (see above).
+RUN if [ "$(id -u matlab)" != "${MATLAB_UID}" ] || [ "$(id -g matlab)" != "${MATLAB_GID}" ]; then \
+      groupmod -o -g ${MATLAB_GID} matlab && usermod -o -u ${MATLAB_UID} -g ${MATLAB_GID} matlab && chown -R matlab:matlab /home/matlab; fi
 
 RUN mkdir -p /work /out /in /data /app && chown matlab /work /out
 COPY python/socbench_eval /app/socbench_eval
 COPY python/dryrun_data.mat /app/dryrun_data.mat
 COPY matlab/Run_Model.m /app/matlab/Run_Model.m
 ENV PYTHONPATH=/app TMPDIR=/work PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 \
-    MATLAB_BIN=/opt/matlab/${MATLAB_RELEASE}/bin/matlab SOCBENCH_MATLAB_SCRIPTS=/app/matlab
+    MATLAB_BIN=matlab SOCBENCH_MATLAB_SCRIPTS=/app/matlab HOME=/home/matlab
 WORKDIR /work
 USER matlab
 ENTRYPOINT ["python3", "-m", "socbench_eval"]
