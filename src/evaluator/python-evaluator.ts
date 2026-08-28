@@ -206,8 +206,11 @@ export class PythonEvaluator implements Evaluator {
         "--network", network,
         "--read-only", "--tmpfs", "/work:rw,exec,size=2g", "--tmpfs", "/tmp:rw,size=512m",
         // MATLAB writes preferences, licence cache and logs under $HOME at start-up; with a read-only root it needs a
-        // scratch home. tmpfs is 1777 so the remapped `matlab` (= worker) uid can write; discarded with the container.
-        ...(runtime === "matlab" ? ["--tmpfs", "/home/matlab:rw,exec,size=512m"] : []),
+        // scratch home owned by the remapped `matlab` (= worker) uid; discarded with the container. (Docker copies the
+        // image directory's root:750 mode onto a bare tmpfs, so uid/gid must be given explicitly.)
+        ...(runtime === "matlab"
+          ? ["--tmpfs", `/home/matlab:rw,exec,size=512m,mode=750${typeof process.getuid === "function" && typeof process.getgid === "function" ? `,uid=${process.getuid()},gid=${process.getgid()}` : ""}`]
+          : []),
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
         // On Linux run the container as the worker's own uid/gid: the blinded data and the output directory stay
         // readable/writable by the low-privilege service user only (mode 600), without chmod-ing them for the
