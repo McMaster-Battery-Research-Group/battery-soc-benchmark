@@ -5,7 +5,7 @@ import { logEvent } from "@/lib/log";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
-import { checkSubmissionPackage } from "@/lib/package-check";
+import { checkSubmissionPackage, runtimeOf } from "@/lib/package-check";
 import { dryRunLimitError } from "@/lib/dry-run-quota";
 
 export type DryRunStart = { ok: true; id: string } | { ok: false; error: string };
@@ -51,7 +51,7 @@ export async function startDryRunAction(fd: FormData): Promise<DryRunStart> {
   if (!check.ok) return reject(check.problems.join(" "));
 
   const key = preUploadedKey ?? (await storage.put(bytes, "zip"));
-  const dr = await db.dryRun.create({ data: { userId: session.user.id, fileKey: key, fileName, fileSize: bytes.length } });
+  const dr = await db.dryRun.create({ data: { userId: session.user.id, fileKey: key, fileName, fileSize: bytes.length, runtime: runtimeOf(check.modelFile) } });
   logEvent("dryrun.queued", { id: dr.id, userId: session.user.id, fileName, fileKB: Math.round(bytes.length / 1024) });
   return { ok: true, id: dr.id };
 }

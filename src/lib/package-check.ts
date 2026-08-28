@@ -15,6 +15,11 @@ export interface PackageCheck {
   modelFile?: "Model.m" | "Model.p" | "Model.py";
 }
 
+/** Which evaluation runtime a package needs, from the model file the checker found. */
+export function runtimeOf(modelFile?: "Model.m" | "Model.p" | "Model.py"): "python" | "matlab" | null {
+  return modelFile === "Model.py" ? "python" : modelFile ? "matlab" : null;
+}
+
 export function checkSubmissionPackage(bytes: Buffer): PackageCheck {
   const problems: string[] = [];
   const warnings: string[] = [];
