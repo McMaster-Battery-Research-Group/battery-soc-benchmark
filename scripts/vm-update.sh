@@ -25,6 +25,12 @@ else
   if grep -q '^package-lock.json$' <<<"$changed"; then log "dependencies changed — npm ci"; run 'npm ci --no-audit --no-fund --loglevel=error'; fi
   if grep -q '^prisma/schema.prisma$' <<<"$changed"; then log "schema changed — prisma generate"; run 'npx prisma generate >/dev/null'; fi
   if grep -q '^evaluator/' <<<"$changed"; then log "evaluator/ changed — rebuilding sandbox image"; docker build -q -t socbench-eval "$REPO/evaluator" >/dev/null; fi
+  # MATLAB image: rebuild the harness layers on top of the *licensed* image so the one-time login is preserved
+  if grep -qE '^(evaluator/|matlab/)' <<<"$changed" && docker image inspect socbench-eval-matlab:licensed >/dev/null 2>&1; then
+    log "rebuilding socbench-eval-matlab:licensed (harness update, login token kept)"
+    docker build -q -t socbench-eval-matlab:licensed -f "$REPO/evaluator/Dockerfile.matlab" --build-arg BASE=socbench-eval-matlab:licensed \
+      --build-arg MATLAB_UID="$(id -u $USER_)" --build-arg MATLAB_GID="$(id -g $USER_)" "$REPO" >/dev/null
+  fi
   touch /run/socbench-restart-pending
 fi
 
