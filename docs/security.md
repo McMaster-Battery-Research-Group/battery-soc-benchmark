@@ -41,7 +41,7 @@ The benchmark executes code written by anonymous internet users (`Model.py`, `Mo
 - [ ] **Backups**: Supabase free tier has no automatic backups — schedule a weekly `pg_dump` (GitHub Action with a repository secret) to a private bucket; test a restore once.
 - [ ] **Secrets management on the worker**: replace `.env.production` with Windows Credential Manager / DPAPI-protected file, or a secrets file with `icacls` restricted to `socbench` only.
 - [ ] **Content review of profile fields**: names, bios and links are user-controlled and shown publicly — React escapes them, but add link-host validation (done for the research IDs) to `website` and consider a report/hide control for admins.
-- [ ] **Egress policy for the DRAC VM**: firewall default-deny inbound; outbound only to Supabase, SMTP and the MATLAB licence server. Document in `drac-migration.md` and apply with `ufw`.
+- [~] **Egress policy for the DRAC VM** — inbound is default-deny (ufw + security group); outbound is still unrestricted (Supabase/SMTP allow-list not yet applied). Original item:: firewall default-deny inbound; outbound only to Supabase, SMTP and the MATLAB licence server. Document in `drac-migration.md` and apply with `ufw`.
 - [ ] **Penetration-style review before public launch**: OWASP ZAP baseline scan against the Vercel deployment; try a malicious package (network call, file read of `/data`, `os.environ` dump) through a dry run and confirm it fails inside the sandbox.
 - [ ] **Privacy page**: mention rate-limit logging (IP addresses retained ≤ 24 h in `RateLimitHit`) and the container-based processing of uploaded code.
 

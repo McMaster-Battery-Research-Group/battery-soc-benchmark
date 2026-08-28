@@ -33,21 +33,69 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 ## Checklist to move the worker
 
 - [ ] PI + sponsored accounts active in CCDB
-- [ ] Request rapid-access cloud allocation (persistent VM, ≥ 2 vCPU / 4 GB) via the Alliance cloud request form
-- [ ] Provision Ubuntu VM, install Node 20, clone repo, `npm ci`, copy production `.env` (DATABASE_URL, DIRECT_URL, STORAGE=supabase, SUPABASE_URL, SUPABASE_SERVICE_KEY, SMTP_*, NEXT_PUBLIC_SITE_URL)
+- [x] Request rapid-access cloud allocation — `def-kollmeyp-prod` on Arbutus; VM `Ahmad-Development-Server` (p8-12gb) since 2026-08-28
+- [x] Provision Ubuntu VM (`scripts/provision-arbutus-worker.sh`), clone repo, `npm ci`, copy production env (DATABASE_URL, DIRECT_URL, STORAGE=supabase, SUPABASE_URL, SUPABASE_SERVICE_KEY, SMTP_*, NEXT_PUBLIC_SITE_URL)
 - [ ] Install MATLAB Runtime (or confirm `module load matlab` licence) and the lab's evaluation script; implement `src/evaluator/matlab-evaluator.ts`
-- [ ] Copy blinded dataset to the VM (or `/project`) with group-only permissions
-- [ ] Run the worker as a systemd service (`Restart=always`); disable the cron-job.org ping
+- [x] Blinded dataset on the VM at `/var/lib/socbench/blind-data/blind_data.mat`, mode 600 owner `socbench`
+- [x] Worker runs as `socbench-worker.service` (systemd, `Restart=always`)
 - [ ] Update `docs/compliance.md` data-inventory row for blinded data location
+
+## Runbook — the Arbutus worker (live since 2026-08-28)
+
+**What exists**
+
+| Item | Value |
+| --- | --- |
+| Project / VM | Alliance Cloud (Arbutus), project `def-kollmeyp-prod`, instance **Ahmad-Development-Server** (`p8-12gb`: 8 vCPU, 12 GB, 48 GB root), Ubuntu 24.04 |
+| Address | `134.87.10.197` (floating IP; internal `192.168.201.184`) — SSH as `ubuntu` with the *Ahmad-Laptop* key pair; the security group only admits SSH from campus (`130.113.0.0/16`) and the listed home IPs |
+| Code | `/opt/socbench` — clone of this repo over SSH using a **read-only GitHub deploy key** (`arbutus-worker (read-only)`; private key in `/var/lib/socbench/.ssh/`) |
+| Service | `socbench-worker.service` (systemd, `Restart=always`, `KillSignal=SIGINT` so Ctrl+C-style graceful shutdown applies). Runs as the low-privilege user **`socbench`** (no login shell, member of `docker`), `ProtectSystem=strict`, writable only in `/var/lib/socbench` and `/tmp` |
+| Secrets | `/etc/socbench/worker.env` (mode 600, owner socbench) — generated from the laptop's `.env.production` with Linux overrides: `WORKER_RUNTIMES=python`, `WORKER_CONCURRENCY=2`, `SOCBENCH_BLIND_DATA=/var/lib/socbench/blind-data/blind_data.mat`, `SOCBENCH_PYTHON=python3`, no `MATLAB_BIN` |
+| Blinded data | `/var/lib/socbench/blind-data/blind_data.mat` (mode 600, owner socbench) — mounted read-only into each sandbox |
+| Sandbox | Docker image `socbench-eval` built from `evaluator/Dockerfile`; each evaluation runs with `--network none --read-only --cap-drop ALL`, 2 CPU / 4 GB |
+| Firewall | `ufw` default-deny inbound, 22/tcp only; unattended security upgrades on |
+| Runtimes | **Python packages only** (`WORKER_RUNTIMES=python`). MATLAB packages stay queued until a worker that can run them (today: the laptop, `python,matlab`) claims them. See *MATLAB on Linux* below |
+
+**Re-create from scratch**
+
+1. Launch an Ubuntu 24.04 instance with a floating IP and a security group allowing SSH from campus/VPN only.
+2. On the VM, create the deploy key and register it (read-only) on GitHub:
+   ```bash
+   sudo useradd --system --create-home --home-dir /var/lib/socbench --shell /usr/sbin/nologin socbench
+   sudo -u socbench ssh-keygen -t ed25519 -N "" -C socbench@arbutus-worker -f /var/lib/socbench/.ssh/id_ed25519
+   sudo -u socbench bash -c 'ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts'; sudo cat /var/lib/socbench/.ssh/id_ed25519.pub
+   # laptop:  gh repo deploy-key add key.pub --title "arbutus-worker (read-only)" -R AhmadAli137/battery-soc-benchmark
+   ```
+3. `scp scripts/provision-arbutus-worker.sh ubuntu@<ip>: && ssh ubuntu@<ip> ./provision-arbutus-worker.sh` — installs Docker + Node 22, clones the repo, builds `socbench-eval`, writes the systemd unit, enables ufw.
+4. Copy secrets and data (never commit them):
+   ```bash
+   scp worker.env blind_data.mat ubuntu@<ip>:
+   ssh ubuntu@<ip> 'sudo install -m 0600 -o socbench -g socbench worker.env /etc/socbench/worker.env && sudo install -m 0600 -o socbench -g socbench blind_data.mat /var/lib/socbench/blind-data/ && shred -u worker.env blind_data.mat'
+   ```
+5. `sudo systemctl start socbench-worker` — it appears on *Admin → Evaluation workers* within 15 s.
+
+**Day to day**
+
+| Task | Command (on the VM) |
+| --- | --- |
+| Logs | `sudo journalctl -u socbench-worker -f` (the last 200 lines are also on *Admin → Evaluation workers*) |
+| Update code | `sudo -u socbench git -C /opt/socbench pull --ff-only && sudo -u socbench bash -c 'cd /opt/socbench && npm ci && npx prisma generate' && sudo systemctl restart socbench-worker` |
+| Rebuild sandbox (monthly, or when `evaluator/` changes) | `sudo docker build -t socbench-eval /opt/socbench/evaluator && sudo systemctl restart socbench-worker` (`--build-arg TORCH=1` for PyTorch) |
+| Pause / stop | *Admin → Evaluation workers* buttons, or `sudo systemctl stop socbench-worker` (graceful: in-flight jobs are returned to the queue) |
+| Change env | edit `/etc/socbench/worker.env`, then `sudo systemctl restart socbench-worker` |
+
+**MATLAB on Linux** — not yet. Options, in order of preference: (1) build `evaluator/Dockerfile.matlab` (needs a licence reachable from the VM — the campus network-licence server, or a MathWorks licence file) and set `EVAL_SANDBOX_MATLAB_IMAGE` + `WORKER_RUNTIMES=python,matlab`; (2) install MATLAB Runtime and run MATLAB packages on the host with the allow-listed environment (weaker isolation). Until then the laptop remains the MATLAB worker.
+
+**Complexity calibration** — `SOCBENCH_CAL_PYTHON` is machine-specific (seconds per sample of the reference Coulomb counter). Re-measure whenever the VM flavour changes: evaluate `evaluator/examples/coulomb-counter.python.zip` and set the constant to its `secondsPerSample` so that the Coulomb counter lands in complexity bin 1.
 
 ## Security requirements for the DRAC worker (added 2026-08-26)
 
 Submissions are untrusted code — treat the VM as hostile-workload host. See `security.md` for the full status list.
 
-- [ ] Use an **Alliance Cloud (Arbutus) VM**, not the batch clusters: running third-party code on shared login/compute nodes is outside the acceptable-use terms and would let a submission probe the cluster.
+- [x] Use an **Alliance Cloud (Arbutus) VM**, not the batch clusters: running third-party code on shared login/compute nodes is outside the acceptable-use terms and would let a submission probe the cluster.
 - [ ] Install Docker (or Apptainer) and build both sandbox images: `docker build -t socbench-eval evaluator` and `docker build -t socbench-eval-matlab -f evaluator/Dockerfile.matlab --build-arg MATLAB_RELEASE=<release> --build-arg PRODUCTS="…" evaluator`. Set `EVAL_SANDBOX=docker`, `EVAL_SANDBOX_MATLAB_IMAGE=socbench-eval-matlab`, `EVAL_MATLAB_LICENSE=<port@licence-host>` (and `EVAL_MATLAB_NETWORK=bridge` only if that host must be reachable). This closes the host-mode MATLAB gap that exists on the laptop.
-- [ ] Run the worker as a **non-sudo service user** under systemd (`Restart=always`); repo read-only to it; `.env.production` and `blind_data.mat` mode 600 owned by that user; nothing on `/project` or `/scratch` group-readable.
+- [x] (done for the socbench user + systemd hardening; `/project` not used) Run the worker as a **non-sudo service user** under systemd (`Restart=always`); repo read-only to it; `.env.production` and `blind_data.mat` mode 600 owned by that user; nothing on `/project` or `/scratch` group-readable.
 - [ ] Firewall: `ufw default deny incoming`; SSH keys only (no passwords), ideally restricted to campus/VPN ranges; outbound allowed only to Supabase (5432/6543 + 443), the SMTP host and the MATLAB licence server.
-- [ ] `unattended-upgrades` on; rebuild the sandbox images monthly; keep Docker's daemon socket inaccessible to the service user except through the group.
+- [x] `unattended-upgrades` on (rebuild images monthly still manual); rebuild the sandbox images monthly; keep Docker's daemon socket inaccessible to the service user except through the group.
 - [ ] Update `compliance.md` §26(b) to name the Alliance VM as the processing location for third-party model IP and the blinded data; note the Alliance's own security policy.
 - [ ] After migration: remove blinded data, `.env.production` and the scheduled task from the laptop; rotate the Supabase secrets once more so any laptop copy is dead.

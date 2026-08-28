@@ -334,7 +334,8 @@ Everything runs on free tiers except the electricity for the evaluation machine.
 | Website | **Vercel** (Hobby), auto-deploys from `main` | free |
 | PostgreSQL | **Supabase** (free project, 500 MB) | free |
 | Submission packages | **Supabase Storage**, private bucket `packages` | free |
-| Evaluation | `npm run worker:prod` on a lab machine with the blinded data (+ MATLAB), or a free cron hitting `/api/jobs/run` for the mock evaluator only | free |
+| Evaluation (Python packages) | **Alliance Cloud VM** on Arbutus (`Ahmad-Development-Server`, 8 vCPU / 12 GB) running `socbench-worker.service` with the Docker sandbox — see `docs/drac-migration.md` → *Runbook* | free (Alliance allocation) |
+| Evaluation (MATLAB packages) | `npm run worker:prod` on a lab machine with MATLAB and the blinded data (today: Ahmad's laptop, `WORKER_RUNTIMES=python,matlab`) | free |
 
 **First-time setup (already done for the live site; kept for rebuilding from scratch)**
 
@@ -354,7 +355,7 @@ Vercel builds every push to `main` (`prisma generate && next build`). A failed b
 
 ## 13. Operating the evaluation worker
 
-The worker is the only part that needs care. One instance per machine; add machines to add throughput (jobs are claimed atomically), or `WORKER_CONCURRENCY=n` for parallel runs on one machine (≤ physical cores ÷ 2).
+The worker is the only part that needs care. One instance per machine; add machines to add throughput (jobs are claimed atomically), or `WORKER_CONCURRENCY=n` for parallel runs on one machine (≤ physical cores ÷ 2). Each worker declares which package runtimes it can run with `WORKER_RUNTIMES` (`python`, `matlab`, or both); a package's runtime is recorded at submission time from its `Model.*` file, so a Linux VM without MATLAB never claims a MATLAB package — it waits for a worker that can run it. Two workers are live today: the **Arbutus VM** (Python only, `docs/drac-migration.md` → *Runbook*) and the **laptop** (Python + MATLAB).
 
 **Prepare the machine** (Windows today; Linux VM later — see `docs/drac-migration.md`)
 1. Node 20+, Git, Docker Desktop (enable *Start Docker Desktop when you sign in*), Python 3.11+ with numpy/scipy, MATLAB with the toolboxes submissions commonly need (Signal Processing, Deep Learning, Statistics & ML, Control System, System Identification, Optimization, Curve Fitting). The admin page lists what a machine has.
@@ -444,10 +445,10 @@ Today the SVGs are text-only wordmarks and the PNGs are absent (PDF/e-mail fall 
 - [x] Parity-tested the CC / EKF / FNN / LSTM example packages: all 21 score columns match the historical `Leaderboard.csv` to 0.000 (2026-08-25).
 - [ ] Decide whether the evaluation host ships PyTorch for Python submissions (three archived Python submissions depend on it) — `docker build --build-arg TORCH=1`.
 - [ ] Import the 13 historical leaderboard entries (`archive/old-evaluation-tool/Models/Leaderboard.csv`) as legacy submissions.
-- [ ] Calibrate `SOCBENCH_CAL_*` on the final evaluation host.
+- [ ] Calibrate `SOCBENCH_CAL_*` per evaluation host (the laptop constants are in `.env.production`; the Arbutus VM's are in `/etc/socbench/worker.env` — see the runbook).
 - [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
 - [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
-- [ ] **Migrate the evaluation worker (and possibly hosting) from Ahmad's computer to Digital Research Alliance of Canada resources** via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
+- [~] **Migrate the evaluation worker from Ahmad's computer to Digital Research Alliance of Canada resources** — Python packages already evaluate on the Arbutus VM (2026-08-28); MATLAB packages still need the laptop until MATLAB runs on Linux (`docs/drac-migration.md`). Original note: via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
 - [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
 - [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production, and delete the `example.edu` demo accounts from the live database (Admin → Users) before announcing the site.
 - [ ] **Security follow-ups** — tracked in detail in `docs/security.md`. Human steps still outstanding: rotate the Supabase DB password + service-role key; move repo/`.env.production`/`blind-data` out of OneDrive; run the worker as the low-privilege `socbench` account; build the MATLAB sandbox image on the DRAC VM (host-mode MATLAB packages remain the main residual risk). Not started: cheating-detection badges, session invalidation on password change, admin 2FA, audit log, Dependabot/`npm audit`, weekly `pg_dump` backups, ZAP scan before launch.

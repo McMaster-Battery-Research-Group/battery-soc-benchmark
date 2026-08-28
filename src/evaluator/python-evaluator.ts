@@ -162,6 +162,10 @@ export class PythonEvaluator implements Evaluator {
         "--network", network,
         "--read-only", "--tmpfs", "/work:rw,exec,size=2g", "--tmpfs", "/tmp:rw,size=512m",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+        // On Linux run the container as the worker's own uid/gid: the blinded data and the output directory stay
+        // readable/writable by the low-privilege service user only (mode 600), without chmod-ing them for the
+        // image's default uid. Docker Desktop (Windows/macOS) maps file access itself, so no --user there.
+        ...(typeof process.getuid === "function" && typeof process.getgid === "function" ? ["--user", `${process.getuid()}:${process.getgid()}`] : []),
         "--pids-limit", process.env.EVAL_PIDS ?? "256", "--memory", process.env.EVAL_MEMORY ?? "4g", "--cpus", process.env.EVAL_CPUS ?? "2",
         "-v", `${toDockerPath(input.filePath)}:/in/package.zip:ro`,
         "-v", `${toDockerPath(outDir)}:/out:rw`,
