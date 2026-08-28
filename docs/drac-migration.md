@@ -86,7 +86,7 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 
 **MATLAB on Linux** — not yet. Options, in order of preference: (1) build `evaluator/Dockerfile.matlab` (needs a licence reachable from the VM — the campus network-licence server, or a MathWorks licence file) and set `EVAL_SANDBOX_MATLAB_IMAGE` + `WORKER_RUNTIMES=python,matlab`; (2) install MATLAB Runtime and run MATLAB packages on the host with the allow-listed environment (weaker isolation). Until then the laptop remains the MATLAB worker.
 
-**Complexity calibration** — `SOCBENCH_CAL_PYTHON` is machine-specific (seconds per sample of the reference Coulomb counter). Re-measure whenever the VM flavour changes: evaluate `evaluator/examples/coulomb-counter.python.zip` and set the constant to its `secondsPerSample` so that the Coulomb counter lands in complexity bin 1.
+**Complexity calibration** — `SOCBENCH_CAL_PYTHON` is machine-specific (seconds per sample of the reference Coulomb counter). Re-measure whenever the VM flavour changes: evaluate `evaluator/examples/coulomb-counter.python.zip` and set the constant to its `secondsPerSample` so that the Coulomb counter lands in complexity bin 1. Measured 2026-08-28 on p8-12gb: **1.80 µs/sample** (laptop: 0.92 µs) → `SOCBENCH_CAL_PYTHON="1.8e-6"` in `worker.env`. Parity check the same day: the CC reference package scored weighted error 15.366 % on both hosts.
 
 ## Security requirements for the DRAC worker (added 2026-08-26)
 
