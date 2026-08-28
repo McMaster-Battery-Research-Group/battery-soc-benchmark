@@ -43,7 +43,7 @@ export default async function WorkersPage() {
 
       {stranded.map((x) => (
         <Alert key={x.rt} variant="warning" className="mt-5" title={`${x.n} queued ${x.rt === "matlab" ? "MATLAB" : "Python"} submission${x.n > 1 ? "s" : ""} cannot start — no online worker runs ${x.rt === "matlab" ? "MATLAB" : "Python"} packages`}>
-          Workers only claim the runtimes they declare (<code className="rounded bg-grey-100 px-1">WORKER_RUNTIMES</code>). Start a worker that can run {x.rt === "matlab" ? "MATLAB (today: the lab laptop with MATLAB installed)" : "Python (the Arbutus VM or the laptop)"}; the queued submissions start automatically when it reports in. Authors see "no evaluator for {x.rt === "matlab" ? "MATLAB" : "Python"} packages is online" on their submission page meanwhile.
+          Workers only claim the runtimes they declare (<code className="rounded bg-grey-100 px-1">WORKER_RUNTIMES</code>). Start a worker that can run {x.rt === "matlab" ? "MATLAB (today: the lab laptop with MATLAB installed)" : "Python (the Arbutus VM or the laptop)"}; the queued submissions start automatically when it reports in. Authors see &ldquo;no evaluator for {x.rt === "matlab" ? "MATLAB" : "Python"} packages is online&rdquo; on their submission page meanwhile.
         </Alert>
       ))}
       <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
