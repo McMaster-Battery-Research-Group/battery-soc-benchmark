@@ -85,6 +85,31 @@ UNIT
 sudo systemctl daemon-reload
 sudo systemctl enable socbench-worker >/dev/null 2>&1 || true
 
+log "auto-update timer (pull main every 10 min, restart the worker only when idle)"
+sudo tee /etc/systemd/system/socbench-update.service >/dev/null <<'UNIT'
+[Unit]
+Description=Update the Battery SOC Benchmark worker from git (main)
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/socbench/scripts/vm-update.sh
+UNIT
+sudo tee /etc/systemd/system/socbench-update.timer >/dev/null <<'UNIT'
+[Unit]
+Description=Check GitHub for worker updates every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
+UNIT
+sudo systemctl daemon-reload
+sudo systemctl enable --now socbench-update.timer >/dev/null
+
 log "firewall: deny incoming except SSH (the OpenStack security group already restricts sources)"
 sudo ufw --force default deny incoming >/dev/null
 sudo ufw --force default allow outgoing >/dev/null

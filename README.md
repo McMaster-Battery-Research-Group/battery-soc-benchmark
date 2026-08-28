@@ -370,7 +370,7 @@ The worker is the only part that needs care. One instance per machine; add machi
 
 **Watch it** — *Admin → Evaluation workers* shows each machine (online/idle/evaluating/paused/offline), diagnostics, its console, the queue with lock ages, and buttons to pause/resume/stop a worker, release a stuck lock or retry a failed job. The Submit page shows users a one-line *Evaluator online/paused* status.
 
-**Update it** — `git pull`, then Ctrl+C and restart. Python-side changes need no restart; Docker image changes need `docker build …` again.
+**Update it** — laptop: `git pull`, then Ctrl+C and restart (Docker image changes need `docker build …` again). Arbutus VM: automatic — a systemd timer pulls `main` every 10 minutes and restarts the worker when idle (`scripts/vm-update.sh`; see `docs/drac-migration.md` → Runbook).
 
 ## 14. Configuration reference (environment variables)
 

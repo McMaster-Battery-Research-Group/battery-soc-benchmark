@@ -79,7 +79,7 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 | Task | Command (on the VM) |
 | --- | --- |
 | Logs | `sudo journalctl -u socbench-worker -f` (the last 200 lines are also on *Admin → Evaluation workers*) |
-| Update code | `sudo -u socbench git -C /opt/socbench pull --ff-only && sudo -u socbench bash -c 'cd /opt/socbench && npm ci && npx prisma generate' && sudo systemctl restart socbench-worker` |
+| Update code | **Automatic.** `socbench-update.timer` runs `scripts/vm-update.sh` every 10 min: fetches `main`, runs `npm ci` / `prisma generate` / image rebuild only when the relevant files changed, and restarts the worker **only when it is idle** (a restart is deferred while an evaluation is running). Force it now: `sudo /opt/socbench/scripts/vm-update.sh`. History: `sudo journalctl -u socbench-update -n 50` |
 | Rebuild sandbox (monthly, or when `evaluator/` changes) | `sudo docker build -t socbench-eval /opt/socbench/evaluator && sudo systemctl restart socbench-worker` (`--build-arg TORCH=1` for PyTorch) |
 | Pause / stop | *Admin → Evaluation workers* buttons, or `sudo systemctl stop socbench-worker` (graceful: in-flight jobs are returned to the queue) |
 | Change env | edit `/etc/socbench/worker.env`, then `sudo systemctl restart socbench-worker` |
