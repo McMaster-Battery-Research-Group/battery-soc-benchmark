@@ -18,7 +18,7 @@
 import "dotenv/config";
 import os from "os";
 import { execFileSync } from "child_process";
-import { statfsSync, accessSync, constants } from "fs";
+import { statfsSync, accessSync, constants, readFileSync } from "fs";
 import { db } from "@/lib/db";
 import { claimNext, runNext, workerId, inflight, SHUTDOWN, WORKER_RUNTIMES, type WorkItem } from "./run-job";
 import { getEvaluator } from "./index";
@@ -58,7 +58,24 @@ function diagnostics(): Diag {
   ]);
   const mb = process.env.MATLAB_BIN;
   let matlabInfo = "not configured (Python packages only)";
-  if (mb) {
+  const mimg = process.env.EVAL_SANDBOX_MATLAB_IMAGE;
+  if (mimg) {
+    // MATLAB lives in the sandbox image: report its release and how it is licensed (never the token itself)
+    const rel = probe("docker", ["run", "--rm", "--entrypoint", "ls", mimg, "/opt/matlab"]).split(/\s+/).find((x) => /^R20\d\d[ab]$/.test(x)) ?? "MATLAB";
+    let lic = "no licence configured";
+    if (process.env.EVAL_MATLAB_LICENSE) lic = `network licence ${process.env.EVAL_MATLAB_LICENSE}`;
+    else if (process.env.EVAL_MATLAB_MHLM_FILE) {
+      try {
+        const j = JSON.parse(readFileSync(process.env.EVAL_MATLAB_MHLM_FILE, "utf8")) as { email?: string; expiry?: string; license_number?: string };
+        const exp = j.expiry ? new Date(j.expiry) : null;
+        const days = exp ? Math.round((exp.getTime() - Date.now()) / 86400_000) : null;
+        lic = `online licensing as ${j.email ?? "?"}${j.license_number ? ` (licence ${j.license_number})` : ""}${days !== null ? `, identity token ${days < 0 ? "EXPIRED" : `expires in ${days} d`}` : ""}`;
+      } catch {
+        lic = `online licensing: cannot read ${process.env.EVAL_MATLAB_MHLM_FILE}`;
+      }
+    }
+    matlabInfo = `${rel} in sandbox ${mimg} · ${lic}`;
+  } else if (mb) {
     try {
       accessSync(mb, constants.X_OK);
       const m = /R20\d\d[ab]/.exec(mb);
