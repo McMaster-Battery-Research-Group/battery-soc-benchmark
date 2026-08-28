@@ -28,7 +28,7 @@ How this platform maps to McMaster's **Information Security Policy (IS-00, 2016)
 | Submission packages | `.zip` with `Model.m/.p`, parameters | Third-party IP (Confidential) | Local disk or a private Supabase Storage bucket | **deleted immediately after evaluation** |
 | Evaluation logs | worker log lines | Internal | PostgreSQL | with the submission |
 | Contact messages | name, email, free text | Personal information | PostgreSQL | until resolved/deleted |
-| Blinded dataset | the hidden test cycles | **Restricted** (the whole benchmark depends on secrecy) | evaluator hosts only (Arbutus VM `/var/lib/socbench/blind-data`, mode 600; Ahmad's laptop until MATLAB moves) — never in the web tier or repo | permanent |
+| Blinded dataset | the hidden test cycles | **Restricted** (the whole benchmark depends on secrecy) | evaluator host only (Arbutus VM `/var/lib/socbench/blind-data`, mode 600) — never in the web tier or repo | permanent |
 
 The last row is the most important classification: the blinded data must only ever exist on the machine that runs the evaluator, which favours running the worker on a campus machine.
 
