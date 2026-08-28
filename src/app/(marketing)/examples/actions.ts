@@ -27,6 +27,6 @@ export async function runExampleAction(slug: string, runtime: "matlab" | "python
     return { ok: false, error: "Example package is missing on the server." };
   }
   const key = await storage.put(bytes, "zip");
-  const dr = await db.dryRun.create({ data: { userId: session.user.id, fileKey: key, fileName, fileSize: bytes.length } });
+  const dr = await db.dryRun.create({ data: { userId: session.user.id, fileKey: key, fileName, fileSize: bytes.length, runtime } });
   return { ok: true, id: dr.id };
 }

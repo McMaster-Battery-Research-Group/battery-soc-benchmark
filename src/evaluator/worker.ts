@@ -20,7 +20,7 @@ import os from "os";
 import { execFileSync } from "child_process";
 import { statfsSync, accessSync, constants } from "fs";
 import { db } from "@/lib/db";
-import { claimNext, runNext, workerId, inflight, SHUTDOWN, type WorkItem } from "./run-job";
+import { claimNext, runNext, workerId, inflight, SHUTDOWN, WORKER_RUNTIMES, type WorkItem } from "./run-job";
 import { getEvaluator } from "./index";
 import { dockerUp, ensureDocker, sandboxMode } from "./python-evaluator";
 import { installConsoleMirror, consoleTail } from "./console-ring";
@@ -105,6 +105,7 @@ async function heartbeat() {
     lastSeenAt: new Date(),
     busyWith: [...busy],
     concurrency: CONCURRENCY,
+    runtimes: WORKER_RUNTIMES.join(","),
     paused,
     platform: d.platform,
     nodeVersion: process.version,
@@ -183,6 +184,7 @@ async function main() {
   }
   await heartbeat();
   console.log("[worker] heartbeat registered — visible on /admin/workers");
+  console.log(`[worker] runtimes claimed: ${WORKER_RUNTIMES.join(", ")}${WORKER_RUNTIMES.length < 2 ? " (other packages stay queued for another worker)" : ""}`);
   const hb = setInterval(() => void heartbeat(), HEARTBEAT_MS);
   const running = new Set<Promise<void>>();
   let exiting = false;

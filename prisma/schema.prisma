@@ -117,6 +117,8 @@ model Submission {
   fileName        String
   fileType        FileType
   fileSize        Int
+  /// "python" | "matlab" — from the package's Model file. Workers claim only the runtimes they can run (WORKER_RUNTIMES).
+  runtime         String?
   status          SubmissionStatus @default(QUEUED)
   /// Package version: incremented when the owner uploads a new package for the same submission.
   version         Int              @default(1)
@@ -257,6 +259,8 @@ model WorkerHeartbeat {
   /// ids of submissions / dry runs currently being evaluated (parallel slots)
   busyWith    String[] @default([])
   concurrency Int      @default(1)
+  /// comma-separated runtimes this worker claims, e.g. "python" on a Linux VM without MATLAB
+  runtimes    String   @default("python,matlab")
   /// admin command picked up at the next heartbeat: "pause" | "resume" | "stop"
   command     String?
   paused      Boolean  @default(false)
@@ -336,6 +340,8 @@ model DryRun {
   fileKey        String
   fileName       String
   fileSize       Int
+  /// "python" | "matlab" — see Submission.runtime
+  runtime        String?
   status         SubmissionStatus @default(QUEUED)
   result         Json?
   failureMessage String?

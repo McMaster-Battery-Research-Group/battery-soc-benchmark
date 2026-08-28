@@ -24,10 +24,18 @@ export const inflight = new Set<AbortController>();
 export const SHUTDOWN = "shutdown";
 
 /** Dry runs are short and interactive, so they jump the queue. */
+/**
+ * Runtimes this worker can execute. A Linux VM without MATLAB sets WORKER_RUNTIMES=python and then
+ * never claims a MATLAB package (which stays queued for a worker that can run it). Unrestricted
+ * workers also take packages whose runtime is unknown (older rows, pre-dating the column).
+ */
+export const WORKER_RUNTIMES = (process.env.WORKER_RUNTIMES ?? "python,matlab").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+const RUNTIME_FILTER = WORKER_RUNTIMES.includes("python") && WORKER_RUNTIMES.includes("matlab") ? {} : { runtime: { in: WORKER_RUNTIMES } };
+
 export async function claimDryRun() {
   const staleBefore = new Date(Date.now() - 15 * 60 * 1000);
   const c = await db.dryRun.findFirst({
-    where: { status: { in: ["QUEUED", "RUNNING"] }, OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }] },
+    where: { status: { in: ["QUEUED", "RUNNING"] }, OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }], ...RUNTIME_FILTER },
     orderBy: { createdAt: "asc" },
   });
   if (!c) return null;
@@ -84,7 +92,7 @@ export async function claimJob() {
     where: {
       attempts: { lt: MAX_ATTEMPTS },
       OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }],
-      submission: { status: { in: ["QUEUED", "RUNNING"] } },
+      submission: { status: { in: ["QUEUED", "RUNNING"] }, ...RUNTIME_FILTER },
     },
     orderBy: { createdAt: "asc" },
   });

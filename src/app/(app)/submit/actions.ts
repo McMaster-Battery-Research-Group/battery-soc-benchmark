@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
-import { checkSubmissionPackage } from "@/lib/package-check";
+import { checkSubmissionPackage, runtimeOf } from "@/lib/package-check";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail, submissionDeletedEmail } from "@/lib/mail";
 import { recordRevision } from "@/lib/history";
@@ -119,6 +119,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   const sub = await db.submission.create({
     data: {
       userId: session.user.id,
+      runtime: runtimeOf(check.modelFile),
       modelName: parsed.data.modelName,
       description: parsed.data.description,
       modelType: parsed.data.modelType,
@@ -268,7 +269,7 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
   const key = preUploadedKey ?? (await storage.put(bytes, "zip"));
   const version = sub.version + 1;
   await db.$transaction([
-    db.submission.update({ where: { id }, data: { version, fileKey: key, fileName, fileSize: bytes.length, status: "QUEUED", failureMessage: null, completedAt: null } }),
+    db.submission.update({ where: { id }, data: { version, fileKey: key, fileName, fileSize: bytes.length, runtime: runtimeOf(check.modelFile), status: "QUEUED", failureMessage: null, completedAt: null } }),
     db.evaluationJob.upsert({ where: { submissionId: id }, create: { submissionId: id }, update: { attempts: 0, lockedAt: null, lockedBy: null, log: "", cancelRequestedAt: null } }),
   ]);
   await recordRevision({ submissionId: id, kind: "resubmission", evaluatorVersion: "-", note: `v${version}: ${fileName} (${Math.round(bytes.length / 1024)} KB) uploaded — queued for evaluation`, by: session.user.id });
