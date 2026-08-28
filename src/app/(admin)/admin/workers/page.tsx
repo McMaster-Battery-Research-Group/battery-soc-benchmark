@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { ONLINE_WINDOW_MS, ago } from "@/lib/worker-status";
 import { fmtDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Stat } from "@/components/ui/misc";
+import { Stat, Alert } from "@/components/ui/misc";
 import { WorkerControls, JobControls, AutoRefresh, LogView } from "./controls";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,11 @@ export default async function WorkersPage() {
   const capacity = online.filter((w) => !w.paused).reduce((n, w) => n + w.concurrency, 0);
   const inFlight = online.reduce((n, w) => n + w.busyWith.length, 0);
   const queued = active.filter((s) => s.status === "QUEUED").length;
+  // runtimes with queued work but no online, un-paused worker that declares them
+  const canRun = (w: { runtimes: string }, rt: string) => w.runtimes.split(",").map((x) => x.trim()).includes(rt);
+  const stranded = ["python", "matlab"]
+    .map((rt) => ({ rt, n: active.filter((s) => s.status === "QUEUED" && (s.runtime ?? rt) === rt).length, workers: online.filter((w) => !w.paused && canRun(w, rt)).length }))
+    .filter((x) => x.n > 0 && x.workers === 0);
 
   return (
     <div>
@@ -36,6 +41,11 @@ export default async function WorkersPage() {
         </div>
       </div>
 
+      {stranded.map((x) => (
+        <Alert key={x.rt} variant="warning" className="mt-5" title={`${x.n} queued ${x.rt === "matlab" ? "MATLAB" : "Python"} submission${x.n > 1 ? "s" : ""} cannot start — no online worker runs ${x.rt === "matlab" ? "MATLAB" : "Python"} packages`}>
+          Workers only claim the runtimes they declare (<code className="rounded bg-grey-100 px-1">WORKER_RUNTIMES</code>). Start a worker that can run {x.rt === "matlab" ? "MATLAB (today: the lab laptop with MATLAB installed)" : "Python (the Arbutus VM or the laptop)"}; the queued submissions start automatically when it reports in. Authors see "no evaluator for {x.rt === "matlab" ? "MATLAB" : "Python"} packages is online" on their submission page meanwhile.
+        </Alert>
+      ))}
       <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Machines online" value={online.length} sub={workers.length > online.length ? `${workers.length - online.length} stale` : "all reporting"} />
         <Stat label="Parallel slots" value={capacity} sub={`${inFlight} in use`} />
