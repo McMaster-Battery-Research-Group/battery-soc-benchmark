@@ -79,7 +79,9 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
           ["RMSE (open cycle)", `${fmtPct(r.rmse)} %`],
           ["MAE", `${fmtPct(r.mae)} %`],
           ["Max error", `${fmtPct(r.maxErr, 1)} %`],
-          ["Complexity", `${r.complexity} · ${COMPLEXITY_LABELS[r.complexity]}`],
+          // A MATLAB test run times one short cycle including the MATLAB session start-up, so its complexity is meaningless;
+          // the full evaluation amortises start-up over 195 input matrices and reports the real bin.
+          ["Complexity", r.runtime === "matlab" ? "measured in the full evaluation" : `${r.complexity} · ${COMPLEXITY_LABELS[r.complexity]}`],
         ].map(([k, v]) => (
           <div key={k} className="rounded-brand border border-border px-3 py-2">
             <p className="text-xs text-grey-600">{k}</p>
