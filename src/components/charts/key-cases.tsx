@@ -6,7 +6,7 @@ import { SocTrace } from "@/components/charts/soc-trace";
 import { Alert } from "@/components/ui/misc";
 
 const GROUPS: { id: NonNullable<TimeSeriesTrace["group"]>; title: string; blurb: string }[] = [
-  { id: "cycle", title: "Selected drive cycles", blurb: "Eight of the 144 blinded cycles, chosen to span the extremes — coldest and hottest temperature, the heaviest payload, the blinded cell, and road profiles absent from the open data." },
+  { id: "cycle", title: "Selected drive cycles", blurb: "The thirteen cycles the original MATLAB tool plotted, one per test: blinded vs non-blinded cell (tests 1–3), drive vs charge (test 4), the three payloads on one cycle (tests 5–6), standard vs non-standard highway profiles (tests 7–8) and the temperature extremes (test 9)." },
   { id: "initialSoc", title: "Wrong initial SOC (test 10)", blurb: "Three cycles restarted with the estimator told the battery is at 90, 60 or 30 % while it is really full. Coulomb counting can never recover; voltage-informed estimators converge at a rate that is very visible here." },
   { id: "offset", title: "Current-sensor offset (test 11)", blurb: "Three cycles re-run with ±0.3 A added to the measured current. Integration-based estimators drift steadily; the plot shows whether and how fast the model corrects the bias." },
 ];
