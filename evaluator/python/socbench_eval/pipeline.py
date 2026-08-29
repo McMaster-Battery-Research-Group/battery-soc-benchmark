@@ -27,16 +27,28 @@ OFFSET_CYCLES = [("US06", -10), ("HWFET", 10), ("LA92", 40)]     # m1000
 RELEVANT_OFFSET_IDX = [0, 5, 6, 11, 12, 17]                       # ±0.3 A only
 # why each plotted drive cycle was chosen (shown under "Key cases" on the site)
 CYCLE_NOTES = {
-    ("m80", "UDDS", -20): "Coldest condition: high resistance and a strongly non-linear OCV response — the hardest cycle for most estimators.",
-    ("m80", "UDDS", 0): "Freezing point, gentle urban cycle.",
-    ("m80", "UDDS", 40): "Hottest condition; low resistance, fast dynamics.",
-    ("m80", "US06", 25): "Aggressive highway cycle with large current peaks at room temperature.",
-    ("m1000", "HWFET", 25): "Heavy 1000 kg payload on the highway cycle — sustained high current.",
-    ("m1000", "HWCUST", 25): "Custom highway profile the model has never seen in the open data.",
-    ("m1000", "HWGRADE", 25): "Highway with road grade — long high-current stretches and regeneration.",
-    ("m448", "LA92", 10): "The blinded cell (never released) on the LA92 cycle at 10 °C.",
+    ("m448N", "LA92", 10): "Tests 1–3 — the non-blinded m448N cell (open data exists for it) on LA92 at 10 °C; compare with the blinded m448 cell on the same cycle.",
+    ("m448", "LA92", 10): "Tests 1–3 — the blinded m448 cell (never released) on LA92 at 10 °C. A large gap to m448N means the model over-fits the open cells.",
+    ("m80", "CC_CV_charge", 25): "Test 4 — a CC-CV charge at 25 °C. Estimators tuned on discharge often mis-track during charging.",
+    ("m80", "UDDS", 10): "Tests 5–6 — the same UDDS cycle at 10 °C for the 80 kg payload (lightest load, lowest currents).",
+    ("m448", "UDDS", 10): "Tests 5–6 — the same UDDS cycle at 10 °C for the 448 kg payload.",
+    ("m1000", "UDDS", 10): "Tests 5–6 — the same UDDS cycle at 10 °C for the 1000 kg payload (highest currents).",
+    ("m80", "UDDS", -20): "Test 9 — coldest condition: high resistance and a strongly non-linear OCV response — the hardest cycle for most estimators.",
+    ("m80", "UDDS", 0): "Test 9 — freezing point, gentle urban cycle.",
+    ("m80", "UDDS", 40): "Test 9 — hottest condition; low resistance, fast dynamics.",
+    ("m80", "US06", 25): "Test 4 — aggressive highway cycle with large current peaks at room temperature (the drive-cycle counterpart of the charging test).",
+    ("m1000", "HWFET", 25): "Tests 7–8 — standard highway cycle with the heavy 1000 kg payload; compare with the two non-standard highway profiles.",
+    ("m1000", "HWCUST", 25): "Tests 7–8 — custom highway profile the model has never seen in the open data.",
+    ("m1000", "HWGRADE", 25): "Tests 7–8 — highway with road grade: long high-current stretches and regeneration.",
 }
-TRACES = {("m80", "UDDS", -20), ("m80", "UDDS", 0), ("m80", "UDDS", 40), ("m80", "US06", 25), ("m1000", "HWFET", 25), ("m1000", "HWCUST", 25), ("m1000", "HWGRADE", 25), ("m448", "LA92", 10)}
+# The drive cycles the original tool's Create_Figures.m plotted (one per figure panel), in the order of the tests they illustrate
+TRACES = {
+    ("m448N", "LA92", 10), ("m448", "LA92", 10),                       # tests 1–3: non-blinded vs blinded cell
+    ("m80", "US06", 25), ("m80", "CC_CV_charge", 25),                  # test 4: drive vs charging
+    ("m80", "UDDS", 10), ("m448", "UDDS", 10), ("m1000", "UDDS", 10),  # tests 5–6: payload
+    ("m1000", "HWFET", 25), ("m1000", "HWCUST", 25), ("m1000", "HWGRADE", 25),  # tests 7–8: standard vs non-standard cycles
+    ("m80", "UDDS", -20), ("m80", "UDDS", 0), ("m80", "UDDS", 40),     # test 9: temperature
+}
 
 Log = Callable[[str], None]
 
