@@ -55,7 +55,7 @@ def safe_extract(z: zipfile.ZipFile, dest: Path) -> str | None:
         with z.open(i) as src, open(target, "wb") as dst:
             shutil.copyfileobj(src, dst, 1024 * 1024)
     return None
-from .pipeline import build_jobs, complexity, per_cycle_rows, score, validation_job
+from .pipeline import build_jobs, complexity, per_cycle_rows, robustness_traces, score, validation_job
 from .runner import MatlabBackend, ModelError, PythonBackend
 
 
@@ -135,6 +135,7 @@ def main(argv=None) -> None:
         s, per_cell, detail = score(data, preds)
         cat, t_sample = complexity(preds, runtime, calibration)
         rows, traces = per_cycle_rows(per_cell)
+        traces += robustness_traces(data, preds)  # key robustness cases (wrong initial SOC, sensor offset)
         result = {
             "evaluatorVersion": f"socbench-eval-{__version__}/{runtime}",
             "runtime": runtime,
@@ -180,6 +181,7 @@ def dry_run(args, out: Path, backend, runtime: str, calibration: dict, t0: float
     while ratio > step:
         ratio /= step; cat += 1
     idx = np.unique(np.round(np.linspace(0, len(a) - 1, min(240, len(a)))).astype(int))
+    idx = np.unique(np.append(idx, int(np.argmax(np.abs(a - p.soc)))))  # keep the max-error sample so the plot agrees with maxErr
     result = {
         "dryRun": True, "runtime": runtime,
         "cycle": {"cell": "m80", "cycle": cyc.name, "temperatureC": cyc.temp_c, "samples": int(len(a))},

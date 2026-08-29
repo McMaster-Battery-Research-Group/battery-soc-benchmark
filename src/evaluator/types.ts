@@ -16,6 +16,10 @@ export interface TimeSeriesTrace {
   cell: string;
   cycle: string;
   temperatureC: number;
+  /** "cycle" (a blinded drive cycle) | "initialSoc" (test 10) | "offset" (test 11); absent on results evaluated before 2026-08-29 */
+  group?: "cycle" | "initialSoc" | "offset";
+  /** why this case is shown */
+  note?: string;
   /** hours */
   t: number[];
   /** % SOC */

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Brush, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
 import { Hand, MoveHorizontal, MoveVertical, Maximize2, BoxSelect, Plus, Minus, ChevronDown } from "lucide-react";
 import type { TimeSeriesTrace } from "@/evaluator/types";
 import { fmtPct, cn } from "@/lib/utils";
@@ -426,32 +426,113 @@ export function SocTrace({
   );
 }
 
+/**
+ * Navigator strip: the whole cycle with a draggable window. Custom pointer handling instead of Recharts' <Brush>,
+ * which snaps to data points and feels sticky — here the window follows the pointer pixel for pixel, the edges can
+ * be dragged independently, and a drag outside the window draws a new one.
+ */
 const Navigator = React.memo(
   function Navigator({ data, onRange, initialRef }: { data: Record<string, number>[]; onRange: (s: number, e: number) => void; initialRef: React.MutableRefObject<[number, number]> }) {
-    // read once at mount; remounted via key when the window is set programmatically. Clamp: the ref may lag a cycle change.
     const last = Math.max(0, data.length - 1);
-    const s0 = Math.min(Math.max(0, initialRef.current[0]), last);
-    const e0 = Math.min(Math.max(s0, initialRef.current[1]), last);
+    const clampI = (i: number) => Math.min(last, Math.max(0, Math.round(i)));
+    // read once at mount; remounted via key when the window is set programmatically. Clamp: the ref may lag a cycle change.
+    const [win, setWin] = React.useState<[number, number]>(() => {
+      const s0 = clampI(initialRef.current[0]);
+      return [s0, Math.max(s0, clampI(initialRef.current[1]))];
+    });
+    const wrap = React.useRef<HTMLDivElement>(null);
+    const drag = React.useRef<{ kind: "move" | "start" | "end" | "new"; x0: number; win: [number, number]; anchor: number } | null>(null);
+    const plotW = () => Math.max(1, (wrap.current?.clientWidth ?? 800) - Y_AXIS_W - RIGHT);
+    const toIdx = (px: number) => clampI(Math.min(1, Math.max(0, (px - Y_AXIS_W) / plotW())) * last);
+    const toPx = (i: number) => Y_AXIS_W + (last ? i / last : 0) * plotW();
+    const HANDLE = 8; // px grab zone around each edge
+    const MIN_W = 4; // samples
+
+    const commit = (w: [number, number]) => {
+      setWin(w);
+      onRange(w[0], w[1]);
+    };
+    const local = (e: React.PointerEvent<HTMLDivElement>) => e.clientX - (wrap.current?.getBoundingClientRect().left ?? 0);
+
+    const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      const x = local(e);
+      const [a, b] = win;
+      const kind = Math.abs(x - toPx(a)) <= HANDLE ? "start" : Math.abs(x - toPx(b)) <= HANDLE ? "end" : x > toPx(a) && x < toPx(b) ? "move" : "new";
+      drag.current = { kind, x0: x, win, anchor: toIdx(x) };
+      if (kind === "new") commit([toIdx(x), Math.min(last, toIdx(x) + MIN_W)]);
+    };
+    const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = drag.current;
+      if (!d) return;
+      const x = local(e);
+      const [a, b] = d.win;
+      if (d.kind === "move") {
+        const width = b - a;
+        const shift = Math.round(((x - d.x0) / plotW()) * last);
+        const s = Math.min(last - width, Math.max(0, a + shift));
+        commit([s, s + width]);
+      } else if (d.kind === "start") {
+        commit([Math.min(toIdx(x), b - MIN_W), b]);
+      } else if (d.kind === "end") {
+        commit([a, Math.max(toIdx(x), a + MIN_W)]);
+      } else {
+        const i = toIdx(x);
+        const lo = Math.min(d.anchor, i);
+        const hi = Math.max(d.anchor, i);
+        commit([lo, Math.max(hi, lo + MIN_W)]);
+      }
+    };
+    const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+      drag.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+    };
+    const cursorAt = (e: React.MouseEvent<HTMLDivElement>) => {
+      if (drag.current) return;
+      const x = e.clientX - (wrap.current?.getBoundingClientRect().left ?? 0);
+      const [a, b] = win;
+      const c = Math.abs(x - toPx(a)) <= HANDLE || Math.abs(x - toPx(b)) <= HANDLE ? "ew-resize" : x > toPx(a) && x < toPx(b) ? "grab" : "crosshair";
+      if (wrap.current) wrap.current.style.cursor = c;
+    };
+
+    const left = toPx(win[0]);
+    const right = toPx(win[1]);
+    const tFmt = (v: number) => `${Number(v).toFixed(1)}h`;
     return (
       <div className="mt-1 px-1">
-        <ResponsiveContainer width="100%" height={56}>
-          <LineChart data={data} margin={{ top: 4, right: RIGHT, left: Y_AXIS_W, bottom: 0 }}>
-            <Line type="monotone" dataKey="actual" stroke={CHART.actual} strokeWidth={1} dot={false} isAnimationActive={false} />
-            <Brush
-              dataKey="t"
-              height={40}
-              travellerWidth={10}
-              stroke={CHART.primary}
-              fill="rgba(122,0,60,0.04)"
-              startIndex={s0}
-              endIndex={e0}
-              tickFormatter={(v) => `${Number(v).toFixed(1)}h`}
-              onChange={(r) => {
-                if (r && typeof r.startIndex === "number" && typeof r.endIndex === "number") onRange(r.startIndex, r.endIndex);
-              }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <div
+          ref={wrap}
+          className="relative select-none touch-none"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onMouseMove={cursorAt}
+          role="slider"
+          aria-label="Visible time window"
+          aria-valuemin={0}
+          aria-valuemax={last}
+          aria-valuenow={win[0]}
+          aria-valuetext={`${data[win[0]]?.t?.toFixed(2) ?? "?"} to ${data[win[1]]?.t?.toFixed(2) ?? "?"} hours`}
+        >
+          <ResponsiveContainer width="100%" height={56}>
+            <LineChart data={data} margin={{ top: 4, right: RIGHT, left: 0, bottom: 0 }}>
+              <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} tickFormatter={tFmt} height={16} tick={{ fontSize: 10, fill: CHART.axis }} axisLine={false} tickLine={false} />
+              <YAxis width={Y_AXIS_W} hide domain={[0, 100]} />
+              <Line type="monotone" dataKey="actual" stroke={CHART.actual} strokeWidth={1} dot={false} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+          {/* shaded outside the window, outlined window, two edge handles */}
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 bg-white/60" style={{ left: Y_AXIS_W, width: Math.max(0, left - Y_AXIS_W) }} />
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 bg-white/60" style={{ left: right, right: RIGHT }} />
+          <div aria-hidden className="pointer-events-none absolute inset-y-0 border-x-2 border-maroon bg-maroon/10" style={{ left, width: Math.max(2, right - left) }} />
+          {[left, right].map((x, i) => (
+            <div key={i} aria-hidden className="pointer-events-none absolute top-1/2 h-5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-maroon bg-white shadow-sm" style={{ left: x }} />
+          ))}
+        </div>
       </div>
     );
   },

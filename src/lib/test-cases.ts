@@ -48,6 +48,12 @@ export const METRIC_KEYS = [
 
 export type MetricKey = (typeof METRIC_KEYS)[number];
 
+/**
+ * One sentence, used wherever the site describes what a blinded evaluation runs, so the wording stays consistent
+ * (the 144 cycles are only part of it — tests 4, 10 and 11 add charging profiles, wrong-initial-SOC and sensor-offset runs).
+ */
+export const EVALUATION_SCOPE = "144 blinded drive cycles (four cells, six temperatures from −20 °C to 40 °C) plus the robustness tests — wrong initial SOC, current-sensor offsets and charging profiles — 195 evaluation runs in all";
+
 export const TEST_CASES: TestCaseDef[] = [
   { key: "allCells", test: 1, label: "All cells", short: "All cells", group: "overview", description: "All four cells, all blinded drive cycles. The single headline accuracy value; weighted 0 in the final score because every other test is a subset of it.", weight: 0, defaultVisible: true },
   { key: "blindedCell", test: 2, label: "Blinded cell (m448)", short: "Blinded", group: "overview", description: "The m448 cell, for which no characterization or drive-cycle data is released — a true generalisation test.", weight: 0.1, defaultVisible: true },

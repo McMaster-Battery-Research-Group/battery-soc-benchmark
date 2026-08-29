@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · Battery SOC Benchmark",
   },
   description:
-    "A standardized, blinded evaluation platform for battery state-of-charge estimation algorithms, built on the Tesla Model 3 2170 cell dataset from the McMaster Automotive Resource Centre.",
+    "A standardized, blinded evaluation platform for battery state-of-charge estimation algorithms, built on the Tesla Model 3 2170 cell dataset from McMaster University.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
 };
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Alert } from "@/components/ui/misc";
 import { fmtPct } from "@/lib/utils";
-import { COMPLEXITY_LABELS } from "@/lib/test-cases";
+import { COMPLEXITY_LABELS, EVALUATION_SCOPE } from "@/lib/test-cases";
 import type { DryRunOutput } from "@/evaluator/types";
 import { SocTrace } from "@/components/charts/soc-trace";
 import { LogView } from "@/components/log-view";
@@ -72,7 +72,7 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
   return (
     <div className="mt-4 space-y-4">
       <Alert variant="success" title="It runs">
-        Passed the +0.3 A validation and completed the open cycle on the <strong>{r.runtime}</strong> runtime in {r.elapsedSec} s. This is not a score — the blinded evaluation uses 144 cycles at six temperatures — but a package that passes here will run there.
+        Passed the +0.3 A validation and completed the open cycle on the <strong>{r.runtime}</strong> runtime in {r.elapsedSec} s. This is not a score — the blinded evaluation runs {EVALUATION_SCOPE} — but a package that passes here will run there.
       </Alert>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

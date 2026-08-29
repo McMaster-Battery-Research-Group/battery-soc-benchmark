@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
 import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { SocTracePicker } from "@/components/charts/soc-trace";
+import { KeyCases } from "@/components/charts/key-cases";
 import { PerCycleTable } from "@/components/charts/per-cycle-table";
 import { ModelSchematic, specForModelType } from "@/components/model-schematic";
 import * as React from "react";
@@ -84,7 +85,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         ) : null}
       </div>
 
-      {sp.new ? <Alert variant="success" className="mt-6" title="Submission received">Your package passed the structural checks and is queued for blinded evaluation. This page updates automatically; you will also receive an email when it finishes.</Alert> : null}
+      {sp.new ? <Alert variant="success" className="mt-6" title="Submission received">Your package passed the package checks and is queued for blinded evaluation. This page updates automatically; you will also receive an email when it finishes.</Alert> : null}
 
       <Collaborators submissionId={sub.id} owner={toPerson(sub.user)} list={sub.collaborators.map((c) => ({ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }))} canEdit={isOwner || isAdmin} viewerId={session?.user?.id} />
 
@@ -120,6 +121,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           <Tabs defaultValue="summary" className="mt-8">
             <TabsList>
               <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="cases">Key cases</TabsTrigger>
               <TabsTrigger value="time">Time-domain</TabsTrigger>
               <TabsTrigger value="cycles">Per-cycle errors</TabsTrigger>
               <TabsTrigger value="details">Details</TabsTrigger>
@@ -139,8 +141,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 </div>
               </div>
             </TabsContent>
+            <TabsContent value="cases">
+              <KeyCases traces={r.timeSeries as unknown as TimeSeriesTrace[]} modelName={sub.modelName} />
+            </TabsContent>
             <TabsContent value="time">
-              <SocTracePicker tracesByModel={[r.timeSeries as unknown as TimeSeriesTrace[]]} names={[sub.modelName]} />
+              <SocTracePicker tracesByModel={[(r.timeSeries as unknown as TimeSeriesTrace[]).filter((t) => (t.group ?? "cycle") === "cycle")]} names={[sub.modelName]} />
               <p className="mt-3 text-xs text-grey-600">One hour of padded data precedes every cycle in the evaluator and is excluded from the error metrics. Traces are down-sampled for display.</p>
             </TabsContent>
             <TabsContent value="cycles">

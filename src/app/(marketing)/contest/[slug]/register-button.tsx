@@ -23,7 +23,7 @@ export function RegisterButton({ contestId, signedIn }: { contestId: string; sig
       <DialogTrigger asChild><Button variant="gold" size="lg">Register for this contest</Button></DialogTrigger>
       <DialogContent title="Register" description="Registration is free. Your account submits on behalf of your team.">
         <div className="space-y-4">
-          <Field label="Team name (optional)" name="team" value={team} onChange={(e) => setTeam(e.currentTarget.value)} placeholder="e.g. MARC Estimation Group" maxLength={60} />
+          <Field label="Team name (optional)" name="team" value={team} onChange={(e) => setTeam(e.currentTarget.value)} placeholder="e.g. McMaster Estimation Group" maxLength={60} />
           <label className="flex items-start gap-3 text-sm text-grey-800">
             <Checkbox checked={agree} onCheckedChange={(v) => setAgree(!!v)} />
             <span>I have read the rules and eligibility requirements and agree that contest entries are public on the contest leaderboard.</span>

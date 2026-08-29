@@ -25,6 +25,17 @@ ISOC_CYCLES = [("LA92", 25), ("US06", -10), ("US06", 10)]        # m80
 OFFSETS = (-0.3, -0.1, -0.05, 0.05, 0.1, 0.3)
 OFFSET_CYCLES = [("US06", -10), ("HWFET", 10), ("LA92", 40)]     # m1000
 RELEVANT_OFFSET_IDX = [0, 5, 6, 11, 12, 17]                       # ±0.3 A only
+# why each plotted drive cycle was chosen (shown under "Key cases" on the site)
+CYCLE_NOTES = {
+    ("m80", "UDDS", -20): "Coldest condition: high resistance and a strongly non-linear OCV response — the hardest cycle for most estimators.",
+    ("m80", "UDDS", 0): "Freezing point, gentle urban cycle.",
+    ("m80", "UDDS", 40): "Hottest condition; low resistance, fast dynamics.",
+    ("m80", "US06", 25): "Aggressive highway cycle with large current peaks at room temperature.",
+    ("m1000", "HWFET", 25): "Heavy 1000 kg payload on the highway cycle — sustained high current.",
+    ("m1000", "HWCUST", 25): "Custom highway profile the model has never seen in the open data.",
+    ("m1000", "HWGRADE", 25): "Highway with road grade — long high-current stretches and regeneration.",
+    ("m448", "LA92", 10): "The blinded cell (never released) on the LA92 cycle at 10 °C.",
+}
 TRACES = {("m80", "UDDS", -20), ("m80", "UDDS", 0), ("m80", "UDDS", 40), ("m80", "US06", 25), ("m1000", "HWFET", 25), ("m1000", "HWCUST", 25), ("m1000", "HWGRADE", 25), ("m448", "LA92", 10)}
 
 Log = Callable[[str], None]
@@ -165,6 +176,44 @@ def complexity(preds: dict[str, Prediction], runtime: str, calibration: dict[str
 
 # ---------------------------------------------------------------- output rows
 
+def _trace(key: str, label: str, cell: str, cycle: str, temp_c: float, actual: np.ndarray, pred: np.ndarray, group: str, note: str = "") -> dict:
+    """Down-sampled SOC trace for the site (~240 points), always including the max-|error| sample."""
+    idx = np.unique(np.round(np.linspace(0, len(actual) - 1, min(240, len(actual)))).astype(int))
+    idx = np.unique(np.append(idx, int(np.argmax(np.abs(actual - pred)))))
+    return {
+        "key": key, "label": label, "cell": cell, "cycle": cycle, "temperatureC": temp_c, "group": group, "note": note,
+        "t": [round(float(i) / 3600, 3) for i in idx],
+        "actual": [round(float(100 * actual[i]), 2) for i in idx],
+        "estimated": [round(float(100 * pred[i]), 2) for i in idx],
+    }
+
+
+def robustness_traces(data: BlindData, preds: dict[str, Prediction]) -> list[dict]:
+    """The robustness cases the original MATLAB tool plotted: wrong initial SOC (test 10) and current-sensor offset (test 11).
+    These are the traces that separate estimators — a drive cycle at 25 °C rarely does."""
+    traces: list[dict] = []
+    for b, (base, temp) in enumerate(ISOC_CYCLES):
+        _, cyc = _find_cycle(data.cells["m80"], base, temp)
+        for q, target in enumerate(ISOCS):
+            idx = int(np.argmax(cyc.SOC < target))
+            pct = int(round(target * 100))
+            traces.append(_trace(
+                f"isoc-{base}-{int(temp)}-{pct}", f"Wrong initial SOC {pct} % — m80 {base} at {int(temp)} °C", "m80", base, temp,
+                cyc.SOC[idx:], preds[f"isoc:{b}:{q}:{idx}"].soc, "initialSoc",
+                f"The cycle is joined at the point where the true SOC has already fallen to {pct} %, so a model that assumes a full battery at start-up begins {100 - pct} % off. What matters is how fast the estimate converges onto the truth.",
+            ))
+    for b, (base, temp) in enumerate(OFFSET_CYCLES):
+        _, cyc = _find_cycle(data.cells["m1000"], base, temp)
+        for j in (0, len(OFFSETS) - 1):  # ±0.3 A — the offsets that enter the score
+            off = OFFSETS[j]
+            traces.append(_trace(
+                f"offset-{base}-{int(temp)}-{'neg' if off < 0 else 'pos'}", f"Current-sensor offset {off:+.1f} A — m1000 {base} at {int(temp)} °C", "m1000", base, temp,
+                cyc.SOC, preds[f"offset:{b}:{j}"].soc, "offset",
+                f"A constant {off:+.1f} A is added to the measured current before it reaches the model. Pure current integration drifts linearly; estimators that also use voltage should correct it.",
+            ))
+    return traces
+
+
 def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], list[dict]]:
     rows, traces = [], []
     for k in CELL_KEYS:
@@ -174,9 +223,11 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
             rows.append({"cell": label, "cycle": base, "temperatureC": r.temp_c, "rmse": round(r.rmse, 3), "mae": round(r.mae, 3), "maxErr": round(r.maxe, 3), "durationH": round(len(r.actual) / 3600, 2)})
             if (k, base, int(r.temp_c)) in TRACES:
                 idx = np.unique(np.round(np.linspace(0, len(r.actual) - 1, min(240, len(r.actual)))).astype(int))
+                idx = np.unique(np.append(idx, int(np.argmax(np.abs(r.actual - r.pred)))))  # include the max-error sample
                 traces.append({
                     "key": f"{label}-{base}-{int(r.temp_c)}", "label": f"{label} {base} at {int(r.temp_c)} °C",
                     "cell": label, "cycle": base, "temperatureC": r.temp_c,
+                    "group": "cycle", "note": CYCLE_NOTES.get((k, base, int(r.temp_c)), ""),
                     "t": [round(float(i) / 3600, 3) for i in idx],
                     "actual": [round(float(100 * r.actual[i]), 2) for i in idx],
                     "estimated": [round(float(100 * r.pred[i]), 2) for i in idx],

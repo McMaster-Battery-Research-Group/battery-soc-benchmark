@@ -18,7 +18,7 @@ export const LOGOS = {
   nserc: { svg: "/logos/nserc.svg", png: "/logos/nserc.png", alt: "Natural Sciences and Engineering Research Council of Canada (NSERC / CRSNG)", href: "https://www.nserc-crsng.gc.ca" },
 } as const;
 
-export const ACKNOWLEDGEMENT = "Developed by the McMaster Automotive Resource Centre at McMaster University with funding from the Natural Sciences and Engineering Research Council of Canada (NSERC).";
+export const ACKNOWLEDGEMENT = "Developed by Dr. Phillip Kollmeyer's battery research group at McMaster University. This work was supported by Canada's Natural Sciences and Engineering Research Council (NSERC) Discovery Grant RGPIN-2024-06796.";
 
 /** Absolute filesystem path of a raster logo if it has been supplied, else null. Server-side only. */
 export function logoPngPath(key: keyof typeof LOGOS): string | null {

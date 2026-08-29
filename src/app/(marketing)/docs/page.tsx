@@ -71,7 +71,7 @@ export default async function DocsPage() {
 
           <section id="test-cases">
             <H2 id="test-cases">The blinded test cases</H2>
-            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the 144 blinded drive cycles (36 per cell: six cycle types at six temperatures). The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
+            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the evaluation runs: the 144 blinded drive cycles (36 per cell: six cycle types at six temperatures) plus the robustness runs — test 4 uses charging profiles, test 10 restarts three cycles from a wrong initial SOC (90 / 60 / 30 %), test 11 re-runs three cycles with a constant current-sensor offset (±0.05, ±0.1, ±0.3 A) — 195 runs in all. The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
             {groups.map((g) => (
               <div key={g} className="mt-6">
                 <h3 className="font-heading text-lg font-semibold">{GROUP_LABELS[g]}</h3>
@@ -122,7 +122,7 @@ export default async function DocsPage() {
           <section id="test-tool">
             <H2 id="test-tool">Testing before you submit</H2>
             <p className="mt-3">You don&apos;t need MATLAB or any local tool. On the <Link href="/submit">Submit</Link> page, <strong>Test your package first</strong> runs your zip through the production evaluator on one <em>public</em> drive cycle (m80, REORDERED1 at 25 °C, first two hours of the open data): the same +0.3 A validation pass, then the cycle with the standard one-hour padding. Within a minute or so you see whether the package loads and runs, the error message if it doesn&apos;t, its RMSE on that cycle, and its complexity bin.</p>
-            <p className="mt-3">A test run never touches the blinded data, is not scored, does not appear on any leaderboard and does not count against contest limits. It is rate-limited to five per hour per account. Structural checks (archive layout, file names, function signature) also run instantly on every upload.</p>
+            <p className="mt-3">A test run never touches the blinded data, is not scored, does not appear on any leaderboard and does not count against contest limits. It is rate-limited to five per hour per account. Package checks (archive layout, file names, function signature) also run instantly on every upload.</p>
           </section>
 
           <section id="evaluation">
