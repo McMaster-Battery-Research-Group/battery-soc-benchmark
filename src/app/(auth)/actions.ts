@@ -87,7 +87,11 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
     throw err;
   }
   logEvent("login.ok", { email: parsed.data.email.toLowerCase(), ip });
-  redirect(next && next.startsWith("/") ? next : "/submissions"); // the user's workspace, not the public board
+  if (next && next.startsWith("/")) redirect(next);
+  // Land on the user's workspace, not the public pages: their submissions if they have any, otherwise the place a new
+  // account can actually do something — Submit (with "Test your package first").
+  const account = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() }, select: { _count: { select: { submissions: true } } } });
+  redirect(account && account._count.submissions > 0 ? "/submissions" : "/submit");
 }
 
 export async function signOutAction() {
