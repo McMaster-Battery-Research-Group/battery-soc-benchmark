@@ -430,6 +430,7 @@ Today the SVGs are text-only wordmarks and the PNGs are absent (PDF/e-mail fall 
 
 - `docs/security.md` — security status: done / needs a human / open, and accepted residual risks.
 - `docs/compliance.md` — mapping to McMaster's Information Security Policy (IS-00), data inventory, §26(b) risk assessment.
+- `docs/evaluator-vs-original-tool.md` — every way the new evaluator and platform differ from the lab's original MATLAB Standardized Evaluation Tool (what is numerically identical, what changed, what was dropped, open decisions).
 - `docs/drac-migration.md` — plan and checklist for moving the worker to a Digital Research Alliance of Canada VM, including the MATLAB sandbox image and firewall rules.
 - `.env.example` — every setting, annotated.
 - Dataset: https://doi.org/10.5683/SP3/ZVTR4B (Borealis; the archives are git-ignored). Paper: P. J. Kollmeyer, M. Naguib, F. Khanum, A. Emadi, "A Blind Modeling Tool for Standardized Evaluation of Battery State of Charge Estimation Algorithms," IEEE ITEC+EATS 2022, doi:10.1109/ITEC53557.2022.9813996.
