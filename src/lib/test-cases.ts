@@ -98,7 +98,7 @@ export const CELL_INFO: Record<(typeof CELLS)[number], { payloadKg: number; hvac
 };
 
 export const MODEL_TYPE_LABELS: Record<string, string> = {
-  COULOMB_COUNTER: "Coulomb Counter",
+  COULOMB_COUNTER: "Coulomb counter",
   EKF: "Extended Kalman Filter",
   UKF: "Unscented Kalman Filter",
   LSTM: "LSTM",
