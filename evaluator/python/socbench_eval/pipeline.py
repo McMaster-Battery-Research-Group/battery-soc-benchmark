@@ -103,6 +103,7 @@ class CycleResult:
     maxe: float
     actual: np.ndarray
     pred: np.ndarray
+    is_charge: bool = False  # CC-CV charge cycles are traced (test 4 plot) but not listed in the per-cycle table
 
 
 def score(data: BlindData, preds: dict[str, Prediction]) -> tuple[dict, dict[str, list[CycleResult]], dict]:
@@ -115,6 +116,7 @@ def score(data: BlindData, preds: dict[str, Prediction]) -> tuple[dict, dict[str
             a = cyc.SOC
             if cyc.is_charge:
                 charge.append(rmse(a, p))
+                per_cell.setdefault("_charge", []).append(CycleResult(key, cyc.name, cyc.temp_c, charge[-1], float(100 * np.mean(np.abs(a - p))), float(100 * np.max(np.abs(a - p))), a, p, is_charge=True))
             elif cyc.is_test:
                 rows.append(CycleResult(key, cyc.name, cyc.temp_c, rmse(a, p), float(100 * np.mean(np.abs(a - p))), float(100 * np.max(np.abs(a - p))), a, p))
         per_cell[key] = rows
@@ -232,7 +234,8 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
         label = CELL_LABELS[k]
         for r in per_cell[k]:
             base = family(r.name)
-            rows.append({"cell": label, "cycle": base, "temperatureC": r.temp_c, "rmse": round(r.rmse, 3), "mae": round(r.mae, 3), "maxErr": round(r.maxe, 3), "durationH": round(len(r.actual) / 3600, 2)})
+            if not r.is_charge:
+                rows.append({"cell": label, "cycle": base, "temperatureC": r.temp_c, "rmse": round(r.rmse, 3), "mae": round(r.mae, 3), "maxErr": round(r.maxe, 3), "durationH": round(len(r.actual) / 3600, 2)})
             if (k, base, int(r.temp_c)) in TRACES:
                 idx = np.unique(np.round(np.linspace(0, len(r.actual) - 1, min(240, len(r.actual)))).astype(int))
                 idx = np.unique(np.append(idx, int(np.argmax(np.abs(r.actual - r.pred)))))  # include the max-error sample
@@ -244,4 +247,9 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
                     "actual": [round(float(100 * r.actual[i]), 2) for i in idx],
                     "estimated": [round(float(100 * r.pred[i]), 2) for i in idx],
                 })
+    for r in per_cell.get("_charge", []):  # charge cycles: traced when listed (test 4 plot), never in the per-cycle table
+        base = family(r.name)
+        if (r.cell, base, int(r.temp_c)) in TRACES:
+            label = CELL_LABELS[r.cell]
+            traces.append(_trace(f"{label}-{base}-{int(r.temp_c)}", f"{label} {base} at {int(r.temp_c)} °C", label, base, r.temp_c, r.actual, r.pred, "cycle", CYCLE_NOTES.get((r.cell, base, int(r.temp_c)), "")))
     return rows, traces
