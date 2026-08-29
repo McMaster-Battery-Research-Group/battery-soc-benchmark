@@ -21,7 +21,7 @@ const STEPS = [
   },
   {
     icon: FlaskConical, title: "Build your first estimator (1–2 h)",
-    body: <>Start from the examples in <em>4-SOC estimation Model Examples.zip</em>. The <Term k="coulomb-counting" /> example is 20 lines and is the best way to learn the interface: your function is called once per second with <code className="rounded bg-grey-100 px-1">X = [current, voltage, temperature]</code>, returns SOC in 0–1, and can carry any memory it likes in <code className="rounded bg-grey-100 px-1">z</code>. Then move up to the <Term k="ekf" /> example (uses HPPC parameters) or the LSTM example (trained with the scripts in <em>3-Neural Network Training Example.zip</em>).</>,
+    body: <>Start from the examples in <em>4-SOC estimation Model Examples.zip</em>. The <Term k="coulomb-counting">coulomb counting</Term> example is 20 lines and is the best way to learn the interface: your function is called once per second with <code className="rounded bg-grey-100 px-1">X = [current, voltage, temperature]</code>, returns SOC in 0–1, and can carry any memory it likes in <code className="rounded bg-grey-100 px-1">z</code>. Then move up to the <Term k="ekf" /> example (uses HPPC parameters) or the LSTM example (trained with the scripts in <em>3-Neural Network Training Example.zip</em>).</>,
     links: [{ href: "/examples", label: "Walk through the four example models" }, { href: "/docs#submission-format", label: "Submission format" }],
   },
   {
