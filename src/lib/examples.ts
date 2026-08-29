@@ -28,7 +28,7 @@ export interface ExampleModel {
 export const EXAMPLES: ExampleModel[] = [
   {
     slug: "coulomb-counter",
-    name: "Example 1 — Coulomb counter",
+    name: "Example 1 — coulomb counter",
     modelType: "COULOMB_COUNTER",
     tagline: "Integrate current, divide by capacity. Twenty lines, the best way to learn the interface.",
     description: [
@@ -67,7 +67,7 @@ function [Y_est, z] = Model(X, z)
     Y_est = SOC';
 end`,
     filesPy: [{ name: "Model.py", note: "the estimator" }],
-    codePy: `# SOC Estimation Example — online Coulomb counter (Python)
+    codePy: `# SOC Estimation Example — online coulomb counter (Python)
 import numpy as np
 
 CAPACITY_AH = 4.6                      # nominal capacity of the cell
@@ -95,7 +95,7 @@ def Model(X, z=None):
     tagline: "A third-order equivalent-circuit model corrected by voltage measurements.",
     description: [
       "The battery is modelled as an open-circuit voltage source in series with an ohmic resistance R0 and three RC pairs. The state vector holds the three RC voltages and SOC. Each second the filter predicts the state with the circuit equations, then corrects it using the difference between measured and predicted terminal voltage.",
-      "OCV–SOC curves come from the HPPC rests at each temperature, and the ECM parameters were fitted to the open data with a genetic algorithm. Parameters depend on temperature (selected once at initialisation from X(3)) and SOC (re-interpolated whenever SOC moves by more than 2 %). Because the filter trusts voltage, it recovers from a wrong initial SOC and from a current offset — the two robustness tests where Coulomb counting fails.",
+      "OCV–SOC curves come from the HPPC rests at each temperature, and the ECM parameters were fitted to the open data with a genetic algorithm. Parameters depend on temperature (selected once at initialisation from X(3)) and SOC (re-interpolated whenever SOC moves by more than 2 %). Because the filter trusts voltage, it recovers from a wrong initial SOC and from a current offset — the two robustness tests where coulomb counting fails.",
     ],
     files: [
       { name: "Model.m", note: "the estimator" },

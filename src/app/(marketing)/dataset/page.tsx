@@ -14,7 +14,7 @@ const FILES = [
   { name: "1-Open Data.zip", size: "705 MB", d: "All open characterization tests and drive cycles for m80, m448-N and m1000 at six temperatures, as MATLAB .mat structs (1 Hz)." },
   { name: "2-Aiding Tools.zip", size: "10.4 MB", d: "Model Submission Test Tool, file Concatenation Tool and Figure Data Extraction Tool (MATLAB live scripts)." },
   { name: "3-Neural Network Training Example.zip", size: "64.5 MB", d: "FNN and LSTM training scripts with instructions for extracting weights into a Model.m." },
-  { name: "4-SOC estimation Model Examples.zip", size: "54 KB", d: "Four complete submission packages: Coulomb counter, EKF, FNN and LSTM — the reference for the required format." },
+  { name: "4-SOC estimation Model Examples.zip", size: "54 KB", d: "Four complete submission packages: coulomb counter, EKF, FNN and LSTM — the reference for the required format." },
 ];
 
 const SPLIT: { test: string; m80: string; m448: string; m448N: string; m1000: string; note?: string }[] = [
