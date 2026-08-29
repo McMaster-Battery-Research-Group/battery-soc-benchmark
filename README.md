@@ -1,6 +1,6 @@
 # Battery SOC Benchmark
 
-The web platform behind the McMaster Automotive Resource Centre's **Blind Modeling Tool**: researchers anywhere upload a battery **state-of-charge (SOC) estimation algorithm**, we run it against a **hidden ("blinded") dataset** measured on Tesla Model 3 2170 cells, and the result goes on a public **leaderboard** — with model comparison, PDF reports, co-authors, and time-boxed prize **contests**.
+The web platform behind the **Blind Modeling Tool** of Dr. Phillip Kollmeyer's battery research group (Electrical and Computer Engineering, McMaster University): researchers anywhere upload a battery **state-of-charge (SOC) estimation algorithm**, we run it against a **hidden ("blinded") dataset** measured on Tesla Model 3 2170 cells, and the result goes on a public **leaderboard** — with model comparison, PDF reports, co-authors, and time-boxed prize **contests**.
 
 Live site: https://battery-soc-benchmark.vercel.app · Code: https://github.com/AhmadAli137/battery-soc-benchmark
 
@@ -422,7 +422,9 @@ Logos appear in the footer (every page), the About page, the landing-page partne
 | `mcmaster.svg`, `nserc.svg` | web pages | official SVG, horizontal lockup, transparent |
 | `mcmaster.png`, `nserc.png` | PDF report, e-mails (optional) | PNG, transparent, ≥ 600 px wide |
 
-Today the SVGs are text-only wordmarks and the PNGs are absent (PDF/e-mail fall back to text). The marks are trademarked and cannot be redrawn: request McMaster's from Brand Marketing (brandmrk@mcmaster.ca, with approval for the MARC benchmark site) and download NSERC's acknowledgement logo from nserc-crsng.gc.ca. Drop the files in — no code change.
+**Usage rules (checked 2026-08-29).** *McMaster:* faculty and staff may use the logo for McMaster initiatives such as approved programs, research institutes and centres; a research-group site needs an approved logo lockup/suite requested through Brand Marketing's Logo Request Form (brandmrk@mcmaster.ca). Minimum 100 px wide on screen, keep the clear space, full-colour preferred (reversed / single-colour black or white allowed), never alter, separate, border or re-draw it, no custom lockups (brand.mcmaster.ca → Logos & Marks). *NSERC:* grantees are required to acknowledge NSERC and may use the NSERC signature (download from nserc-crsng.canada.ca → Policies and guidelines → Acknowledgement and logos: "colour signature for digital use"); minimum 100 px wide, clear space of half the symbol's height, NSERC red #DF202D, the Canada wordmark in the signature must not be removed; wording "We acknowledge the support of the Natural Sciences and Engineering Research Council of Canada (NSERC)" / "Nous remercions le Conseil de recherches en sciences naturelles et en génie du Canada (CRSNG) de son soutien", with the funding reference number (RGPIN-2024-06796) — both are on the About page and in the footer. NSERC also encourages a bilingual project description for publicly funded websites.
+
+Today the SVGs are text-only wordmarks and the PNGs are absent (PDF/e-mail fall back to text). The marks are trademarked and cannot be redrawn: request McMaster's from Brand Marketing (brandmrk@mcmaster.ca, with approval for the benchmark site) and download NSERC's acknowledgement logo from nserc-crsng.gc.ca. Drop the files in — no code change.
 
 ## 17. Other documents
 

@@ -60,7 +60,7 @@ function layout(title: string, body: string) {
   <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border:1px solid #dbdbdd;border-radius:4px">
     <tr><td style="background:#7a003c;padding:18px 24px;color:#fff;font-weight:700;font-size:18px">Battery SOC Benchmark</td></tr>
     <tr><td style="padding:24px"><h1 style="margin:0 0 12px;font-size:22px;color:#000">${title}</h1>${body}</td></tr>
-    <tr><td style="padding:16px 24px;border-top:1px solid #dbdbdd;font-size:12px;color:#6d7a84">${logoRow()}McMaster Automotive Resource Centre · McMaster University · Hamilton, Ontario<br>${ACKNOWLEDGEMENT}</td></tr>
+    <tr><td style="padding:16px 24px;border-top:1px solid #dbdbdd;font-size:12px;color:#6d7a84">${logoRow()}McMaster University · Department of Electrical and Computer Engineering · Hamilton, Ontario<br>${ACKNOWLEDGEMENT}</td></tr>
   </table></td></tr></table></body></html>`;
 }
 

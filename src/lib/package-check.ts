@@ -1,7 +1,7 @@
 import AdmZip from "adm-zip";
 
 /**
- * Structural validation of a submission package, mirroring the checks in the
+ * Package validation (layout, file names, function signature) of a submission, mirroring the checks in the
  * lab's "Model Submission Test Tool" (Blind Modeling Tool V2, User's Guide steps 2–4):
  *   - plain .zip, no sub-folders
  *   - contains Model.m, Model.p or Model.py

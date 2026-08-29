@@ -88,7 +88,7 @@ export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows
           </div>
           <TestCaseBars series={selected.map((s) => ({ name: s.modelName, values: values(s) }))} />
           <TemperatureBars series={selected.map((s) => ({ name: s.modelName, values: values(s) }))} />
-          {haveTraces ? <SocTracePicker tracesByModel={selected.map((s) => tracesById[s.id])} names={selected.map((s) => s.modelName)} /> : null}
+          {haveTraces ? <SocTracePicker tracesByModel={selected.map((s) => tracesById[s.id].filter((t) => (t.group ?? "cycle") === "cycle"))} names={selected.map((s) => s.modelName)} /> : null}
         </>
       )}
     </div>

@@ -11,7 +11,7 @@ import { dryRunLimitError } from "@/lib/dry-run-quota";
 export type DryRunStart = { ok: true; id: string } | { ok: false; error: string };
 
 /**
- * Queue a pre-submission dry run: structural checks now, then validation + one
+ * Queue a pre-submission dry run: package checks (layout, names, signature) now, then validation + one
  * OPEN-data cycle on the evaluator. Never touches blinded data, never creates a
  * submission or leaderboard entry, doesn't count against contest limits.
  */

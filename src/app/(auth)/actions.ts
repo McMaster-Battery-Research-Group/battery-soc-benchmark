@@ -87,7 +87,7 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
     throw err;
   }
   logEvent("login.ok", { email: parsed.data.email.toLowerCase(), ip });
-  redirect(next && next.startsWith("/") ? next : "/leaderboard");
+  redirect(next && next.startsWith("/") ? next : "/submissions"); // the user's workspace, not the public board
 }
 
 export async function signOutAction() {

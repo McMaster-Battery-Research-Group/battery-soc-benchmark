@@ -6,7 +6,7 @@ const PAGES: Record<string, { title: string; body: { h: string; p: string[] }[] 
   terms: {
     title: "Terms of use",
     body: [
-      { h: "Use of the service", p: ["The Battery SOC Benchmark is provided by the McMaster Automotive Resource Centre at McMaster University for research and educational purposes. By creating an account you agree to use the service for evaluating battery state-of-charge estimation models and for no other purpose."] },
+      { h: "Use of the service", p: ["The Battery SOC Benchmark is provided by Dr. Phillip Kollmeyer's research group at McMaster University for research and educational purposes. By creating an account you agree to use the service for evaluating battery state-of-charge estimation models and for no other purpose."] },
       { h: "Submissions", p: ["You confirm that models you submit were developed only with the open portion of the dataset or other public data, and that you hold the rights to the code you upload. Uploaded packages are used solely to run the evaluation and are deleted afterwards. Model names, authors, affiliations and evaluation results of public submissions are displayed on the site and may be used in aggregate in publications about the benchmark.", "Attempts to reconstruct, infer or exfiltrate the blinded data, to interfere with the evaluator, or to submit malicious code will result in removal of the account."] },
       { h: "Data licence", p: ["The open dataset is released under CC-BY 4.0. Publications using the data or evaluation results must cite the ITEC 2022 paper and the Borealis dataset."] },
       { h: "No warranty", p: ["The service is provided as is. McMaster University makes no warranty of availability or fitness for any purpose and is not liable for any loss arising from its use."] },
@@ -19,7 +19,7 @@ const PAGES: Record<string, { title: string; body: { h: string; p: string[] }[] 
       { h: "What is public", p: ["For public submissions: model name, description, model type, author name, affiliation, submission date and evaluation results. Optional profile details and your picture appear on your public researcher page and next to your public submissions; you can remove them at any time from your profile. Private submissions and your email address are never shown to other users."] },
       { h: "Model files", p: ["Uploaded submission packages are stored only until the evaluation has run and are then deleted. They are not shared with third parties."] },
       { h: "Email", p: ["We email you only for account verification, password resets, evaluation results and contest administration."] },
-      { h: "Contact", p: ["For questions or deletion requests use the contact form or email the McMaster Automotive Resource Centre."] },
+      { h: "Contact", p: ["For questions or deletion requests use the contact form; it reaches the benchmark administrators at McMaster University."] },
     ],
   },
   accessibility: {

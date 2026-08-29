@@ -45,7 +45,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
 
     // ---------- header band (+ institutional logos at top-right once the official PNGs are supplied)
     doc.rect(0, 0, doc.page.width, 6).fill(M);
-    doc.fillColor(M).font("Helvetica-Bold").fontSize(10).text("BATTERY SOC BENCHMARK  ·  McMaster Automotive Resource Centre", X0, 28);
+    doc.fillColor(M).font("Helvetica-Bold").fontSize(10).text("BATTERY SOC BENCHMARK  ·  McMaster University", X0, 28);
     {
       let lx = X0 + W;
       for (const k of ["nserc", "mcmaster"] as const) {
@@ -262,7 +262,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       doc.page.margins.bottom = 0; // footer sits inside the margin; stop pdfkit from paginating
       doc.fillColor(GREY).font("Helvetica").fontSize(7.5);
       doc.text(`Battery SOC Benchmark · ${siteUrl}/submissions/${s.id} · Cite: Kollmeyer et al., IEEE ITEC 2022, doi:10.1109/ITEC53557.2022.9813996`, X0, doc.page.height - 34, { width: W - 60, height: 10, ellipsis: true, lineBreak: false });
-      doc.text("Developed by the McMaster Automotive Resource Centre, McMaster University, with funding from NSERC / CRSNG.", X0, doc.page.height - 22, { width: W - 60, height: 10, ellipsis: true, lineBreak: false });
+      doc.text("Developed by Dr. Phillip Kollmeyer's battery research group, McMaster University. This work was supported by Canada's Natural Sciences and Engineering Research Council (NSERC) Discovery Grant RGPIN-2024-06796.", X0, doc.page.height - 22, { width: W - 60, height: 10, ellipsis: true, lineBreak: false });
       doc.text(`${i - range.start + 1} / ${range.count}`, X0, doc.page.height - 34, { width: W, align: "right", lineBreak: false });
     }
     doc.end();

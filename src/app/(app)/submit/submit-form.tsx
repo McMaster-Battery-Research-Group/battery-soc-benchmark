@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { UploadCloud, FileArchive, X, Trophy } from "lucide-react";
 import { createSubmissionAction, type SubmitState } from "./actions";
 import { Field, SubmitButton } from "@/components/forms/field";
-import { Label, NativeSelect, FieldError, Hint } from "@/components/ui/input";
+import { Label, NativeSelect, FieldError } from "@/components/ui/input";
 import { Checkbox, Switch } from "@/components/ui/checkbox";
 import { Alert } from "@/components/ui/misc";
 import { MODEL_TYPES, submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
  * React 19 resets uncontrolled inputs after a form action completes. Cheap
  * checks run in the browser first so most mistakes never leave the page.
  */
-export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: { contests: { id: string; title: string; remaining: number }[]; preselectContest?: string; maxMb: number; directUpload: boolean }) {
+export function SubmitForm({ contests, preselectContest, maxMb, directUpload, handedFile }: { contests: { id: string; title: string; remaining: number }[]; preselectContest?: string; maxMb: number; directUpload: boolean; /** package handed over from "Test your package first" */ handedFile?: File | null }) {
   const [state, rawAction] = useActionState<SubmitState, FormData>(createSubmissionAction, {});
   const [uploadPct, setUploadPct] = React.useState<number | null>(null);
   const [uploadErr, setUploadErr] = React.useState<string | undefined>();
@@ -36,7 +36,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
   const [modelName, setModelName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [modelType, setModelType] = React.useState("");
-  const [evaluationLevel, setEvaluationLevel] = React.useState("DYNAMIC");
+  const [evaluationLevel] = React.useState("DYNAMIC"); // single evaluation mode today (tracker #9)
   const [isPrivate, setIsPrivate] = React.useState(false);
   const [contestId, setContestId] = React.useState(preselectContest ?? "");
   const [acceptTerms, setAcceptTerms] = React.useState(false);
@@ -115,6 +115,15 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
 
   const clearErr = (k: string) => setClientErrors((e) => (e[k] ? { ...e, [k]: undefined } : e));
 
+  // A package tested above can be reused here without re-selecting it (tracker #10).
+  const uploadRef = React.useRef<HTMLFieldSetElement>(null);
+  React.useEffect(() => {
+    if (!handedFile) return;
+    pick(handedFile);
+    uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handedFile]);
+
   return (
     <form ref={formRef} action={action} className="card p-6 md:p-8" noValidate>
       <fieldset className="space-y-5">
@@ -130,18 +139,12 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
             </NativeSelect>
             <FieldError>{errors.modelType}</FieldError>
           </div>
-          <div>
-            <Label htmlFor="evaluationLevel">Evaluation level</Label>
-            <NativeSelect id="evaluationLevel" name="evaluationLevel" value={evaluationLevel} onChange={(e) => setEvaluationLevel(e.target.value)}>
-              <option value="DYNAMIC">Dynamic (full drive cycles)</option>
-              <option value="STATIC">Static (characterization only)</option>
-            </NativeSelect>
-            <Hint>Dynamic is the standard leaderboard evaluation.</Hint>
-          </div>
+          {/* "Evaluation level" (DYNAMIC | STATIC) is kept in the schema for the historical data but is not offered:
+              every submission is evaluated the same way. Re-add a control here if a second evaluation mode is defined. */}
         </div>
       </fieldset>
 
-      <fieldset className="mt-8 space-y-4">
+      <fieldset ref={uploadRef} className="mt-8 space-y-4">
         <legend className="mb-1 font-heading text-lg font-semibold text-ink">2. Upload the package</legend>
         <div
           data-error={!!(errors.file || localErr)}
@@ -232,7 +235,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
         {Object.keys(errors).some((k) => errors[k]) ? <Alert variant="danger" className="mt-4">{errors.form ?? "Please fix the highlighted fields — everything you entered has been kept."}</Alert> : null}
         <div className="mt-6 flex items-center gap-3">
           <SubmitButton size="lg">Submit for evaluation</SubmitButton>
-          <p className="text-xs text-grey-600">Structural checks run instantly; evaluation is queued.</p>
+          <p className="text-xs text-grey-600">Package checks (layout, file names, function signature) run instantly; evaluation is queued.</p>
         </div>
       </div>
     </form>

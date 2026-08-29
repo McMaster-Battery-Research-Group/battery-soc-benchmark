@@ -24,7 +24,7 @@ export default async function ExamplesPage() {
       <PageHeader
         eyebrow="Reference implementations"
         title="Example models"
-        description="Four reference estimators — a Coulomb counter, an EKF, a feedforward network and an LSTM — each as a MATLAB and a Python package. Read the schematic and the annotated source, download the package, or run it on a public drive cycle with one click to see what a result looks like."
+        description="Four reference estimators — a coulomb counter, an EKF, a feedforward network and an LSTM — each as a MATLAB and a Python package. Read the schematic and the annotated source, download the package, or run it on a public drive cycle with one click to see what a result looks like."
         actions={<Button asChild variant="secondary"><a href={DOI} target="_blank" rel="noreferrer"><Download /> Original packages on Borealis</a></Button>}
       />
       <div className="container-site py-10">

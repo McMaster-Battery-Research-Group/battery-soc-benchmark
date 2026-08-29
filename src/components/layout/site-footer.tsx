@@ -41,8 +41,8 @@ export function SiteFooter() {
         <div className="md:col-span-4">
           <Wordmark />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-grey-700">
-            A standardized, blinded evaluation platform for battery state-of-charge estimation algorithms, developed at the
-            McMaster Automotive Resource Centre.
+            A standardized, blinded evaluation platform for battery state-of-charge estimation algorithms, developed by
+            Dr. Phillip Kollmeyer&apos;s battery research group at McMaster University.
           </p>
         </div>
         {COLS.map((c) => (
@@ -74,7 +74,7 @@ export function SiteFooter() {
 
       <div className="border-t border-border">
         <div className="container-site flex flex-col gap-3 py-5 text-xs text-grey-600 md:flex-row md:items-center md:justify-between">
-          <p>© {new Date().getFullYear()} McMaster University · McMaster Automotive Resource Centre, 200 Longwood Rd S, Hamilton, Ontario L8P 0A6</p>
+          <p>© {new Date().getFullYear()} McMaster University · Department of Electrical and Computer Engineering, 1280 Main Street West, Hamilton, Ontario L8S 4L8</p>
           <div className="flex flex-wrap gap-4">
             <Link href="/terms" className="hover:text-maroon hover:underline">Terms of use</Link>
             <Link href="/privacy" className="hover:text-maroon hover:underline">Privacy</Link>
@@ -98,8 +98,7 @@ export function FundingAcknowledgement() {
         <div className="max-w-xl">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">Supported by</p>
           <p className="mt-2 text-sm leading-relaxed text-grey-700">
-            This benchmark is developed by the McMaster Automotive Resource Centre at McMaster University with funding from the
-            Natural Sciences and Engineering Research Council of Canada (NSERC).
+            This benchmark is developed by Dr. Phillip Kollmeyer&apos;s battery research group at McMaster University. This work was supported by Canada&apos;s Natural Sciences and Engineering Research Council (NSERC) Discovery Grant RGPIN-2024-06796.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-8">

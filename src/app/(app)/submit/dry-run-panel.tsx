@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FlaskConical, UploadCloud } from "lucide-react";
+import { FlaskConical, UploadCloud, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/misc";
 import { fmtBytes, cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { DryRunQuotaLine } from "@/components/dry-run-quota";
  * "Test my package" — runs validation + one OPEN-data cycle through the real
  * evaluator before the user commits to a scored submission.
  */
-export function DryRunPanel({ directUpload }: { directUpload: boolean }) {
+export function DryRunPanel({ directUpload, onUse }: { directUpload: boolean; onUse?: (file: File) => void }) {
   const [file, setFile] = React.useState<File | null>(null);
   const [id, setId] = React.useState<string | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
@@ -73,7 +73,21 @@ export function DryRunPanel({ directUpload }: { directUpload: boolean }) {
         </div>
         {pct !== null ? <p className="mt-2 text-xs text-grey-600">Uploading… {pct}%</p> : null}
         {err ? <Alert variant="danger" className="mt-4">{err}</Alert> : null}
-        <DryRunResult id={id} poll={poll} footer={<>Happy with it? Submit the same .zip below for the blinded evaluation.</>} />
+        <DryRunResult
+          id={id}
+          poll={poll}
+          footer={
+            onUse && file ? (
+              <span className="flex flex-wrap items-center gap-2">
+                Happy with it?
+                <Button size="sm" onClick={() => onUse(file)}><ArrowDown /> Use this package for the submission</Button>
+                <span className="text-grey-600">— it is copied into the form below; you only fill in the details.</span>
+              </span>
+            ) : (
+              <>Happy with it? Submit the same .zip below for the blinded evaluation.</>
+            )
+          }
+        />
       </div>
     </section>
   );
