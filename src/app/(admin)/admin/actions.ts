@@ -11,7 +11,19 @@ import { contestSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { moderationEmail } from "@/lib/mail";
 import { storage } from "@/lib/storage";
 import { rescoreAll } from "@/lib/rescore";
+import { ADMIN_NOTIFY_KINDS, recordAdminEvent } from "@/lib/admin-notify";
 import { normalise, validateWeights, sameWeights, getActiveScoring, DEFAULT_WEIGHTS } from "@/lib/scoring-config";
+
+// ---- per-admin notification preferences (Admin → My notifications; each admin edits only their own)
+
+export async function saveAdminNotifyAction(prefs: Record<string, boolean>): Promise<{ ok: true }> {
+  const me = await requireAdmin();
+  const clean = Object.fromEntries(ADMIN_NOTIFY_KINDS.map((k) => [k.key, prefs[k.key] !== false]));
+  await db.user.update({ where: { id: me.id }, data: { adminNotify: clean } });
+  logEvent("admin.notify_prefs", { by: me.id, ...clean });
+  revalidatePath("/admin/notifications");
+  return { ok: true };
+}
 
 // ---- scoring weights
 
@@ -39,6 +51,7 @@ export async function saveScoringAction(weights: Record<string, number> | null, 
   const r = await rescoreAll({ apply: true, notify, note: why, by: admin.id, weights: w });
   await db.scoringConfig.update({ where: { id: cfg.id }, data: { rescored: r.changed, notified: r.emailed } });
   logEvent("admin.scoring_changed", { by: admin.id, reset: !weights, rescored: r.changed, emailed: r.emailed, note: why });
+  await recordAdminEvent("scoring", `Scoring weights ${weights ? "changed" : "reset to defaults"} by ${admin.name} — ${r.changed} submissions re-scored${r.emailed ? `, ${r.emailed} authors e-mailed` : ""}. Reason: ${why}`);
   revalidatePath("/leaderboard");
   revalidatePath("/docs");
   revalidatePath("/admin/scoring");

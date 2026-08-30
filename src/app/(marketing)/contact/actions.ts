@@ -23,7 +23,7 @@ export async function sendContactAction(_prev: ContactState, fd: FormData): Prom
   const { pageUrl, ...rest } = parsed.data;
   const msg = await db.contactMessage.create({ data: { ...rest, pageUrl: pageUrl || null, userId: session?.user?.id ?? null } });
   // Notify administrators (best effort). ADMIN_NOTIFY_EMAIL overrides; otherwise every ADMIN account.
-  const targets = await adminNotifyTargets();
+  const targets = await adminNotifyTargets("feedback");
   await Promise.all(targets.map((to) => feedbackNotificationEmail(to, msg)));
   return { ok: true };
 }

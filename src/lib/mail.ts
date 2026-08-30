@@ -233,7 +233,9 @@ export function feedbackNotificationEmail(to: string, msg: { id: string; name: s
 export async function accountEventEmail(kind: "registered" | "verified", user: { id: string; name: string; email: string; affiliation: string; role?: string; createdAt?: Date }, via?: string) {
   const { adminNotifyTargets } = await import("@/lib/admin-notify");
   const { fmtDateTime } = await import("@/lib/utils");
-  const targets = (await adminNotifyTargets()).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
+  const { recordAdminEvent } = await import("@/lib/admin-notify");
+  await recordAdminEvent("accounts", kind === "registered" ? `New account: ${user.name} <${user.email}> (${user.affiliation})` : `Account verified: ${user.name} <${user.email}>${via ? ` — via ${via}` : ""}`);
+  const targets = (await adminNotifyTargets("accounts")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   if (!targets.length) return;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const href = `${site()}/admin/users`;
@@ -262,7 +264,9 @@ export async function accountEventEmail(kind: "registered" | "verified", user: {
 /** Role change: tell the person, CC every other administrator so the whole admin group sees who granted/revoked what. */
 export async function roleChangedEmail(user: { name: string; email: string }, role: "USER" | "ADMIN", byName: string) {
   const { adminNotifyTargets } = await import("@/lib/admin-notify");
-  const cc = (await adminNotifyTargets()).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
+  const { recordAdminEvent } = await import("@/lib/admin-notify");
+  await recordAdminEvent("roles", `${byName} ${role === "ADMIN" ? "granted administrator access to" : "revoked administrator access from"} ${user.name} <${user.email}>`);
+  const cc = (await adminNotifyTargets("roles")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   const granted = role === "ADMIN";
   const href = `${site()}/admin`;
   return sendMail({
@@ -283,7 +287,9 @@ export async function roleChangedEmail(user: { name: string; email: string }, ro
 export async function submissionDeletedEmail(sub: { seq: number; modelName: string; modelType: string; status: string; isPrivate: boolean; weightedError?: number | null; owner: { name: string; email: string; affiliation: string } }, by: { name: string; email: string; role: string }, reason?: string) {
   const { adminNotifyTargets } = await import("@/lib/admin-notify");
   const { fmtDateTime } = await import("@/lib/utils");
-  const targets = await adminNotifyTargets();
+  const { recordAdminEvent } = await import("@/lib/admin-notify");
+  await recordAdminEvent("deletions", `Submission #${sub.seq} "${sub.modelName}" deleted by ${by.name} (${by.email.toLowerCase() === sub.owner.email.toLowerCase() ? "owner" : by.role.toLowerCase()}) — owner ${sub.owner.name}${reason ? ` — reason: ${reason}` : ""}`);
+  const targets = await adminNotifyTargets("deletions");
   if (!targets.length) return;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const isOwner = by.email.toLowerCase() === sub.owner.email.toLowerCase();

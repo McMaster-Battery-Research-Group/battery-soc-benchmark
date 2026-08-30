@@ -7,7 +7,7 @@ import { fmtDateTime } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function AdminHome() {
-  const [users, unverified, subs, queued, running, failed, open, messages, recent] = await Promise.all([
+  const [users, unverified, subs, queued, running, failed, open, messages, recent, activity] = await Promise.all([
     db.user.count(),
     db.user.count({ where: { emailVerified: null } }),
     db.submission.count(),
@@ -17,6 +17,7 @@ export default async function AdminHome() {
     db.contest.count({ where: { status: "OPEN" } }),
     db.contactMessage.count({ where: { resolved: false } }),
     db.submission.findMany({ take: 8, orderBy: { submittedAt: "desc" }, include: { user: { select: { name: true } } } }),
+    db.adminEvent.findMany({ take: 20, orderBy: { createdAt: "desc" } }),
   ]);
   return (
     <div>
@@ -36,6 +37,21 @@ export default async function AdminHome() {
           </li>
         ))}
       </ul>
+      <h2 className="mt-8 font-heading text-lg font-semibold">Activity</h2>
+      <p className="mt-1 text-sm text-grey-700">The events administrators are e-mailed about, kept here regardless of anyone&apos;s e-mail toggles. Contact-form messages live under <Link href="/admin/messages" className="text-maroon underline">Messages</Link>.</p>
+      {activity.length === 0 ? (
+        <p className="mt-3 text-sm text-grey-600">Nothing yet — new accounts, verifications, role changes, deletions and scoring changes will appear here.</p>
+      ) : (
+        <ul className="card mt-3 divide-y divide-border">
+          {activity.map((e) => (
+            <li key={e.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+              <span className="mt-0.5 shrink-0 rounded-[3px] bg-grey-100 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-700">{e.kind}</span>
+              <span className="min-w-0 flex-1 text-grey-800">{e.text}</span>
+              <span className="shrink-0 text-xs text-grey-600">{fmtDateTime(e.createdAt)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="card mt-8 p-5 text-sm text-grey-800">
         <p className="font-heading font-semibold text-ink">Evaluation worker</p>
         <p className="mt-1">Jobs are processed by the worker process (<code className="rounded bg-grey-100 px-1">npm run worker</code>). Evaluator: <strong>{process.env.EVALUATOR ?? "mock"}</strong>. {queued + running > 0 ? `${queued + running} job(s) pending.` : "Queue is empty."}</p>
