@@ -1,7 +1,7 @@
 import { TEST_CASES, COMPLEXITY_LABELS, type MetricKey } from "@/lib/test-cases";
 import { fmtPct } from "@/lib/utils";
 import { Term } from "@/components/term";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 
 /**
  * The one table that explains the score: every test case with its RMSE, the weight it carries and its
@@ -27,6 +27,7 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
   const group = (test: number) => (test <= 3 ? "Estimation accuracy" : test <= 9 ? "Operating conditions" : "Robustness");
   let lastGroup = "";
   return (
+    <TooltipProvider>
     <section className="card overflow-hidden">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-5 py-4">
         <div>
@@ -86,5 +87,6 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
         {Math.abs(sum - weightedError) > 0.002 ? <span className="text-[#9a6a17]">The stored score ({fmtPct(weightedError)} %) differs from today&apos;s weights — see Score history.</span> : null}
       </div>
     </section>
+    </TooltipProvider>
   );
 }
