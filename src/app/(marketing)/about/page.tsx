@@ -5,20 +5,40 @@ import { PageHeader, SectionTitle } from "@/components/ui/misc";
 export const metadata: Metadata = { title: "About" };
 
 /** Team list shown on the About page. Roles are kept short; edit here when people join or leave. */
-const PEOPLE = {
+type Person = { name: string; role: string; photo?: string; href?: string };
+// Photos live in public/people/ (square JPEG, ~400 px). Rectangular tiles, not circles, per McMaster brand rules; people without a
+// photo get an initials tile. Only add a photo with the person's permission.
+const PEOPLE: { current: Person[]; past: Person[] } = {
   current: [
-    ["Dr. Phillip J. Kollmeyer", "Assistant Professor, Electrical and Computer Engineering · project lead"],
-    ["Ahmad Ali", "MASc student · platform development and evaluation infrastructure"],
-    ["Ahnaf Akif Rahman", "Graduate researcher · SOC estimation models and evaluation"],
-    ["Paarth Kadakia", "Software intern"],
-    ["Aidan McLean", "Software intern"],
-  ] as const,
+    { name: "Dr. Phillip J. Kollmeyer", role: "Assistant Professor, Electrical and Computer Engineering · project lead", photo: "/people/phil-kollmeyer.jpg" },
+    { name: "Ahmad Ali", role: "MASc student · platform development and evaluation infrastructure", photo: "/people/ahmad-ali.jpg" },
+    { name: "Ahnaf Akif Rahman", role: "Graduate researcher · SOC estimation models and evaluation", photo: "/people/ahnaf-rahman.jpg" },
+    { name: "Paarth Kadakia", role: "Software intern" },
+    { name: "Aidan McLean", role: "Software intern" },
+  ],
   past: [
-    ["Mina Naguib", "Data collection and the original MATLAB evaluation tool", ""],
-    ["Fauzia Khanum", "Data collection and dataset curation", ""],
-    ["Atjen von Liebenstein", "Embedded deployment and complexity of SOC estimators", "https://ieeexplore.ieee.org/document/11098050"],
-  ] as const,
+    { name: "Mina Naguib", role: "Data collection and the original MATLAB evaluation tool" },
+    { name: "Fauzia Khanum", role: "Data collection and dataset curation" },
+    { name: "Atjen von Liebenstein", role: "Embedded deployment and complexity of SOC estimators", href: "https://ieeexplore.ieee.org/document/11098050" },
+  ],
 };
+
+function PersonCard({ p }: { p: Person }) {
+  const initials = p.name.replace(/^Dr\.\s*/, "").split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("");
+  return (
+    <li className="card flex items-center gap-4 p-4">
+      {p.photo ? (
+        <Image src={p.photo} alt={p.name} width={72} height={72} className="size-[72px] shrink-0 rounded-brand object-cover" />
+      ) : (
+        <span aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-brand bg-maroon-100 font-heading text-xl font-semibold text-maroon">{initials}</span>
+      )}
+      <div className="min-w-0">
+        <p className="font-heading font-semibold text-ink">{p.name}</p>
+        <p className="text-sm text-grey-700">{p.role}{p.href ? <> · <a href={p.href} className="text-maroon underline" target="_blank" rel="noreferrer">paper</a></> : null}</p>
+      </div>
+    </li>
+  );
+}
 
 export default function AboutPage() {
   return (
@@ -36,18 +56,11 @@ export default function AboutPage() {
         <section>
           <SectionTitle>People</SectionTitle>
           <ul className="grid gap-3 sm:grid-cols-2">
-            {PEOPLE.current.map(([n, r]) => (
-              <li key={n} className="card p-4"><p className="font-heading font-semibold text-ink">{n}</p><p className="text-sm text-grey-700">{r}</p></li>
-            ))}
+            {PEOPLE.current.map((p) => <PersonCard key={p.name} p={p} />)}
           </ul>
           <p className="mb-2 mt-6 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Past contributors</p>
           <ul className="grid gap-3 sm:grid-cols-2">
-            {PEOPLE.past.map(([n, r, href]) => (
-              <li key={n} className="card p-4">
-                <p className="font-heading font-semibold text-ink">{n}</p>
-                <p className="text-sm text-grey-700">{r}{href ? <> · <a href={href} className="text-maroon underline" target="_blank" rel="noreferrer">paper</a></> : null}</p>
-              </li>
-            ))}
+            {PEOPLE.past.map((p) => <PersonCard key={p.name} p={p} />)}
           </ul>
         </section>
         <section>
