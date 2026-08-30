@@ -7,13 +7,15 @@ import { Term } from "@/components/term";
  * contribution, summing to the headline weighted error — so a reader can verify the number by hand.
  * Groups follow the Methodology page: accuracy (1–3), conditions (4–9), robustness (10–11).
  */
-export function Scorecard({ values, weights, weightedError, complexity, complexityUncertainty, maxError }: {
+export function Scorecard({ values, weights, weightedError, complexity, complexityUncertainty, maxError, worstCase }: {
   values: Record<MetricKey, number>;
   weights: Partial<Record<MetricKey, number>>;
   weightedError: number;
   complexity: number;
   complexityUncertainty: number;
   maxError: number;
+  /** where the max error occurred (from the per-cycle rows) */
+  worstCase?: string;
 }) {
   const rows = TEST_CASES.map((t) => {
     const w = weights[t.key] ?? t.weight;
@@ -78,7 +80,7 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
         </table>
       </div>
       <div className="flex flex-wrap gap-x-8 gap-y-1 border-t border-border px-5 py-3 text-sm text-grey-700">
-        <span><span className="font-heading font-medium text-ink">Max error</span> {fmtPct(maxError, 1)} % — largest instantaneous |estimate − truth| over every blinded cycle (not scored)</span>
+        <span><span className="font-heading font-medium text-ink">Max error</span> {fmtPct(maxError, 1)} % — largest instantaneous |estimate − truth| over every blinded cycle{worstCase ? <> (on {worstCase} — plotted under Key cases for new evaluations)</> : null}; not scored</span>
         <span><span className="font-heading font-medium text-ink"><Term k="complexity">Complexity</Term></span> {complexity} ±{complexityUncertainty} · {COMPLEXITY_LABELS[complexity]} (informational, not scored)</span>
         {Math.abs(sum - weightedError) > 0.002 ? <span className="text-[#9a6a17]">The stored score ({fmtPct(weightedError)} %) differs from today&apos;s weights — see Score history.</span> : null}
       </div>

@@ -263,6 +263,16 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
                     "actual": [round(float(100 * r.actual[i]), 2) for i in idx],
                     "estimated": [round(float(100 * r.pred[i]), 2) for i in idx],
                 })
+    # the model's own worst case: whichever cycle produced the largest instantaneous error gets a trace,
+    # so the headline max error is always visible in a plot (the fixed TRACES set rarely contains it)
+    test_rows = [r for k in CELL_KEYS for r in per_cell[k]]
+    if test_rows:
+        w = max(test_rows, key=lambda r: r.maxe)
+        base = family(w.name)
+        label = CELL_LABELS[w.cell]
+        if (w.cell, base, int(w.temp_c)) not in TRACES:
+            traces.append(_trace(f"worst-{label}-{base}-{int(w.temp_c)}", f"Worst case — {label} {base} at {int(w.temp_c)} °C", label, base, w.temp_c, w.actual, w.pred, "cycle",
+                                 f"The cycle where this model made its largest instantaneous error ({w.maxe:.1f} % SOC) — the \"max error\" number on the scorecard comes from here."))
     for r in per_cell.get("_charge", []):  # charge cycles: traced when listed (test 4 plot), never in the per-cycle table
         base = family(r.name)
         if (r.cell, base, int(r.temp_c)) in TRACES:
