@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Globe, GraduationCap, BookOpen, Briefcase, Building2, CalendarDays, Trophy, Pencil, Shield } from "lucide-react";
+import { Globe, GraduationCap, BookOpen, Briefcase, Building2, CalendarDays, Trophy, Pencil, Shield, Users } from "lucide-react";
+import { personByEmail } from "@/lib/people";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { fmtDate, fmtPct } from "@/lib/utils";
@@ -14,7 +15,7 @@ import { EmptyState } from "@/components/ui/misc";
 export const dynamic = "force-dynamic";
 
 const select = {
-  id: true, name: true, affiliation: true, role: true, createdAt: true,
+  id: true, name: true, email: true, affiliation: true, role: true, createdAt: true,
   occupation: true, bio: true, website: true, linkedin: true, orcid: true, googleScholar: true, researchGate: true, github: true, avatarUpdatedAt: true,
 } as const;
 
@@ -29,6 +30,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   const [session, user] = await Promise.all([auth(), db.user.findUnique({ where: { id }, select })]);
   if (!user) notFound();
   const isSelf = session?.user?.id === user.id;
+  const team = personByEmail(user.email); // benchmark team entry (src/lib/people.ts), if any
   const isAdmin = session?.user?.role === "ADMIN";
   const subs = await db.submission.findMany({
     where: { OR: [{ userId: user.id }, { collaborators: { some: { userId: user.id, ...(isSelf || isAdmin ? {} : { acceptedAt: { not: null } }) } } }], status: "COMPLETED", result: { isNot: null }, ...(isSelf || isAdmin ? {} : { isPrivate: false, isHidden: false }) },
@@ -44,6 +46,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
     user.github ? { icon: GitHubIcon, label: "GitHub", text: user.github.replace(/^https?:\/\/(www\.)?github\.com\//, ""), href: user.github } : null,
     user.website ? { icon: Globe, label: "Website", text: user.website.replace(/^https?:\/\//, ""), href: user.website } : null,
   ].filter(Boolean) as { icon: React.ComponentType<{ className?: string }>; label: string; text: string; href: string }[];
+  for (const l of team?.links ?? []) if (!links.some((x) => x.href === l.href)) links.push({ icon: BookOpen, label: l.label, text: l.label, href: l.href });
 
   return (
     <div className="container-site py-8">
@@ -54,9 +57,10 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-heading text-3xl font-bold">{user.name}</h1>
               {user.role === "ADMIN" ? <Badge variant="maroon"><Shield className="size-3" /> Administrator</Badge> : null}
+              {team ? <Badge variant={team.group === "current" ? "gold" : "neutral"}><Users className="size-3" /> {team.group === "current" ? "Benchmark team" : "Past contributor"}</Badge> : null}
             </div>
             <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-grey-700">
-              {user.occupation ? <li className="inline-flex items-center gap-1.5"><Briefcase className="size-4 text-grey-500" /> {user.occupation}</li> : null}
+              {user.occupation ? <li className="inline-flex items-center gap-1.5"><Briefcase className="size-4 text-grey-500" /> {user.occupation}</li> : team ? <li className="inline-flex items-center gap-1.5"><Briefcase className="size-4 text-grey-500" /> {team.role}</li> : null}
               <li className="inline-flex items-center gap-1.5"><Building2 className="size-4 text-grey-500" /> {user.affiliation}</li>
               <li className="inline-flex items-center gap-1.5"><CalendarDays className="size-4 text-grey-500" /> Member since {fmtDate(user.createdAt)}</li>
             </ul>
