@@ -12,14 +12,14 @@ const PEOPLE: { current: Person[]; past: Person[] } = {
   current: [
     { name: "Dr. Phillip J. Kollmeyer", role: "Assistant Professor, Electrical and Computer Engineering · project lead", photo: "/people/phil-kollmeyer.jpg" },
     { name: "Ahmad Ali", role: "MASc student · platform development and evaluation infrastructure", photo: "/people/ahmad-ali.jpg" },
-    { name: "Ahnaf Akif Rahman", role: "Graduate researcher · SOC estimation models and evaluation", photo: "/people/ahnaf-rahman.jpg" },
+    { name: "Ahnaf Akif Rahman", role: "PhD candidate · SOC estimation models and evaluation", photo: "/people/ahnaf-rahman.jpg" },
     { name: "Paarth Kadakia", role: "Software intern" },
     { name: "Aidan McLean", role: "Software intern" },
   ],
   past: [
-    { name: "Mina Naguib", role: "Data collection and the original MATLAB evaluation tool" },
-    { name: "Fauzia Khanum", role: "Data collection and dataset curation" },
-    { name: "Atjen von Liebenstein", role: "Embedded deployment and complexity of SOC estimators", href: "https://ieeexplore.ieee.org/document/11098050" },
+    { name: "Mina (Naguib) Nassim, PhD, P.Eng.", role: "Data collection and the original MATLAB evaluation tool" },
+    { name: "Fauzia Khanum, MASc", role: "Data collection and dataset curation" },
+    { name: "Atjen von Liebenstein, MASc", role: "Embedded deployment and complexity of SOC estimators", href: "https://ieeexplore.ieee.org/document/11098050" },
   ],
 };
 
