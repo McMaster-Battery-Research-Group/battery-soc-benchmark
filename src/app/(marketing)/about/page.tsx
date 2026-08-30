@@ -1,55 +1,27 @@
-import * as React from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
+import { PEOPLE, initialsOf, type Person } from "@/lib/people";
 import { PageHeader, SectionTitle } from "@/components/ui/misc";
 
 export const metadata: Metadata = { title: "About" };
 
 /** Team list shown on the About page. Roles are kept short; edit here when people join or leave. */
-type Person = { name: string; role: string; photo?: string; links?: { label: string; href: string }[] };
-// Publications tied to this benchmark; add a person's other work as further entries.
-const ITEC_2022 = { label: "ITEC 2022 paper", href: "https://doi.org/10.1109/ITEC53557.2022.9813996" };
-const DATASET = { label: "dataset", href: "https://doi.org/10.5683/SP3/ZVTR4B" };
-// Photos live in public/people/ (square JPEG, ~400 px). Rectangular tiles, not circles, per McMaster brand rules; people without a
-// photo get an initials tile. Only add a photo with the person's permission.
-const PEOPLE: { current: Person[]; past: Person[] } = {
-  current: [
-    { name: "Dr. Phillip J. Kollmeyer", role: "Assistant Professor, Electrical and Computer Engineering · project lead", photo: "/people/phil-kollmeyer.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/37590030300" }, ITEC_2022, DATASET, { label: "faculty page", href: "https://www.eng.mcmaster.ca/ece/faculty/dr-phil-kollmeyer/" }] },
-    { name: "Ahmad Ali", role: "MASc student · platform development and evaluation infrastructure", photo: "/people/ahmad-ali.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/398565157970670" }] },
-    { name: "Ahnaf Akif Rahman", role: "PhD candidate · SOC estimation models and evaluation", photo: "/people/ahnaf-rahman.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/37089247887" }] },
-    { name: "Paarth Kadakia", role: "Software intern" },
-    { name: "Aidan McLean", role: "Software intern", photo: "/people/aidan-mclean.jpg" },
-  ],
-  past: [
-    { name: "Mina (Naguib) Nassim, PhD, P.Eng.", role: "Data collection and the original MATLAB evaluation tool", photo: "/people/mina-nassim.jpg", links: [ITEC_2022, DATASET] },
-    { name: "Fauzia Khanum, MASc", role: "Data collection and dataset curation", photo: "/people/fauzia-khanum.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/37088928399" }, ITEC_2022, DATASET] },
-    { name: "Atjen von Liebenstein, MASc", role: "Embedded deployment and complexity of SOC estimators", photo: "/people/atjen-von-liebenstein.jpg", links: [{ label: "IEEE paper", href: "https://ieeexplore.ieee.org/document/11098050" }] },
-  ],
-};
-
 function PersonCard({ p }: { p: Person }) {
-  const initials = p.name.replace(/^Dr\.\s*/, "").split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("");
   return (
-    <li className="card flex items-center gap-4 p-4">
-      {p.photo ? (
-        <Image src={p.photo} alt={p.name} width={72} height={72} className="size-[72px] shrink-0 rounded-brand object-cover" />
-      ) : (
-        <span aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-brand bg-maroon-100 font-heading text-xl font-semibold text-maroon">{initials}</span>
-      )}
-      <div className="min-w-0">
-        <p className="font-heading font-semibold text-ink">{p.name}</p>
-        <p className="text-sm text-grey-700">{p.role}</p>
-        {p.links?.length ? (
-          <p className="mt-0.5 text-xs text-grey-600">
-            {p.links.map((l, i) => (
-              <React.Fragment key={l.href}>
-                {i ? " · " : ""}
-                <a href={l.href} className="text-maroon underline" target="_blank" rel="noreferrer">{l.label}</a>
-              </React.Fragment>
-            ))}
-          </p>
-        ) : null}
-      </div>
+    <li>
+      <Link href={`/people/${p.slug}`} className="card flex items-center gap-4 p-4 transition-colors hover:border-maroon">
+        {p.photo ? (
+          <Image src={p.photo} alt={p.name} width={72} height={72} className="size-[72px] shrink-0 rounded-brand object-cover" />
+        ) : (
+          <span aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-brand bg-maroon-100 font-heading text-xl font-semibold text-maroon">{initialsOf(p.name)}</span>
+        )}
+        <div className="min-w-0">
+          <p className="font-heading font-semibold text-ink">{p.name}</p>
+          <p className="text-sm text-grey-700">{p.role}</p>
+          {p.links?.length ? <p className="mt-0.5 text-xs text-grey-600">{p.links.map((l) => l.label).join(" · ")}</p> : null}
+        </div>
+      </Link>
     </li>
   );
 }
@@ -67,14 +39,14 @@ export default function AboutPage() {
           <SectionTitle>The lab</SectionTitle>
           <p>The benchmark is run by Dr. Phillip Kollmeyer&apos;s battery research group in the Department of Electrical and Computer Engineering at McMaster University (Hamilton, Ontario). The group works on battery modelling, state estimation and testing for electrified transportation. All data on this site was collected on an Arbin LBT cycler inside an Envirotronics SH16 thermal chamber.</p>
         </section>
-        <section>
+        <section id="people" className="scroll-mt-24">
           <SectionTitle>People</SectionTitle>
           <ul className="grid gap-3 sm:grid-cols-2">
-            {PEOPLE.current.map((p) => <PersonCard key={p.name} p={p} />)}
+            {PEOPLE.filter((p) => p.group === "current").map((p) => <PersonCard key={p.slug} p={p} />)}
           </ul>
           <p className="mb-2 mt-6 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Past contributors</p>
           <ul className="grid gap-3 sm:grid-cols-2">
-            {PEOPLE.past.map((p) => <PersonCard key={p.name} p={p} />)}
+            {PEOPLE.filter((p) => p.group === "past").map((p) => <PersonCard key={p.slug} p={p} />)}
           </ul>
         </section>
         <section>
