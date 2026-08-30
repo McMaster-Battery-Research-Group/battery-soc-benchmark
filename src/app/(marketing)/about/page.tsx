@@ -22,7 +22,7 @@ const PEOPLE: { current: Person[]; past: Person[] } = {
   ],
   past: [
     { name: "Mina (Naguib) Nassim, PhD, P.Eng.", role: "Data collection and the original MATLAB evaluation tool", photo: "/people/mina-nassim.jpg", links: [ITEC_2022, DATASET] },
-    { name: "Fauzia Khanum, MASc", role: "Data collection and dataset curation", photo: "/people/fauzia-khanum.jpg", links: [ITEC_2022, DATASET] },
+    { name: "Fauzia Khanum, MASc", role: "Data collection and dataset curation", photo: "/people/fauzia-khanum.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/37088928399" }, ITEC_2022, DATASET] },
     { name: "Atjen von Liebenstein, MASc", role: "Embedded deployment and complexity of SOC estimators", photo: "/people/atjen-von-liebenstein.jpg", links: [{ label: "IEEE paper", href: "https://ieeexplore.ieee.org/document/11098050" }] },
   ],
 };
