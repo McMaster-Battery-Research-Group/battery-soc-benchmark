@@ -14,9 +14,9 @@ const DATASET = { label: "dataset", href: "https://doi.org/10.5683/SP3/ZVTR4B" }
 // photo get an initials tile. Only add a photo with the person's permission.
 const PEOPLE: { current: Person[]; past: Person[] } = {
   current: [
-    { name: "Dr. Phillip J. Kollmeyer", role: "Assistant Professor, Electrical and Computer Engineering · project lead", photo: "/people/phil-kollmeyer.jpg", links: [ITEC_2022, DATASET, { label: "faculty page", href: "https://www.eng.mcmaster.ca/ece/faculty/dr-phil-kollmeyer/" }] },
-    { name: "Ahmad Ali", role: "MASc student · platform development and evaluation infrastructure", photo: "/people/ahmad-ali.jpg" },
-    { name: "Ahnaf Akif Rahman", role: "PhD candidate · SOC estimation models and evaluation", photo: "/people/ahnaf-rahman.jpg" },
+    { name: "Dr. Phillip J. Kollmeyer", role: "Assistant Professor, Electrical and Computer Engineering · project lead", photo: "/people/phil-kollmeyer.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/37590030300" }, ITEC_2022, DATASET, { label: "faculty page", href: "https://www.eng.mcmaster.ca/ece/faculty/dr-phil-kollmeyer/" }] },
+    { name: "Ahmad Ali", role: "MASc student · platform development and evaluation infrastructure", photo: "/people/ahmad-ali.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/398565157970670" }] },
+    { name: "Ahnaf Akif Rahman", role: "PhD candidate · SOC estimation models and evaluation", photo: "/people/ahnaf-rahman.jpg", links: [{ label: "IEEE Xplore", href: "https://ieeexplore.ieee.org/author/37089247887" }] },
     { name: "Paarth Kadakia", role: "Software intern" },
     { name: "Aidan McLean", role: "Software intern", photo: "/people/aidan-mclean.jpg" },
   ],
