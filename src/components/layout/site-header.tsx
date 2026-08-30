@@ -70,18 +70,6 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="my-2 h-px bg-border" />
-            {user ? (
-              <>
-                <Link href="/contact" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Feedback &amp; support</Link>
-                <button onClick={() => signOutAction()} className="rounded-brand px-3 py-3 text-left font-heading font-medium text-grey-900">Sign out</button>
-              </>
-            ) : (
-              <div className="flex gap-2 px-3 py-2">
-                <Button asChild variant="secondary" className="flex-1"><Link href="/login">Sign in</Link></Button>
-                <Button asChild className="flex-1"><Link href="/register">Create account</Link></Button>
-              </div>
-            )}
           </nav>
         </div>
 
@@ -144,6 +132,18 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
             {LEARN.map((l) => (
               <Link key={l.href} href={l.href} className="rounded-brand px-3 py-2.5 font-heading text-[15px] font-medium text-grey-900">{l.label}</Link>
             ))}
+            <div className="my-2 h-px bg-border" />
+            {user ? (
+              <>
+                <Link href="/contact" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Feedback &amp; support</Link>
+                <button onClick={() => signOutAction()} className="rounded-brand px-3 py-3 text-left font-heading font-medium text-grey-900">Sign out</button>
+              </>
+            ) : (
+              <div className="flex gap-2 px-3 py-2">
+                <Button asChild variant="secondary" className="flex-1"><Link href="/login">Sign in</Link></Button>
+                <Button asChild className="flex-1"><Link href="/register">Create account</Link></Button>
+              </div>
+            )}
           </nav>
         </div>
       ) : null}
