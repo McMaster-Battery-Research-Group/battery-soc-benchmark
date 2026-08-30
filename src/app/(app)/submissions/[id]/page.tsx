@@ -56,6 +56,8 @@ export default async function SubmissionPage({ params, searchParams }: { params:
   const authors = [sub.user, ...sub.collaborators.filter((c) => c.acceptedAt).map((c) => c.user)];
   const legacy = r ? !isCurrentBenchmark(r.evaluatorVersion) : false;
   const traces = (r?.timeSeries ?? []) as unknown as TimeSeriesTrace[];
+  const perCycle = (r?.perCycle ?? []) as unknown as PerCycleRow[];
+  const worstRow = perCycle.length ? perCycle.reduce((m, x) => (x.maxErr > m.maxErr ? x : m)) : null;
 
   return (
     <div className="container-site py-8">
@@ -142,7 +144,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
       {r && values ? (
         <div className="mt-6 space-y-6">
           {/* 1. what you got */}
-          <Scorecard values={values} weights={weights} weightedError={r.weightedError} complexity={r.complexity} complexityUncertainty={r.complexityUncertainty} maxError={r.maxError} />
+          <Scorecard values={values} weights={weights} weightedError={r.weightedError} complexity={r.complexity} complexityUncertainty={r.complexityUncertainty} maxError={r.maxError} worstCase={worstRow ? `${worstRow.cell} ${worstRow.cycle} at ${worstRow.temperatureC} °C` : undefined} />
 
           {/* 2. why */}
           <section>
@@ -159,7 +161,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             </div>
           </Fold>
           <Fold title="All 144 cycles" sub="Every blinded drive cycle: per-cycle errors, and any of the plotted cycles in the time domain.">
-            <PerCycleTable rows={r.perCycle as unknown as PerCycleRow[]} modelName={sub.modelName} />
+            <PerCycleTable rows={perCycle} modelName={sub.modelName} />
             <div className="mt-6">
               <SocTracePicker tracesByModel={[traces.filter((t) => (t.group ?? "cycle") === "cycle")]} names={[sub.modelName]} />
               <p className="mt-3 text-xs text-grey-600">One hour of padded data precedes every cycle in the evaluator and is excluded from the error metrics. Charts are down-sampled for display (peaks preserved); the full 1 Hz data is in the traces download below.</p>
