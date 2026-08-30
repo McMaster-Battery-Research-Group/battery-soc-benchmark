@@ -169,15 +169,18 @@ export class PythonEvaluator implements Evaluator {
   readonly name = "real";
 
   async evaluate(input: EvaluationInput): Promise<EvaluationOutput> {
-    return parseResultsJson(await this.spawn(input, false), input.log);
+    const r = await this.spawn(input, false);
+    const out = await parseResultsJson(r.text, input.log);
+    if (r.traces) out.tracesFile = r.traces;
+    return out;
   }
 
   async dryRun(input: EvaluationInput): Promise<DryRunOutput> {
-    return JSON.parse(await this.spawn(input, true)) as DryRunOutput;
+    return JSON.parse((await this.spawn(input, true)).text) as DryRunOutput;
   }
 
-  /** Runs socbench_eval (in a container when possible) and returns the results.json text. */
-  private async spawn(input: EvaluationInput, dry: boolean): Promise<string> {
+  /** Runs socbench_eval (in a container when possible) and returns the results.json text (+ the full-resolution traces file when written). */
+  private async spawn(input: EvaluationInput, dry: boolean): Promise<{ text: string; traces?: Buffer }> {
     const data = process.env.SOCBENCH_BLIND_DATA;
     if (!data && !dry) throw new EvaluationError("SOCBENCH_BLIND_DATA is not set on the evaluation host.", false);
     const outDir = await mkdtemp(path.join(os.tmpdir(), "socbench-pyeval-"));
@@ -283,7 +286,9 @@ export class PythonEvaluator implements Evaluator {
           }
         });
       });
-      return await readFile(path.join(outDir, "results.json"), "utf8");
+      const text = await readFile(path.join(outDir, "results.json"), "utf8");
+      const traces = dry ? undefined : await readFile(path.join(outDir, "traces.mat")).catch(() => undefined);
+      return { text, traces };
     } finally {
       await rm(outDir, { recursive: true, force: true }).catch(() => {});
     }

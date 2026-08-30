@@ -156,12 +156,24 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     const out = await evaluator.evaluate({ submissionId: sub.id, filePath: localPath, fileType: sub.fileType, modelType: sub.modelType, evaluationLevel: sub.evaluationLevel, log, signal: abort.signal });
     clearInterval(cancelPoll);
     inflight.delete(abort);
-    const { perCycle, timeSeries, evaluatorVersion, ...scalars } = out;
+    const { perCycle, timeSeries, evaluatorVersion, tracesFile, ...scalars } = out;
+    // full-resolution traces → storage (not the DB row); replace the previous file if this is a re-evaluation
+    let tracesKey: string | null = null;
+    if (tracesFile) {
+      try {
+        const prev = await db.evaluationResult.findUnique({ where: { submissionId: sub.id }, select: { tracesKey: true } });
+        tracesKey = await storage.put(tracesFile, "mat");
+        if (prev?.tracesKey) await storage.remove(prev.tracesKey).catch(() => {});
+        await log(`full-resolution traces stored (${Math.round(tracesFile.length / 1024)} KB)`);
+      } catch (e) {
+        await log(`full-resolution traces NOT stored: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
     await db.$transaction([
       db.evaluationResult.upsert({
         where: { submissionId: sub.id },
-        create: { submissionId: sub.id, ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion },
-        update: { ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion },
+        create: { submissionId: sub.id, ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion, tracesKey },
+        update: { ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion, tracesKey },
       }),
       db.submission.update({ where: { id: sub.id }, data: { status: "COMPLETED", completedAt: new Date(), failureMessage: null } }),
       db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null } }),

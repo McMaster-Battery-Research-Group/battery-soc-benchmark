@@ -190,10 +190,27 @@ def complexity(preds: dict[str, Prediction], runtime: str, calibration: dict[str
 
 # ---------------------------------------------------------------- output rows
 
+def display_indices(actual: np.ndarray, pred: np.ndarray, points: int = 240) -> np.ndarray:
+    """Peak-preserving down-sampling for display: split the cycle into points/2 buckets and keep the
+    sample with the largest and the smallest signed error in each, plus both ends. Every spike
+    survives (not just the single largest), so the plotted line is faithful at chart resolution."""
+    n = len(actual)
+    if n <= points:
+        return np.arange(n)
+    err = pred - actual
+    edges = np.linspace(0, n, points // 2 + 1).astype(int)
+    keep = [0, n - 1]
+    for a, b in zip(edges[:-1], edges[1:]):
+        if b > a:
+            seg = err[a:b]
+            keep.append(a + int(np.argmax(seg)))
+            keep.append(a + int(np.argmin(seg)))
+    return np.unique(np.array(keep, dtype=int))
+
+
 def _trace(key: str, label: str, cell: str, cycle: str, temp_c: float, actual: np.ndarray, pred: np.ndarray, group: str, note: str = "") -> dict:
-    """Down-sampled SOC trace for the site (~240 points), always including the max-|error| sample."""
-    idx = np.unique(np.round(np.linspace(0, len(actual) - 1, min(240, len(actual)))).astype(int))
-    idx = np.unique(np.append(idx, int(np.argmax(np.abs(actual - pred)))))
+    """Down-sampled SOC trace for the site (~240 points, peak-preserving — see display_indices)."""
+    idx = display_indices(actual, pred)
     return {
         "key": key, "label": label, "cell": cell, "cycle": cycle, "temperatureC": temp_c, "group": group, "note": note,
         "t": [round(float(i) / 3600, 3) for i in idx],
@@ -237,8 +254,7 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
             if not r.is_charge:
                 rows.append({"cell": label, "cycle": base, "temperatureC": r.temp_c, "rmse": round(r.rmse, 3), "mae": round(r.mae, 3), "maxErr": round(r.maxe, 3), "durationH": round(len(r.actual) / 3600, 2)})
             if (k, base, int(r.temp_c)) in TRACES:
-                idx = np.unique(np.round(np.linspace(0, len(r.actual) - 1, min(240, len(r.actual)))).astype(int))
-                idx = np.unique(np.append(idx, int(np.argmax(np.abs(r.actual - r.pred)))))  # include the max-error sample
+                idx = display_indices(r.actual, r.pred)
                 traces.append({
                     "key": f"{label}-{base}-{int(r.temp_c)}", "label": f"{label} {base} at {int(r.temp_c)} °C",
                     "cell": label, "cycle": base, "temperatureC": r.temp_c,
@@ -253,3 +269,39 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
             label = CELL_LABELS[r.cell]
             traces.append(_trace(f"{label}-{base}-{int(r.temp_c)}", f"{label} {base} at {int(r.temp_c)} °C", label, base, r.temp_c, r.actual, r.pred, "cycle", CYCLE_NOTES.get((r.cell, base, int(r.temp_c)), "")))
     return rows, traces
+
+
+# ---------------------------------------------------------------- full-resolution traces (download)
+
+def write_full_traces(out_dir, data: BlindData, preds: dict[str, Prediction], per_cell: dict[str, list[CycleResult]]) -> int:
+    """Every evaluation run at full 1 Hz resolution — all drive and charge cycles plus the robustness runs —
+    as one compressed MATLAB v7 file (scipy-readable) for researchers who want the raw curves.
+    Parallel arrays: name, cell, cycle, tempC, group, soc_actual{}, soc_est{} stored as int16 hundredths of a percent
+    (0.01 % SOC resolution; ~6 MB per evaluation vs ~20 MB as float32). Returns bytes written."""
+    from scipy.io import savemat
+    names, cells, cycles, temps, groups, act, est = [], [], [], [], [], [], []
+    def add(name, cell, cycle, temp, group, a, p):
+        names.append(name); cells.append(cell); cycles.append(cycle); temps.append(float(temp)); groups.append(group)
+        act.append(np.clip(np.round(10000 * a), -32768, 32767).astype(np.int16).reshape(-1, 1)); est.append(np.clip(np.round(10000 * p), -32768, 32767).astype(np.int16).reshape(-1, 1))
+    for k in CELL_KEYS:
+        for r in per_cell[k]:
+            add(f"{CELL_LABELS[k]} {r.name} {int(r.temp_c)}C", CELL_LABELS[k], r.name, r.temp_c, "cycle", r.actual, r.pred)
+    for r in per_cell.get("_charge", []):
+        add(f"{CELL_LABELS[r.cell]} {r.name} {int(r.temp_c)}C", CELL_LABELS[r.cell], r.name, r.temp_c, "charge", r.actual, r.pred)
+    for b, (base, temp) in enumerate(ISOC_CYCLES):
+        _, cyc = _find_cycle(data.cells["m80"], base, temp)
+        for q, target in enumerate(ISOCS):
+            idx = int(np.argmax(cyc.SOC < target))
+            add(f"m80 {base} {int(temp)}C initial SOC {int(round(target * 100))}%", "m80", base, temp, "initialSoc", cyc.SOC[idx:], preds[f"isoc:{b}:{q}:{idx}"].soc)
+    for b, (base, temp) in enumerate(OFFSET_CYCLES):
+        _, cyc = _find_cycle(data.cells["m1000"], base, temp)
+        for j, off in enumerate(OFFSETS):
+            add(f"m1000 {base} {int(temp)}C offset {off:+.2f}A", "m1000", base, temp, "offset", cyc.SOC, preds[f"offset:{b}:{j}"].soc)
+    obj = lambda xs: np.array(xs, dtype=object).reshape(-1, 1)  # noqa: E731 — cell arrays in MATLAB
+    path = out_dir / "traces.mat"
+    savemat(str(path), {
+        "readme": "Battery SOC Benchmark - every evaluation run at 1 Hz, padding removed. soc_actual / soc_est are int16 in hundredths of a percent: SOC_percent = double(x) / 100. Time is 0:numel(x)-1 seconds. group: cycle | charge | initialSoc | offset. Cell array index i matches name{i}, cell{i}, cycle{i}, tempC(i), group{i}.",
+        "name": obj(names), "cell": obj(cells), "cycle": obj(cycles), "tempC": np.array(temps, dtype=float).reshape(-1, 1), "group": obj(groups),
+        "soc_actual": obj(act), "soc_est": obj(est),
+    }, do_compression=True)
+    return path.stat().st_size

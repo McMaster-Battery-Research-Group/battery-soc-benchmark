@@ -55,7 +55,7 @@ def safe_extract(z: zipfile.ZipFile, dest: Path) -> str | None:
         with z.open(i) as src, open(target, "wb") as dst:
             shutil.copyfileobj(src, dst, 1024 * 1024)
     return None
-from .pipeline import build_jobs, complexity, per_cycle_rows, robustness_traces, score, validation_job
+from .pipeline import build_jobs, complexity, display_indices, per_cycle_rows, robustness_traces, score, validation_job, write_full_traces
 from .runner import MatlabBackend, ModelError, PythonBackend
 
 
@@ -150,6 +150,11 @@ def main(argv=None) -> None:
             "elapsedSec": round(time.perf_counter() - t0),
         }
         (out / "results.json").write_text(json.dumps(result), encoding="utf-8")
+        try:
+            nbytes = write_full_traces(out, data, preds, per_cell)
+            log(f"full-resolution traces written ({nbytes // 1024} KB, traces.mat)")
+        except Exception as e:  # noqa: BLE001 — the download is a convenience, never fail a scored run for it
+            log(f"could not write full-resolution traces: {type(e).__name__}: {e}")
         log(f"done in {result['elapsedSec']} s — weighted error {s['weightedError']:.3f}")
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -180,8 +185,7 @@ def dry_run(args, out: Path, backend, runtime: str, calibration: dict, t0: float
     ratio, cat, step = t_sample / calibration[runtime], 1, 10 ** (1 / 3)
     while ratio > step:
         ratio /= step; cat += 1
-    idx = np.unique(np.round(np.linspace(0, len(a) - 1, min(240, len(a)))).astype(int))
-    idx = np.unique(np.append(idx, int(np.argmax(np.abs(a - p.soc)))))  # keep the max-error sample so the plot agrees with maxErr
+    idx = display_indices(a, p.soc)  # peak-preserving down-sampling: the plot agrees with maxErr
     result = {
         "dryRun": True, "runtime": runtime,
         "cycle": {"cell": "m80", "cycle": cyc.name, "temperatureC": cyc.temp_c, "samples": int(len(a))},
