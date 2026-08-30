@@ -190,7 +190,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> PDF report</a></Button>
                 <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> Results JSON</a></Button>
+                {r.tracesKey ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/traces`} download><Download /> Traces (.mat)</a></Button> : null}
               </div>
+              <p className="mt-2 text-xs text-grey-600">{r.tracesKey ? "Traces: every evaluation run — all drive and charge cycles plus the initial-SOC and sensor-offset runs — at full 1 Hz resolution (0.01 % SOC steps) as a compressed MATLAB v7 file, readable with scipy.io.loadmat; see the readme variable inside. The charts on this page are down-sampled for display." : "Full-resolution traces are stored for evaluations run from 2026-08-30 onward; submit a new version to get them for this model."}</p>
             </TabsContent>
           </Tabs>
         </>

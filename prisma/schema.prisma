@@ -220,6 +220,8 @@ model EvaluationResult {
   perCycle Json
   /// Array of { key, label, cell, cycle, temperatureC, t: number[], actual: number[], estimated: number[] }
   timeSeries Json
+  /// storage key of traces.mat — every run at full 1 Hz resolution (download); null for results evaluated before 2026-08-30
+  tracesKey  String?
 
   evaluatorVersion String   @default("mock-1")
   createdAt        DateTime @default(now())

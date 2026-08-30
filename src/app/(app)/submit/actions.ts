@@ -285,10 +285,11 @@ export async function deleteSubmissionAction(id: string) {
   if (sub.status === "RUNNING") throw new Error("Cannot delete a submission while it is being evaluated — cancel it first");
   const [owner, result, actor] = await Promise.all([
     db.user.findUnique({ where: { id: sub.userId }, select: { name: true, email: true, affiliation: true } }),
-    db.evaluationResult.findUnique({ where: { submissionId: id }, select: { weightedError: true } }),
+    db.evaluationResult.findUnique({ where: { submissionId: id }, select: { weightedError: true, tracesKey: true } }),
     db.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true, role: true } }),
   ]);
   await storage.remove(sub.fileKey);
+  if (result?.tracesKey) await storage.remove(result.tracesKey).catch(() => {});
   await db.submission.delete({ where: { id } });
   logEvent("submission.deleted", { id, seq: sub.seq, by: session.user.id, owner: sub.userId });
   if (owner && actor) submissionDeletedEmail({ ...sub, weightedError: result?.weightedError ?? null, owner }, actor).catch(() => {});

@@ -35,6 +35,8 @@ export interface EvaluationOutput extends MetricValues {
   perCycle: PerCycleRow[];
   timeSeries: TimeSeriesTrace[];
   evaluatorVersion: string;
+  /** full-resolution traces (traces.mat) produced by the evaluator; uploaded to storage by the worker, never stored in the DB row */
+  tracesFile?: Buffer;
 }
 
 export interface EvaluationInput {
