@@ -70,6 +70,18 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            <div className="my-2 h-px bg-border" />
+            {user ? (
+              <>
+                <Link href="/contact" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Feedback &amp; support</Link>
+                <button onClick={() => signOutAction()} className="rounded-brand px-3 py-3 text-left font-heading font-medium text-grey-900">Sign out</button>
+              </>
+            ) : (
+              <div className="flex gap-2 px-3 py-2">
+                <Button asChild variant="secondary" className="flex-1"><Link href="/login">Sign in</Link></Button>
+                <Button asChild className="flex-1"><Link href="/register">Create account</Link></Button>
+              </div>
+            )}
           </nav>
         </div>
 
@@ -106,8 +118,24 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
       </div>
 
       {open ? (
-        <div id="mobile-nav" className="border-t border-border bg-white lg:hidden">
+        <div id="mobile-nav" className="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-border bg-white lg:hidden">
           <nav className="container-site flex flex-col py-3" aria-label="Mobile">
+            {user ? (
+              <>
+                <div className="flex items-center gap-3 px-3 pb-2 pt-1">
+                  <Avatar userId={user.id} name={user.name} size={36} />
+                  <div className="min-w-0">
+                    <p className="truncate font-heading font-semibold text-ink">{user.name}</p>
+                    <p className="truncate text-xs text-grey-600">{user.affiliation}</p>
+                  </div>
+                  {user.role === "ADMIN" ? <span className="ml-auto rounded-[3px] bg-maroon px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-white">Admin</span> : null}
+                </div>
+                {user.role === "ADMIN" ? <Link href="/admin" className="flex items-center gap-2 rounded-brand bg-maroon-100 px-3 py-3 font-heading font-medium text-maroon"><Shield className="size-4" /> Admin panel</Link> : null}
+                <Link href="/submissions" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">My submissions</Link>
+                <Link href="/profile" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Profile</Link>
+                <div className="my-2 h-px bg-border" />
+              </>
+            ) : null}
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className={cn("rounded-brand px-3 py-3 font-heading text-base font-medium", active(n.match) ? "bg-maroon-100 text-maroon" : "text-grey-900")}>{n.label}</Link>
             ))}
@@ -116,21 +144,6 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
             {LEARN.map((l) => (
               <Link key={l.href} href={l.href} className="rounded-brand px-3 py-2.5 font-heading text-[15px] font-medium text-grey-900">{l.label}</Link>
             ))}
-            <div className="my-2 h-px bg-border" />
-            {user ? (
-              <>
-                <Link href="/submissions" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">My submissions</Link>
-                <Link href="/profile" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Profile</Link>
-                <Link href="/contact" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Feedback &amp; support</Link>
-                {user.role === "ADMIN" ? <Link href="/admin" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">Admin</Link> : null}
-                <button onClick={() => signOutAction()} className="rounded-brand px-3 py-3 text-left font-heading font-medium text-grey-900">Sign out</button>
-              </>
-            ) : (
-              <div className="flex gap-2 px-3 py-2">
-                <Button asChild variant="secondary" className="flex-1"><Link href="/login">Sign in</Link></Button>
-                <Button asChild className="flex-1"><Link href="/register">Create account</Link></Button>
-              </div>
-            )}
           </nav>
         </div>
       ) : null}
