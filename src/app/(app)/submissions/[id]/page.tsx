@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/misc";
 import { Avatar } from "@/components/avatar";
 import { Scorecard } from "@/components/scorecard";
+import { ResultInsights } from "@/components/result-insights";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
 import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { SocTracePicker } from "@/components/charts/soc-trace";
@@ -143,7 +144,8 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
       {r && values ? (
         <div className="mt-6 space-y-6">
-          {/* 1. what you got */}
+          {/* 1. what you got — and what it means */}
+          <ResultInsights values={values} weights={weights} />
           <Scorecard values={values} weights={weights} weightedError={r.weightedError} complexity={r.complexity} complexityUncertainty={r.complexityUncertainty} maxError={r.maxError} worstCase={worstRow ? `${worstRow.cell} ${worstRow.cycle} at ${worstRow.temperatureC} °C` : undefined} />
 
           {/* 2. why */}

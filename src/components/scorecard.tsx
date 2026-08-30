@@ -1,6 +1,7 @@
 import { TEST_CASES, COMPLEXITY_LABELS, type MetricKey } from "@/lib/test-cases";
 import { fmtPct } from "@/lib/utils";
 import { Term } from "@/components/term";
+import { Tooltip } from "@/components/ui/tooltip";
 
 /**
  * The one table that explains the score: every test case with its RMSE, the weight it carries and its
@@ -58,7 +59,7 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
                   <td className="px-5 py-2">
                     {head ? <span className="mb-0.5 block font-heading text-[10px] font-semibold uppercase tracking-wide text-maroon">{g}</span> : null}
                     <span className="mr-1.5 text-xs text-grey-500">T{r.test}</span>
-                    <span className={r.w === 0 ? "" : "text-grey-900"}>{r.label}</span>
+                    <Tooltip content={r.description}><span className={`cursor-help border-b border-dotted border-grey-400 ${r.w === 0 ? "" : "text-grey-900"}`}>{r.label}</span></Tooltip>
                     {r.w === 0 ? <span className="ml-1.5 text-xs text-grey-500">(reference only — every other test is a subset of it)</span> : null}
                   </td>
                   <td className="px-3 py-2 text-right font-heading font-semibold tabular text-ink">{fmtPct(r.value)} %</td>
