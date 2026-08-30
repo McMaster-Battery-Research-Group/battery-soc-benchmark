@@ -73,6 +73,8 @@ model User {
   googleScholar   String?
   researchGate    String?
   github          String?
+  /// admin e-mail preferences, { feedback, accounts, roles, deletions }: boolean — null/missing key = on (see src/lib/admin-notify.ts)
+  adminNotify     Json?
   avatar          Bytes?    // small JPEG (≤256 px), resized in the browser before upload
   avatarType      String?
   avatarUpdatedAt DateTime?
@@ -237,6 +239,19 @@ model ScoringConfig {
   weights   Json // { metricKey: weight }
   rescored  Int      @default(0)
   notified  Int      @default(0)
+}
+
+/// In-site record of the events administrators are e-mailed about (accounts, role changes,
+/// deletions, scoring changes). Shown on Admin → Overview; e-mail toggles never affect this.
+model AdminEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  /// matches AdminNotifyKind where applicable: accounts | roles | deletions | scoring
+  kind      String
+  /// one human-readable line
+  text      String
+
+  @@index([createdAt])
 }
 
 /// Sliding-window rate limiting for sensitive actions (login, register, reset,
