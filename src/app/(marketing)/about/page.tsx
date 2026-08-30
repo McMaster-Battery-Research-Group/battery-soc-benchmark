@@ -19,7 +19,6 @@ function PersonCard({ p }: { p: Person }) {
         <div className="min-w-0">
           <p className="font-heading font-semibold text-ink">{p.name}</p>
           <p className="text-sm text-grey-700">{p.role}</p>
-          {p.links?.length ? <p className="mt-0.5 text-xs text-grey-600">{p.links.map((l) => l.label).join(" · ")}</p> : null}
         </div>
       </Link>
     </li>
