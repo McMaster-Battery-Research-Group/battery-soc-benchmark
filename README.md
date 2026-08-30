@@ -289,6 +289,11 @@ These are the parts that are not obvious from reading a single file.
 
 ## 10. Day-to-day development workflow
 
+### Render smoke test
+
+`npm run smoke` builds the site and loads every public page (plus a real results page and a populated compare page) in headless Chromium, failing on any client-side exception, hydration error, "Application error" screen, console error or 5xx — the class of bug `tsc`/`eslint` cannot see (e.g. a missing React context provider). Read-only: nothing signs in or submits. Once per clone, enable the pre-push guard with `git config core.hooksPath .githooks`; it runs the smoke test only when the push touches UI files (`SKIP_SMOKE=1 git push` to bypass). Failure details: `npx playwright show-report`.
+
+
 1. **Branch or commit on `main`** — the project currently commits straight to `main`; every push triggers a Vercel build and, if it passes, a production deploy. Keep commits small and described.
 2. **Before every commit** run `npx tsc --noEmit` (types) and `npx eslint src` (lint); both must be clean. `npm run build` occasionally, especially after touching `next.config.ts` or adding server dependencies.
 3. **Database changes**: edit `prisma/schema.prisma`, run `npx prisma db push` (development) — then **stop the dev server and any worker before `npx prisma generate`** on Windows, or the engine file stays locked and the generated client silently lags behind the schema (symptom: `Unknown argument <newField>` at runtime). Production schema is pushed with the production `DATABASE_URL`/`DIRECT_URL` in the environment.

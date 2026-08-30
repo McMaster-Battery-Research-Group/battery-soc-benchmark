@@ -1,0 +1,29 @@
+#!/bin/sh
+# Pre-push guard: run the render smoke test when UI code is being pushed.
+# Catches what tsc/eslint cannot — client-side crashes, hydration failures, "Application error" screens.
+# Bypass for an emergency push: SKIP_SMOKE=1 git push
+# Enable per clone (once): git config core.hooksPath .githooks
+
+[ "$SKIP_SMOKE" = "1" ] && { echo "[pre-push] SKIP_SMOKE=1 — smoke test skipped"; exit 0; }
+
+range=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+done
+
+[ -z "$range" ] && exit 0
+if ! git diff --name-only "$range" 2>/dev/null | grep -qE '^(src/.*\.(tsx|ts|css)|package-lock\.json|next\.config\.ts)$'; then
+  exit 0 # nothing that can break page rendering
+fi
+
+echo "[pre-push] UI files in this push — running the render smoke test (npm run smoke; SKIP_SMOKE=1 to bypass)…"
+npm run smoke || {
+  echo ""
+  echo "[pre-push] ✗ smoke test failed — the push was aborted. Fix the page (npx playwright show-report for details) or push with SKIP_SMOKE=1."
+  exit 1
+}
+echo "[pre-push] ✓ pages render clean"
