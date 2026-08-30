@@ -5,6 +5,7 @@ import { StatusBadge, Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/input";
 import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-version";
 import { ModerateButtons } from "./moderate";
+import { BulkProvider, RowCheck, HeaderCheck, BulkBar } from "./bulk-delete";
 import { Avatar } from "@/components/avatar";
 
 export const dynamic = "force-dynamic";
@@ -38,10 +39,12 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
         </form>
       </div>
       {/* The card scrolls horizontally on narrow screens; the sticky first columns keep the model identifiable. */}
+      <BulkProvider>
       <div className="card mt-4 max-w-full overflow-x-auto">
         <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-grey-100">
             <tr className="border-b border-border">
+              <th className="h-10 px-3"><HeaderCheck ids={subs.filter((x) => x.status !== "RUNNING").map((x) => x.id)} /></th>
               {["#", "Model", "Authors", "Status", "Weighted", "Submitted", "Actions"].map((h) => (
                 <th key={h} className="h-10 whitespace-nowrap px-3 text-left font-heading text-xs font-semibold uppercase tracking-wide text-grey-800">{h}</th>
               ))}
@@ -52,6 +55,7 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
               const legacy = s.result && !isCurrentBenchmark(s.result.evaluatorVersion);
               return (
                 <tr key={s.id} className="border-b border-border align-top">
+                  <td className="px-3 py-2.5"><RowCheck id={s.id} disabled={s.status === "RUNNING"} title={s.status === "RUNNING" ? "Running — cancel the evaluation first" : undefined} /></td>
                   <td className="px-3 py-2.5 tabular text-grey-600">{s.seq}</td>
                   <td className="max-w-[320px] px-3 py-2.5">
                     <Link href={`/submissions/${s.id}`} className="font-heading font-medium text-ink hover:text-maroon">{s.modelName}</Link>
@@ -88,6 +92,8 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
           </tbody>
         </table>
       </div>
+      <BulkBar />
+      </BulkProvider>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { accountEventEmail, roleChangedEmail, submissionDeletedEmail } from "@/lib/mail";
+import { accountEventEmail, roleChangedEmail, submissionDeletedEmail, bulkDeletionEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
 import { revalidatePath } from "next/cache";
@@ -13,6 +13,47 @@ import { storage } from "@/lib/storage";
 import { rescoreAll } from "@/lib/rescore";
 import { ADMIN_NOTIFY_KINDS, recordAdminEvent } from "@/lib/admin-notify";
 import { normalise, validateWeights, sameWeights, getActiveScoring, DEFAULT_WEIGHTS } from "@/lib/scoring-config";
+
+// ---- bulk delete (admin table): one reason, many submissions; running evaluations are skipped
+
+export async function adminBulkDeleteAction(ids: string[], reason: string, notifyAuthors: boolean): Promise<{ ok: true; deleted: number; skipped: string[]; emailed: number } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const why = reason.trim();
+  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters) — it is kept in the activity log and sent to authors when notification is on." };
+  const unique = [...new Set(ids)].slice(0, 100);
+  if (!unique.length) return { ok: false, error: "Nothing selected." };
+  const subs = await db.submission.findMany({
+    where: { id: { in: unique } },
+    include: { user: { select: { email: true, name: true } }, result: { select: { tracesKey: true } }, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
+  });
+  const skipped: string[] = [];
+  const lines: string[] = [];
+  let emailed = 0;
+  for (const sub of subs) {
+    if (sub.status === "RUNNING") {
+      skipped.push(`#${sub.seq} ${sub.modelName} (running — cancel it first)`);
+      continue;
+    }
+    await storage.remove(sub.fileKey).catch(() => {});
+    if (sub.result?.tracesKey) await storage.remove(sub.result.tracesKey).catch(() => {});
+    await db.submission.delete({ where: { id: sub.id } });
+    lines.push(`#${sub.seq} "${sub.modelName}" — owner ${sub.user.name} <${sub.user.email}>`);
+    logEvent("submission.deleted", { id: sub.id, seq: sub.seq, by: admin.id, bulk: true });
+    if (notifyAuthors) {
+      for (const rcpt of [{ email: sub.user.email, name: sub.user.name }, ...sub.collaborators.map((c) => c.user)]) {
+        if (await moderationEmail(rcpt.email, rcpt.name, sub.modelName, null, "delete", why, admin.name ?? "an administrator")) emailed++;
+      }
+    }
+  }
+  if (lines.length) {
+    await recordAdminEvent("deletions", `${admin.name} bulk-deleted ${lines.length} submissions (${lines.map((l) => l.split(" ")[0]).join(", ")}) — reason: ${why}`);
+    bulkDeletionEmail(admin.name ?? "an administrator", why, lines).catch(() => {});
+  }
+  revalidatePath("/leaderboard");
+  revalidatePath("/submissions");
+  revalidatePath("/admin/submissions");
+  return { ok: true, deleted: lines.length, skipped, emailed };
+}
 
 // ---- per-admin notification preferences (Admin → My notifications; each admin edits only their own)
 

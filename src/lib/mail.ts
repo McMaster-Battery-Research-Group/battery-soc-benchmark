@@ -330,3 +330,23 @@ export async function submissionDeletedEmail(sub: { seq: number; modelName: stri
     ),
   );
 }
+
+/** Admin notification for a bulk delete: one summary per admin instead of one e-mail per submission. */
+export async function bulkDeletionEmail(byName: string, reason: string, lines: string[]) {
+  const { adminNotifyTargets } = await import("@/lib/admin-notify");
+  const targets = await adminNotifyTargets("deletions");
+  if (!targets.length) return;
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const title = `${lines.length} submissions deleted by ${byName}`;
+  const list = `<ul style="padding-left:18px;font-size:14px">${lines.map((l) => `<li style="margin:2px 0">${esc(l)}</li>`).join("")}</ul>`;
+  await Promise.all(
+    targets.map((to) =>
+      sendMail({
+        to,
+        subject: `[SOC Benchmark] ${title}`,
+        html: layout(title, `<p>Administrator <strong>${esc(byName)}</strong> deleted ${lines.length} submissions. Reason: ${esc(reason)}</p>${list}${button(`${site()}/admin/submissions`, "Open submissions")}`),
+        text: `${title}\nReason: ${reason}\n${lines.join("\n")}`,
+      }),
+    ),
+  );
+}
