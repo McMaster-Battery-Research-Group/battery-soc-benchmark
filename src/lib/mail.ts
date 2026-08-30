@@ -262,25 +262,40 @@ export async function accountEventEmail(kind: "registered" | "verified", user: {
 }
 
 /** Role change: tell the person, CC every other administrator so the whole admin group sees who granted/revoked what. */
+/**
+ * Role change: the person gets their own e-mail; every other administrator gets an individual FYI.
+ * POLICY (applies to all admin notifications): each recipient is a separate send, never a CC — a CC
+ * exposes addresses to everyone on the thread and cannot respect per-admin e-mail toggles.
+ */
 export async function roleChangedEmail(user: { name: string; email: string }, role: "USER" | "ADMIN", byName: string) {
-  const { adminNotifyTargets } = await import("@/lib/admin-notify");
-  const { recordAdminEvent } = await import("@/lib/admin-notify");
-  await recordAdminEvent("roles", `${byName} ${role === "ADMIN" ? "granted administrator access to" : "revoked administrator access from"} ${user.name} <${user.email}>`);
-  const cc = (await adminNotifyTargets("roles")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
+  const { adminNotifyTargets, recordAdminEvent } = await import("@/lib/admin-notify");
   const granted = role === "ADMIN";
+  const line = `${byName} ${granted ? "granted administrator access to" : "revoked administrator access from"} ${user.name} <${user.email}>`;
+  await recordAdminEvent("roles", line);
   const href = `${site()}/admin`;
-  return sendMail({
+  const sent = await sendMail({
     to: addr(user.name, user.email),
-    cc: cc.join(", ") || undefined,
     subject: granted ? "You are now an administrator of the Battery SOC Benchmark" : "Your administrator access on the Battery SOC Benchmark was removed",
     html: layout(
       granted ? "You have administrator access" : "Administrator access removed",
       granted
-        ? `<p>Hi ${user.name},</p><p><strong>${byName}</strong> made you an administrator. You can now moderate submissions, manage contests and users, read the contact inbox, watch the evaluation workers and change the scoring weights. Admin accounts also have no submission rate limits.</p><p style="font-size:13px;color:#6d7a84">All administrators are copied on this message.</p>${button(href, "Open the admin panel")}`
-        : `<p>Hi ${user.name},</p><p><strong>${byName}</strong> removed your administrator access. Your account, submissions and collaborations are unaffected.</p><p style="font-size:13px;color:#6d7a84">All administrators are copied on this message.</p>`,
+        ? `<p>Hi ${user.name},</p><p><strong>${byName}</strong> made you an administrator. You can now moderate submissions, manage contests and users, read the contact inbox, watch the evaluation workers and change the scoring weights. Admin accounts also have no submission rate limits.</p><p style="font-size:13px;color:#6d7a84">Every administrator is notified of this change.</p>${button(href, "Open the admin panel")}`
+        : `<p>Hi ${user.name},</p><p><strong>${byName}</strong> removed your administrator access. Your account, submissions and collaborations are unaffected.</p><p style="font-size:13px;color:#6d7a84">Every administrator is notified of this change.</p>`,
     ),
     text: granted ? `${byName} made you an administrator: ${href}` : `${byName} removed your administrator access.`,
   });
+  const admins = (await adminNotifyTargets("roles")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
+  await Promise.all(
+    admins.map((to) =>
+      sendMail({
+        to,
+        subject: `[SOC Benchmark] ${granted ? "Administrator access granted" : "Administrator access revoked"}: ${user.name}`,
+        html: layout(granted ? "Administrator access granted" : "Administrator access revoked", `<p>${line}.</p><p style="font-size:13px;color:#6d7a84">You can change which admin e-mails you receive under Admin → My notifications.</p>${button(`${site()}/admin/users`, "Open user list")}`),
+        text: line,
+      }),
+    ),
+  );
+  return sent;
 }
 
 /** Admin notification: a submission was deleted — by its owner, or by an administrator (moderation). Sent to every admin target. */
