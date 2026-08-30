@@ -17,7 +17,8 @@
     "seed": "tsx prisma/seed.ts",
     "worker": "tsx src/evaluator/worker.ts",
     "worker:prod": "node --env-file=.env.production --import tsx src/evaluator/worker.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "smoke": "next build && playwright test -c playwright.smoke.config.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -59,6 +60,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/adm-zip": "^0.5.8",
     "@types/bcryptjs": "^2.4.6",
