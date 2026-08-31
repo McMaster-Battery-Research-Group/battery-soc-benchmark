@@ -350,3 +350,32 @@ export async function bulkDeletionEmail(byName: string, reason: string, lines: s
     ),
   );
 }
+
+/** Account deletion: optional notice to the person, and one FYI per admin ("accounts" toggle). */
+export async function accountDeletedEmail(user: { name: string; email: string }, reason: string, adminName: string, counts: { submissions: number }, notifyUser: boolean) {
+  const { adminNotifyTargets, recordAdminEvent } = await import("@/lib/admin-notify");
+  const line = `${adminName} deleted the account of ${user.name} <${user.email}> (${counts.submissions} submissions removed) — reason: ${reason}`;
+  await recordAdminEvent("accounts", line);
+  if (notifyUser) {
+    await sendMail({
+      to: addr(user.name, user.email),
+      subject: "Your Battery SOC Benchmark account has been deleted",
+      html: layout(
+        "Account deleted",
+        `<p>Hi ${user.name},</p><p>An administrator has deleted your Battery SOC Benchmark account, including your submissions and results.</p><p><strong>Reason given:</strong> ${reason.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p><p style="font-size:13px;color:#6d7a84">If you believe this is a mistake, reply to this e-mail or use the contact form on the site — you are welcome to register again unless told otherwise.</p>`,
+      ),
+      text: `Your account was deleted. Reason: ${reason}`,
+    });
+  }
+  const admins = (await adminNotifyTargets("accounts")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
+  await Promise.all(
+    admins.map((to) =>
+      sendMail({
+        to,
+        subject: `[SOC Benchmark] Account deleted: ${user.name}`,
+        html: layout("Account deleted", `<p>${line.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>${button(`${site()}/admin/users`, "Open user list")}`),
+        text: line,
+      }),
+    ),
+  );
+}

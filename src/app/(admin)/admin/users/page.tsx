@@ -23,7 +23,7 @@ export default async function AdminUsers() {
                 <td className="whitespace-nowrap px-3 py-2"><span className="inline-flex gap-1.5">{u.role === "ADMIN" ? <Badge variant="maroon">Admin</Badge> : null}{u.emailVerified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning">Pending</Badge>}</span></td>
                 <td className="px-3 py-2 text-center tabular">{u._count.submissions}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-grey-700">{fmtDateTime(u.createdAt)}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-right"><UserActions id={u.id} role={u.role} verified={!!u.emailVerified} isSelf={u.id === session?.user?.id} /></td>
+                <td className="whitespace-nowrap px-3 py-2 text-right"><UserActions id={u.id} name={u.name} role={u.role} verified={!!u.emailVerified} isSelf={u.id === session?.user?.id} submissions={u._count.submissions} /></td>
               </tr>
             ))}
           </tbody>
