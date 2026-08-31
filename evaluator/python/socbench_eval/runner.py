@@ -195,7 +195,7 @@ def _toolbox_hint(err: str) -> str:
 class MatlabBackend(Backend):
     name = "matlab"
 
-    def __init__(self, pkg_dir: Path, matlab_bin: str | None = None, timeout_min: float = 180):
+    def __init__(self, pkg_dir: Path, matlab_bin: str | None = None, timeout_min: float = 360):
         if not ((pkg_dir / "Model.m").is_file() or (pkg_dir / "Model.p").is_file()):
             raise ModelError("Model.m or Model.p not found at the top level of the package.")
         self.pkg_dir = pkg_dir

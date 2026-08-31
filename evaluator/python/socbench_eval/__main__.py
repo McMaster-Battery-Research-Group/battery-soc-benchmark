@@ -76,7 +76,7 @@ def main(argv=None) -> None:
     ap.add_argument("--data", default=os.environ.get("SOCBENCH_BLIND_DATA"), help="blind_data.mat (matlab/Export_Blind_Data.m)")
     ap.add_argument("--runtime", default=os.environ.get("SOCBENCH_RUNTIME", "auto"), choices=["auto", "python", "matlab"])
     ap.add_argument("--matlab", default=os.environ.get("MATLAB_BIN", "matlab"))
-    ap.add_argument("--timeout-min", type=float, default=float(os.environ.get("SOCBENCH_TIMEOUT_MIN", "180")))
+    ap.add_argument("--timeout-min", type=float, default=float(os.environ.get("SOCBENCH_TIMEOUT_MIN", "360")))
     ap.add_argument("--dry-run", action="store_true", help="validate + one OPEN-data cycle; no blinded data, no scores")
     args = ap.parse_args(argv)
 
