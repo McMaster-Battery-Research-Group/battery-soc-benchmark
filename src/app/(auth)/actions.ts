@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+
 import { logEvent } from "@/lib/log";
 
 import { randomBytes } from "crypto";
@@ -48,7 +50,7 @@ export async function registerAction(_prev: ActionState, fd: FormData): Promise<
   const token = await issueToken(user.id, "VERIFY_EMAIL", 24 * 3600 * 1000);
   const sent = await verificationEmail(user.email, user.name, token);
   logEvent("user.registered", { userId: user.id, email, role: user.role, verificationMailSent: sent });
-  accountEventEmail("registered", user).catch(() => {});
+  after(() => accountEventEmail("registered", user).catch(() => {}));
   redirect(`/verify?sent=1&email=${encodeURIComponent(email)}`);
 }
 
@@ -125,7 +127,7 @@ export async function resetPasswordAction(_prev: ActionState, fd: FormData): Pro
   if (!rec || rec.type !== "RESET_PASSWORD" || rec.expiresAt < new Date()) {
     return { errors: { form: "This reset link is invalid or has expired. Request a new one." } };
   }
-  if (!rec.user.emailVerified) accountEventEmail("verified", rec.user, "password reset link").catch(() => {});
+  if (!rec.user.emailVerified) after(() => accountEventEmail("verified", rec.user, "password reset link").catch(() => {}));
   await db.$transaction([
     db.user.update({ where: { id: rec.userId }, data: { passwordHash: await hashPassword(password), emailVerified: new Date() } }),
     db.userToken.deleteMany({ where: { userId: rec.userId, type: "RESET_PASSWORD" } }),

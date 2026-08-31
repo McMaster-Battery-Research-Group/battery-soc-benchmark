@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+
 import { accountEventEmail, accountDeletedEmail, roleChangedEmail, submissionDeletedEmail, bulkDeletionEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
@@ -47,7 +49,7 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
   }
   if (lines.length) {
     await recordAdminEvent("deletions", `${admin.name} bulk-deleted ${lines.length} submissions (${lines.map((l) => l.split(" ")[0]).join(", ")}) — reason: ${why}`);
-    bulkDeletionEmail(admin.name ?? "an administrator", why, lines).catch(() => {});
+    after(() => bulkDeletionEmail(admin.name ?? "an administrator", why, lines).catch(() => {}));
   }
   revalidatePath("/leaderboard");
   revalidatePath("/submissions");
@@ -178,7 +180,7 @@ export async function adminModerateAction(id: string, action: ModerationAction, 
     await storage.remove(sub.fileKey);
     if (sub.result?.tracesKey) await storage.remove(sub.result.tracesKey).catch(() => {});
     await db.submission.delete({ where: { id } });
-    submissionDeletedEmail({ ...sub, weightedError: sub.result?.weightedError ?? null, owner: sub.user }, { name: admin.name ?? "administrator", email: admin.email ?? "", role: "ADMIN" }, why).catch(() => {});
+    after(() => submissionDeletedEmail({ ...sub, weightedError: sub.result?.weightedError ?? null, owner: sub.user }, { name: admin.name ?? "administrator", email: admin.email ?? "", role: "ADMIN" }, why).catch(() => {}));
   } else if (action === "private" || action === "public") {
     await db.submission.update({ where: { id }, data: { isPrivate: action === "private" } });
   } else {
@@ -216,7 +218,7 @@ export async function setRoleAction(userId: string, role: "USER" | "ADMIN") {
   const user = await db.user.update({ where: { id: userId }, data: { role } });
   if (before && before.role !== role) {
     logEvent("admin.role_changed", { by: me.id, userId, role });
-    roleChangedEmail(user, role, me.name).catch(() => {});
+    after(() => roleChangedEmail(user, role, me.name).catch(() => {}));
   }
   revalidatePath("/admin/users");
 }
@@ -243,7 +245,7 @@ export async function adminDeleteUserAction(userId: string, reason: string, noti
   }
   await db.user.delete({ where: { id: userId } }); // submissions, results, dry runs, collaborations, tokens cascade
   logEvent("admin.user_deleted", { by: admin.id, userId, email: user.email, submissions: user.submissions.length, reason: why });
-  accountDeletedEmail({ name: user.name, email: user.email }, why, admin.name ?? "an administrator", { submissions: user.submissions.length }, notifyUser).catch(() => {});
+  after(() => accountDeletedEmail({ name: user.name, email: user.email }, why, admin.name ?? "an administrator", { submissions: user.submissions.length }, notifyUser).catch(() => {}));
   revalidatePath("/admin/users");
   revalidatePath("/leaderboard");
   return { ok: true, message: `${user.name} deleted — ${user.submissions.length} submissions removed${notifyUser ? "; the person was e-mailed" : ""}` };
@@ -252,7 +254,7 @@ export async function adminDeleteUserAction(userId: string, reason: string, noti
 export async function verifyUserAction(userId: string) {
   const admin = await requireAdmin();
   const verified = await db.user.update({ where: { id: userId }, data: { emailVerified: new Date() } });
-  accountEventEmail("verified", verified, `administrator ${admin.name}`).catch(() => {});
+  after(() => accountEventEmail("verified", verified, `administrator ${admin.name}`).catch(() => {}));
   revalidatePath("/admin/users");
 }
 
