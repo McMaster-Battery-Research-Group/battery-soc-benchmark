@@ -3,10 +3,12 @@ import Link from "next/link";
 import { Activity, PauseCircle, XCircle, Cpu, MemoryStick, HardDrive, GitCommit, Boxes } from "lucide-react";
 import { db } from "@/lib/db";
 import { ONLINE_WINDOW_MS, ago } from "@/lib/worker-status";
-import { fmtDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Stat, Alert } from "@/components/ui/misc";
 import { WorkerControls, JobControls, AutoRefresh, LogView } from "./controls";
+import { EvalSettingsCard } from "./eval-settings-card";
+import { getEvalSettings } from "@/lib/eval-settings";
+import { fmtDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,7 @@ export default async function WorkersPage() {
     }),
     db.submission.findMany({ where: { status: "FAILED" }, orderBy: { completedAt: "desc" }, take: 8, include: { user: { select: { name: true } }, job: { select: { attempts: true } } } }),
   ]);
+  const settings = await getEvalSettings(true);
   const online = workers.filter((w) => w.lastSeenAt >= since);
   const capacity = online.filter((w) => !w.paused).reduce((n, w) => n + w.concurrency, 0);
   const inFlight = online.reduce((n, w) => n + w.busyWith.length, 0);
@@ -113,6 +116,8 @@ export default async function WorkersPage() {
           })}
         </div>
       )}
+
+      <EvalSettingsCard initial={{ evalTimeoutMin: settings.evalTimeoutMin, dryRunTimeoutMin: settings.dryRunTimeoutMin, submissionsPerDay: settings.submissionsPerDay }} updatedNote={settings.updatedAt ? fmtDateTime(settings.updatedAt) : null} />
 
       {/* ---------- queue */}
       <h2 className="mt-8 font-heading text-lg font-semibold">Queue</h2>

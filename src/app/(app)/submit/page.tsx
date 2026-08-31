@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getEvalSettings } from "@/lib/eval-settings";
 import { PageHeader } from "@/components/ui/misc";
 import { SubmitWorkspace } from "./submit-workspace";
 import { EvaluatorStatusLine } from "@/components/evaluator-status";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function SubmitPage({ searchParams }: { searchParams: Promise<{ contest?: string }> }) {
   const sp = await searchParams;
   const session = await auth();
+  const settings = await getEvalSettings();
   const now = new Date();
   const contests = session?.user
     ? await db.contest.findMany({
@@ -42,7 +44,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           </div>
           <div className="card p-5 text-sm text-grey-800">
             <p className="font-heading font-semibold text-ink">What happens to your file</p>
-            <p className="mt-2">Your package is stored only until the evaluator has run. Evaluations have a 6-hour compute limit — generous next to the reference models (the LSTM example finishes in minutes); a run that exceeds it fails with a timeout message. Source code is never shown to other users or administrators through the site. Submit a <code className="rounded bg-grey-100 px-1">Model.p</code> (p-code) if you need to protect proprietary implementations.</p>
+            <p className="mt-2">Your package is stored only until the evaluator has run. Evaluations have a {Math.round((settings.evalTimeoutMin / 60) * 10) / 10}-hour compute limit — generous next to the reference models (the LSTM example finishes in minutes); a run that exceeds it fails with a timeout message. Source code is never shown to other users or administrators through the site. Submit a <code className="rounded bg-grey-100 px-1">Model.p</code> (p-code) if you need to protect proprietary implementations.</p>
           </div>
         </aside>
       </div>

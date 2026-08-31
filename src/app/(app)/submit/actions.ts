@@ -1,6 +1,7 @@
 "use server";
 
 import { logEvent } from "@/lib/log";
+import { getEvalSettings } from "@/lib/eval-settings";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -24,7 +25,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   if (!session?.user) redirect("/login?next=/submit");
 
   // Each full evaluation occupies a machine for ~30–60 min: cap per user per day (admins exempt).
-  const perDay = Number(process.env.SUBMISSIONS_PER_DAY ?? 3);
+  const perDay = (await getEvalSettings()).submissionsPerDay;
   if (session.user.role !== "ADMIN" && perDay > 0) {
     const today = await db.submission.count({ where: { userId: session.user.id, submittedAt: { gt: new Date(Date.now() - 24 * 3600_000) } } });
     if (today >= perDay) {
@@ -232,7 +233,7 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
     const contest = await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, endsAt: true } });
     if (!contest || contest.status !== "OPEN" || contest.endsAt < new Date()) return { ok: false, error: "This contest has closed — its entries are frozen. Submit a new (non-contest) submission instead." };
   }
-  const perDay = Number(process.env.SUBMISSIONS_PER_DAY ?? 3);
+  const perDay = (await getEvalSettings()).submissionsPerDay;
   if (session.user.role !== "ADMIN" && perDay > 0) {
     const today = await db.scoreRevision.count({ where: { submission: { userId: sub.userId }, kind: { in: ["resubmission"] }, createdAt: { gt: new Date(Date.now() - 24 * 3600_000) } } }) + (await db.submission.count({ where: { userId: sub.userId, submittedAt: { gt: new Date(Date.now() - 24 * 3600_000) } } }));
     if (today >= perDay) return { ok: false, error: `Daily limit of ${perDay} full evaluations reached — try again tomorrow, or use "Test your package first" (free).` };
