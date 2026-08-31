@@ -215,7 +215,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       doc.y = ly + 10;
     }
     y = doc.y + 8;
-    const traces = r.timeSeries.slice(0, 8);
+    const traces = r.timeSeries.filter((t) => (t.group ?? "cycle") === "cycle").slice(0, 8);
     const tw = (W - 12) / 2;
     traces.forEach((tr, i) => {
       const col = i % 2;
@@ -228,6 +228,19 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       const yy = y + row * 170;
       lineChart(doc, X0 + col * (tw + 12), yy, tw, 150, tr);
     });
+
+    // ---------- robustness cases (tests 10–11) — the plots the original tool produced
+    const robust = r.timeSeries.filter((t) => t.group === "initialSoc" || t.group === "offset");
+    for (let start = 0; start < robust.length; start += 8) {
+      doc.addPage();
+      if (start === 0) sectionTitle(doc, "Robustness cases", "Test 10 — three cycles restarted from a wrong initial SOC (90/60/30 %); test 11 — three cycles with a constant current-sensor offset (±0.3 A shown). Estimated vs. reference SOC, down-sampled.", X0, 48);
+      const py0 = start === 0 ? doc.y + 10 : 48;
+      robust.slice(start, start + 8).forEach((tr, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        lineChart(doc, X0 + col * ((W - 12) / 2 + 12), py0 + row * 170, (W - 12) / 2, 150, tr);
+      });
+    }
 
     // ---------- per-cycle table
     doc.addPage();

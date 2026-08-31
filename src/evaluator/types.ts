@@ -37,6 +37,8 @@ export interface EvaluationOutput extends MetricValues {
   evaluatorVersion: string;
   /** full-resolution traces (traces.mat) produced by the evaluator; uploaded to storage by the worker, never stored in the DB row */
   tracesFile?: Buffer;
+  /** per-start (9) and per-offset (18) RMSEs behind tests 10–11 */
+  robustness?: { initialSocRmse: number[]; currentOffsetRmse: number[] };
 }
 
 export interface EvaluationInput {

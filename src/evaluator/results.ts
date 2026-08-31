@@ -30,6 +30,7 @@ export async function parseResultsJson(text: string, log: (line: string) => Prom
     complexity: Math.max(1, Math.min(10, Math.round(num("complexity")))),
     complexityUncertainty: 1,
     maxError: num("maxError"),
+    robustness: (raw.robustness as EvaluationOutput["robustness"]) ?? undefined,
     perCycle: (raw.perCycle as EvaluationOutput["perCycle"]) ?? [],
     timeSeries: (raw.timeSeries as EvaluationOutput["timeSeries"]) ?? [],
     evaluatorVersion: String(raw.evaluatorVersion ?? "unknown"),

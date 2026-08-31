@@ -152,7 +152,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           <section>
             <h2 className="font-heading text-lg font-semibold text-ink">Key cases</h2>
             <p className="mb-3 mt-1 text-sm text-grey-700">The runs that separate estimators — cold and hot cycles, the blinded cell, wrong initial SOC, a biased current sensor. Each plot says why it is there.</p>
-            <KeyCases traces={traces} modelName={sub.modelName} />
+            <KeyCases traces={traces} modelName={sub.modelName} robustness={r.robustness as { initialSocRmse: number[]; currentOffsetRmse: number[] } | null} perCycle={perCycle} />
           </section>
 
           {/* 3. the rest, collapsed */}

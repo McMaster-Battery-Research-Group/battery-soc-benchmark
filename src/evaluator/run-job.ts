@@ -156,7 +156,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     const out = await evaluator.evaluate({ submissionId: sub.id, filePath: localPath, fileType: sub.fileType, modelType: sub.modelType, evaluationLevel: sub.evaluationLevel, log, signal: abort.signal });
     clearInterval(cancelPoll);
     inflight.delete(abort);
-    const { perCycle, timeSeries, evaluatorVersion, tracesFile, ...scalars } = out;
+    const { perCycle, timeSeries, evaluatorVersion, tracesFile, robustness, ...scalars } = out;
     // full-resolution traces → storage (not the DB row); replace the previous file if this is a re-evaluation
     let tracesKey: string | null = null;
     if (tracesFile) {
@@ -172,8 +172,8 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     await db.$transaction([
       db.evaluationResult.upsert({
         where: { submissionId: sub.id },
-        create: { submissionId: sub.id, ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion, tracesKey },
-        update: { ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion, tracesKey },
+        create: { submissionId: sub.id, ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion, tracesKey, robustness: robustness ?? undefined },
+        update: { ...scalars, perCycle: perCycle as object, timeSeries: timeSeries as object, evaluatorVersion, tracesKey, robustness: robustness ?? undefined },
       }),
       db.submission.update({ where: { id: sub.id }, data: { status: "COMPLETED", completedAt: new Date(), failureMessage: null } }),
       db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null } }),
