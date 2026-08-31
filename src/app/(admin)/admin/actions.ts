@@ -55,6 +55,24 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
   return { ok: true, deleted: lines.length, skipped, emailed };
 }
 
+// ---- evaluation policy (Admin → Evaluation workers)
+
+export async function saveEvalSettingsAction(input: { evalTimeoutMin: number; dryRunTimeoutMin: number; submissionsPerDay: number }): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const evalTimeoutMin = Math.round(Number(input.evalTimeoutMin));
+  const dryRunTimeoutMin = Math.round(Number(input.dryRunTimeoutMin));
+  const submissionsPerDay = Math.round(Number(input.submissionsPerDay));
+  if (!(evalTimeoutMin >= 10 && evalTimeoutMin <= 1440)) return { ok: false, error: "Evaluation limit must be 10–1440 minutes." };
+  if (!(dryRunTimeoutMin >= 2 && dryRunTimeoutMin <= 60)) return { ok: false, error: "Test-run limit must be 2–60 minutes." };
+  if (!(submissionsPerDay >= 1 && submissionsPerDay <= 100)) return { ok: false, error: "Daily submissions must be 1–100." };
+  const data = { evalTimeoutMin, dryRunTimeoutMin, submissionsPerDay, updatedBy: admin.id };
+  await db.evalSettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
+  await recordAdminEvent("settings", `${admin.name} set evaluation limits: ${evalTimeoutMin} min per evaluation, ${dryRunTimeoutMin} min per test run, ${submissionsPerDay} submissions/day per user`);
+  logEvent("admin.eval_settings", { by: admin.id, evalTimeoutMin, dryRunTimeoutMin, submissionsPerDay });
+  revalidatePath("/admin/workers");
+  return { ok: true };
+}
+
 // ---- per-admin notification preferences (Admin → My notifications; each admin edits only their own)
 
 export async function saveAdminNotifyAction(prefs: Record<string, boolean>): Promise<{ ok: true }> {

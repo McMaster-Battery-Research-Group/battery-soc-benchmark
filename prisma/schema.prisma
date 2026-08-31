@@ -256,6 +256,20 @@ model AdminEvent {
   @@index([createdAt])
 }
 
+/// Single-row evaluation policy, editable on Admin → Evaluation workers. Workers and the web tier
+/// re-read it within ~15 s (src/lib/eval-settings.ts); env vars act as defaults when the row is absent.
+model EvalSettings {
+  id               Int      @id @default(1)
+  /// hard compute limit per blinded evaluation, minutes
+  evalTimeoutMin   Int      @default(360)
+  /// hard limit per pre-submission test run, minutes
+  dryRunTimeoutMin Int      @default(10)
+  /// submissions per user per rolling 24 h (admins exempt)
+  submissionsPerDay Int     @default(3)
+  updatedAt        DateTime @updatedAt
+  updatedBy        String?
+}
+
 /// Sliding-window rate limiting for sensitive actions (login, register, reset,
 /// contact, uploads). One row per hit; counted per key within a window and
 /// pruned opportunistically. Works across Vercel's stateless functions.

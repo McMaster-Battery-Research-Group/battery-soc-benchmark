@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { EvaluationError, EvaluationCancelled, type DryRunOutput, type EvaluationInput, type EvaluationOutput, type Evaluator } from "./types";
 import { parseResultsJson } from "./results";
+import { getEvalSettings } from "@/lib/eval-settings";
 
 /**
  * Runs evaluator/python/socbench_eval — the benchmark implementation (verified
@@ -184,7 +185,9 @@ export class PythonEvaluator implements Evaluator {
     const data = process.env.SOCBENCH_BLIND_DATA;
     if (!data && !dry) throw new EvaluationError("SOCBENCH_BLIND_DATA is not set on the evaluation host.", false);
     const outDir = await mkdtemp(path.join(os.tmpdir(), "socbench-pyeval-"));
-    const timeoutMs = Number(dry ? (process.env.DRY_RUN_TIMEOUT_MIN ?? 10) : (process.env.PY_EVAL_TIMEOUT_MIN ?? 360)) * 60_000;
+    const settings = await getEvalSettings();
+    const timeoutMin = dry ? settings.dryRunTimeoutMin : settings.evalTimeoutMin;
+    const timeoutMs = timeoutMin * 60_000;
 
     const mode = sandboxMode();
     const runtime = packageRuntime(input.filePath);
@@ -224,7 +227,8 @@ export class PythonEvaluator implements Evaluator {
         "-v", `${toDockerPath(outDir)}:/out:rw`,
         // the blinded data is mounted ONLY for real evaluations — dry runs use the open data baked into the image
         ...(data && !dry ? ["-v", `${toDockerPath(data)}:/data/blind_data.mat:ro`] : []),
-        ...["SOCBENCH_CAL_PYTHON", "SOCBENCH_CAL_MATLAB", "SOCBENCH_TIMEOUT_MIN"].flatMap((k) => (process.env[k] ? ["-e", `${k}=${process.env[k]}`] : [])),
+        ...["SOCBENCH_CAL_PYTHON", "SOCBENCH_CAL_MATLAB"].flatMap((k) => (process.env[k] ? ["-e", `${k}=${process.env[k]}`] : [])),
+        "-e", `SOCBENCH_TIMEOUT_MIN=${timeoutMin}`, // the evaluator's inner limit matches the container kill timer
         ...(runtime === "matlab" && process.env.EVAL_MATLAB_LICENSE ? ["-e", `MLM_LICENSE_FILE=${process.env.EVAL_MATLAB_LICENSE}`] : []),
         ...(runtime === "matlab" && !process.env.EVAL_MATLAB_LICENSE ? await mhlmLicenseEnv(input.log) : []),
         image,
