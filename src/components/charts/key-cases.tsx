@@ -3,6 +3,8 @@
 import * as React from "react";
 import type { TimeSeriesTrace } from "@/evaluator/types";
 import { SocTrace } from "@/components/charts/soc-trace";
+import { OffsetRmseChart } from "@/components/charts/offset-rmse";
+import type { PerCycleRow } from "@/evaluator/types";
 import { Alert } from "@/components/ui/misc";
 
 const GROUPS: { id: NonNullable<TimeSeriesTrace["group"]>; title: string; blurb: string }[] = [
@@ -12,7 +14,7 @@ const GROUPS: { id: NonNullable<TimeSeriesTrace["group"]>; title: string; blurb:
 ];
 
 /** The cases that show how estimators differ (mirrors the plots the original MATLAB tool produced). */
-export function KeyCases({ traces, modelName }: { traces: TimeSeriesTrace[]; modelName: string }) {
+export function KeyCases({ traces, modelName, robustness, perCycle }: { traces: TimeSeriesTrace[]; modelName: string; robustness?: { initialSocRmse: number[]; currentOffsetRmse: number[] } | null; perCycle?: PerCycleRow[] }) {
   const legacy = traces.every((t) => !t.group);
   return (
     <div className="space-y-8">
@@ -29,6 +31,9 @@ export function KeyCases({ traces, modelName }: { traces: TimeSeriesTrace[]; mod
             <h3 className="font-heading text-lg font-semibold text-ink">{g.title}</h3>
             <p className="mb-3 mt-1 max-w-3xl text-sm text-grey-700">{g.blurb}</p>
             <KeyCasePicker traces={list} modelName={modelName} />
+            {g.id === "offset" && robustness?.currentOffsetRmse?.length && perCycle ? (
+              <div className="mt-4"><OffsetRmseChart currentOffsetRmse={robustness.currentOffsetRmse} perCycle={perCycle} /></div>
+            ) : null}
           </section>
         );
       })}

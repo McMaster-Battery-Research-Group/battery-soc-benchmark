@@ -224,6 +224,8 @@ model EvaluationResult {
   timeSeries Json
   /// storage key of traces.mat — every run at full 1 Hz resolution (download); null for results evaluated before 2026-08-30
   tracesKey  String?
+  /// { initialSocRmse: number[9], currentOffsetRmse: number[18] } — per-start and per-offset RMSEs behind tests 10–11; null for older results
+  robustness Json?
 
   evaluatorVersion String   @default("mock-1")
   createdAt        DateTime @default(now())
