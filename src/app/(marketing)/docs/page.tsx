@@ -129,6 +129,7 @@ export default async function DocsPage() {
             <H2 id="evaluation">How evaluation runs</H2>
             <ol className="mt-3 list-decimal space-y-2 pl-6">
               <li>Your package is stored and a job is queued. The queue is processed in order by the evaluation worker.</li>
+              <li>An evaluation may use up to <strong>6 hours</strong> of compute (the reference LSTM takes minutes); test runs are limited to 10 minutes. A run that exceeds the limit fails with a timeout.</li>
               <li>The model is loaded and iterated over every blinded cycle for all four cells at all six temperatures, then over the charging profiles and the robustness variants (initial SOC of 90 / 60 / 30 %; current offsets of ±0.1 A and ±0.3 A).</li>
               <li>Per-cycle errors, test-case averages, the weighted score and down-sampled time series are written to your submission page; you receive an email.</li>
               <li>The uploaded package is <strong>deleted</strong> as soon as the evaluation finishes. Source is never displayed on the site.</li>

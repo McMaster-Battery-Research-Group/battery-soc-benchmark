@@ -33,7 +33,7 @@ import { parseResultsJson } from "./results";
  *   SOCBENCH_BLIND_DATA  blind_data.mat produced by matlab/Export_Blind_Data.m
  *   MATLAB_BIN           matlab executable, only for Model.m/.p packages run on the host
  *   SOCBENCH_CAL_PYTHON / SOCBENCH_CAL_MATLAB  complexity calibration (s per sample)
- *   PY_EVAL_TIMEOUT_MIN  hard kill after this many minutes (default 180; dry runs 10)
+ *   PY_EVAL_TIMEOUT_MIN  hard kill after this many minutes (default 360; dry runs 10)
  */
 
 /** Only these host variables reach an evaluation process (host mode). Secrets never do. */
@@ -184,7 +184,7 @@ export class PythonEvaluator implements Evaluator {
     const data = process.env.SOCBENCH_BLIND_DATA;
     if (!data && !dry) throw new EvaluationError("SOCBENCH_BLIND_DATA is not set on the evaluation host.", false);
     const outDir = await mkdtemp(path.join(os.tmpdir(), "socbench-pyeval-"));
-    const timeoutMs = Number(dry ? (process.env.DRY_RUN_TIMEOUT_MIN ?? 10) : (process.env.PY_EVAL_TIMEOUT_MIN ?? 180)) * 60_000;
+    const timeoutMs = Number(dry ? (process.env.DRY_RUN_TIMEOUT_MIN ?? 10) : (process.env.PY_EVAL_TIMEOUT_MIN ?? 360)) * 60_000;
 
     const mode = sandboxMode();
     const runtime = packageRuntime(input.filePath);
