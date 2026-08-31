@@ -1,6 +1,6 @@
 # Roadmap — open improvements
 
-Kept current so "what's pending?" has one answer. Last updated 2026-08-31 (after tracker items 1–14 were resolved). Detailed security items live in `security.md`; tracker resolutions in `issue-tracker-2026-08-28.csv`.
+Kept current so "what's pending?" has one answer. Last updated 2026-08-31, evening (tracker items 1–14 resolved; polish batch shipped). Detailed security items live in `security.md`; tracker resolutions in `issue-tracker-2026-08-28.csv`.
 
 ## Launch blockers
 
@@ -28,17 +28,8 @@ Kept current so "what's pending?" has one answer. Last updated 2026-08-31 (after
 13. Compliance: §26(b) risk assessment; privacy page notes on rate-limit IP logging and container processing.
 14. Rotate the Gmail app password hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m` (the folder has been shared around).
 
-## Polish — small usability / visual items (roughly ordered by value ÷ effort)
+## Polish — small usability / visual items
 
-- **Branded 404 and error pages** — today a crash or bad URL shows Next.js defaults; a maroon "this cycle went off-road" page with links home is an hour of work.
-- **Loading skeletons** (`loading.tsx` per route) — leaderboard and results pages query the DB on every view; a skeleton beats a white flash, especially from campus Wi-Fi.
-- **Social/OG cards** — `og:image` per page (site card; per-submission card with model name + score) so links pasted into Teams/Twitter/LinkedIn unfurl properly. Matters for launch announcements.
-- **Affiliation autocomplete** on register/profile, suggesting existing affiliations — prevents "McMaster University" vs "McMaster Univ." splitting the leaderboard filter.
-- **Whole-row click targets** on the leaderboard (row → submission page), with the current links kept for middle-click.
-- **Copy-link button** on results pages (and section anchors for the folds, e.g. `#score-history`) so people can share exactly what they mean.
-- **Relative timestamps** ("3 min ago") with the absolute time in a tooltip, used consistently on admin pages and status cards.
-- **Export chart as PNG** button on the SOC-trace and comparison charts — people screenshot them for slides today.
-- **Glossary coverage pass** — the dotted-underline `<Term>` tooltips exist but are used sparsely; wire them through the leaderboard headers and results page.
-- **Focus/keyboard pass** — visible focus rings on the custom controls (navigator handles, zoom toolbar, checkboxes), skip-to-content link. Cheap and it matters for AODA.
-- **Empty states with next actions** — e.g. an empty My submissions shows "Test a package first →" instead of a bare table.
-- **Dark mode** — brand tokens for it exist; the charts and PDFs stay light. Biggest item on this list; only worth it if people ask.
+All done 2026-08-31 except dark mode: branded 404/error pages, loading skeletons, OG link-preview cards (site-wide + per-submission, private submissions get a generic card), affiliation autocomplete on register/profile, whole-row click on the leaderboard, copy-link button + section anchors on results pages, relative timestamps in the admin activity feed, PNG export on every chart, glossary tooltips on test-run stats and compare rows. (Skip-link, focus-visible styling and the submissions empty state already existed.)
+
+- **Dark mode** — brand tokens for it exist; charts and PDFs would stay light. Only worth doing if people ask.
