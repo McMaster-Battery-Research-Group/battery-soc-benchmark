@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CHART } from "./palette";
 import { cn } from "@/lib/utils";
+import { ImageDown } from "lucide-react";
 
 /** Shared tooltip card for recharts. */
 export function ChartTooltip({ active, label, rows }: { active?: boolean; label?: React.ReactNode; rows: { name: string; value: string; color?: string }[] }) {
@@ -38,8 +39,19 @@ export function ChartFrame({
   className?: string;
   legend?: { label: string; color: string; dashed?: boolean }[];
 }) {
+  const figRef = React.useRef<HTMLElement>(null);
+  const exportPng = async () => {
+    const el = figRef.current;
+    if (!el) return;
+    const { toPng } = await import("html-to-image");
+    const url = await toPng(el, { backgroundColor: "#ffffff", pixelRatio: 2, filter: (n) => !(n instanceof HTMLElement && n.dataset.noExport !== undefined) });
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "chart"}.png`;
+    link.click();
+  };
   return (
-    <figure className={cn("card", className)}>
+    <figure ref={figRef} className={cn("card", className)}>
       <figcaption className="flex flex-col gap-2 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-heading text-[15px] font-semibold text-ink">{title}</p>
@@ -55,7 +67,12 @@ export function ChartFrame({
             ))}
           </ul>
         ) : null}
-        {aside}
+        <div className="flex items-start gap-2">
+          {aside}
+          <button type="button" data-no-export onClick={exportPng} title="Download this chart as a PNG image" aria-label="Download chart as PNG" className="shrink-0 rounded-brand border border-border bg-white p-1.5 text-grey-600 hover:bg-grey-100 hover:text-ink">
+            <ImageDown className="size-4" />
+          </button>
+        </div>
       </figcaption>
       <div className="px-2 py-4 sm:px-4">{children}</div>
     </figure>

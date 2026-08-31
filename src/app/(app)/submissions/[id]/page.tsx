@@ -12,6 +12,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/misc";
 import { Avatar } from "@/components/avatar";
+import { CopyLink } from "@/components/copy-link";
 import { Scorecard } from "@/components/scorecard";
 import { ResultInsights } from "@/components/result-insights";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
@@ -89,6 +90,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               </Link>
             ) : null}
             <span>#{sub.seq}{sub.version > 1 ? ` · v${sub.version}` : ""} · {MODEL_TYPE_LABELS[sub.modelType]} · {fmtDateTime(sub.submittedAt)}</span>
+            <CopyLink path={`/submissions/${sub.id}`} />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="flex -space-x-2">
@@ -156,13 +158,13 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           </section>
 
           {/* 3. the rest, collapsed */}
-          <Fold title="Test-case charts" sub="The scorecard as bar charts — tests 1–8, and RMSE against temperature (test 9).">
+          <Fold id="charts" title="Test-case charts" sub="The scorecard as bar charts — tests 1–8, and RMSE against temperature (test 9).">
             <div className="grid gap-6 xl:grid-cols-5">
               <div className="xl:col-span-3"><TestCaseBars series={[{ name: sub.modelName, values }]} /></div>
               <div className="xl:col-span-2"><TemperatureBars series={[{ name: sub.modelName, values }]} /></div>
             </div>
           </Fold>
-          <Fold title="All 144 cycles" sub="Every blinded drive cycle: per-cycle errors, and any of the plotted cycles in the time domain.">
+          <Fold id="all-cycles" title="All 144 cycles" sub="Every blinded drive cycle: per-cycle errors, and any of the plotted cycles in the time domain.">
             <PerCycleTable rows={perCycle} modelName={sub.modelName} />
             <div className="mt-6">
               <SocTracePicker tracesByModel={[traces.filter((t) => (t.group ?? "cycle") === "cycle")]} names={[sub.modelName]} />
@@ -170,7 +172,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             </div>
           </Fold>
           {history.length ? (
-            <Fold title="Score history" sub="Every evaluation attempt and every change to how this submission is scored; the current score is the last row.">
+            <Fold id="score-history" title="Score history" sub="Every evaluation attempt and every change to how this submission is scored; the current score is the last row.">
               <ol className="divide-y divide-border text-sm">
                 {history.map((h, i) => {
                   const prev = history.slice(0, i).reverse().find((p) => p.weightedError !== null)?.weightedError ?? null;
@@ -232,9 +234,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 }
 
 /** Collapsed section (native <details>, no JS): title + one-line summary; opens in place. */
-function Fold({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
+function Fold({ id, title, sub, children }: { id?: string; title: string; sub?: string; children: React.ReactNode }) {
   return (
-    <details className="group card">
+    <details id={id} className="group card scroll-mt-24">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
         <span>
           <span className="font-heading text-[15px] font-semibold text-ink">{title}</span>

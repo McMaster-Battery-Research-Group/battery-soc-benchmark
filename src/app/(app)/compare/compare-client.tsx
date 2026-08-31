@@ -9,6 +9,7 @@ import type { LeaderboardRow } from "@/lib/queries";
 import type { TimeSeriesTrace } from "@/evaluator/types";
 import { TEST_CASES, MODEL_TYPE_LABELS, type MetricKey } from "@/lib/test-cases";
 import { fmtPct, cn } from "@/lib/utils";
+import { Term } from "@/components/term";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -77,9 +78,9 @@ export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows
                 </tr>
               </thead>
               <tbody>
-                <MetricRow label="Weighted error" vals={selected.map((s) => s.weightedError)} bold />
-                <MetricRow label="Complexity" vals={selected.map((s) => s.complexity)} fmt={(v) => String(v)} lowerBetter={false} />
-                <MetricRow label="Max error" vals={selected.map((s) => s.maxError)} />
+                <MetricRow label={<Term k="weighted-error">Weighted error</Term>} vals={selected.map((s) => s.weightedError)} bold />
+                <MetricRow label={<Term k="complexity">Complexity</Term>} vals={selected.map((s) => s.complexity)} fmt={(v) => String(v)} lowerBetter={false} />
+                <MetricRow label={<Term k="maxe">Max error</Term>} vals={selected.map((s) => s.maxError)} />
                 {TEST_CASES.map((t) => (
                   <MetricRow key={t.key} label={<><span className="mr-1.5 text-xs text-grey-500">T{t.test}</span>{t.label}</>} vals={selected.map((s) => s[t.key])} />
                 ))}

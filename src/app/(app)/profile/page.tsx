@@ -9,6 +9,7 @@ export const metadata: Metadata = { title: "Profile" };
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
+  const affiliations = (await db.user.groupBy({ by: ["affiliation"], orderBy: { _count: { affiliation: "desc" } }, take: 100 }).catch(() => [])).map((a) => a.affiliation).filter(Boolean);
   const session = await auth();
   const user = await db.user.findUnique({
     where: { id: session!.user.id },
@@ -24,7 +25,7 @@ export default async function ProfilePage() {
     <>
       <PageHeader eyebrow="Account" title={user.name} description={`${user.affiliation} · member since ${fmtDate(user.createdAt)} · ${user._count.submissions} submissions · ${user._count.contestEntries} contest registrations`} />
       <div className="container-site py-8">
-        <ProfileForms
+        <ProfileForms affiliations={affiliations}
           id={user.id}
           name={user.name}
           affiliation={user.affiliation}
