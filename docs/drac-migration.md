@@ -82,7 +82,7 @@ Vercel or cloud-VM web app ──► Postgres (Supabase or cloud VM)
 | Update code | **Automatic.** `socbench-update.timer` runs `scripts/vm-update.sh` every 10 min: fetches `main`, runs `npm ci` / `prisma generate` / image rebuild only when the relevant files changed, and restarts the worker **only when it is idle** (a restart is deferred while an evaluation is running). Force it now: `sudo /opt/socbench/scripts/vm-update.sh`. History: `sudo journalctl -u socbench-update -n 50` |
 | Rebuild sandbox (monthly, or when `evaluator/` changes) | `sudo docker build -t socbench-eval /opt/socbench/evaluator && sudo systemctl restart socbench-worker` (`--build-arg TORCH=1` for PyTorch) |
 | Pause / stop | *Admin → Evaluation workers* buttons, or `sudo systemctl stop socbench-worker` (graceful: in-flight jobs are returned to the queue) |
-| Change env | edit `/etc/socbench/worker.env`, then `sudo systemctl restart socbench-worker` |
+| Change env | edit `/etc/socbench/worker.env`, then `sudo systemctl restart socbench-worker`. Policy limits (evaluation/test-run time limits, daily cap) do NOT live here — set them on *Admin → Evaluation workers*, no restart needed |
 
 **MATLAB on the VM** — via MathWorks *online licensing* with the lab's campus-wide licence (Dr. Kollmeyer's MathWorks account; he has confirmed the licence permits this use). The base image `mathworks/matlab-deep-learning:r2026a` (24.5 GB on disk) already contains every toolbox submissions have needed, so `evaluator/Dockerfile.matlab` only adds Python + the harness and remaps the `matlab` user to the `socbench` uid.
 
