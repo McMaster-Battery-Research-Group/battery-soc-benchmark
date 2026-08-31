@@ -1,6 +1,6 @@
 "use server";
 
-import { accountEventEmail, roleChangedEmail, submissionDeletedEmail, bulkDeletionEmail } from "@/lib/mail";
+import { accountEventEmail, accountDeletedEmail, roleChangedEmail, submissionDeletedEmail, bulkDeletionEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
 import { revalidatePath } from "next/cache";
@@ -219,6 +219,34 @@ export async function setRoleAction(userId: string, role: "USER" | "ADMIN") {
     roleChangedEmail(user, role, me.name).catch(() => {});
   }
   revalidatePath("/admin/users");
+}
+
+/**
+ * Delete an account and everything it owns. Safety rails: no self-delete, no deleting an
+ * administrator (revoke admin first — prevents a single compromised admin wiping the others),
+ * and nothing with a RUNNING evaluation (cancel it first). Storage objects (queued packages,
+ * trace files) are removed; the DB rows cascade with the user.
+ */
+export async function adminDeleteUserAction(userId: string, reason: string, notifyUser: boolean): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const why = reason.trim();
+  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters) — it is kept in the activity log." };
+  if (userId === admin.id) return { ok: false, error: "You cannot delete your own account from here." };
+  const user = await db.user.findUnique({ where: { id: userId }, include: { submissions: { select: { seq: true, status: true, fileKey: true, result: { select: { tracesKey: true } } } } } });
+  if (!user) return { ok: false, error: "User not found." };
+  if (user.role === "ADMIN") return { ok: false, error: "This account is an administrator — revoke admin access first, then delete." };
+  const running = user.submissions.filter((s) => s.status === "RUNNING");
+  if (running.length) return { ok: false, error: `Submission #${running[0].seq} is being evaluated — cancel it first.` };
+  for (const s of user.submissions) {
+    await storage.remove(s.fileKey).catch(() => {});
+    if (s.result?.tracesKey) await storage.remove(s.result.tracesKey).catch(() => {});
+  }
+  await db.user.delete({ where: { id: userId } }); // submissions, results, dry runs, collaborations, tokens cascade
+  logEvent("admin.user_deleted", { by: admin.id, userId, email: user.email, submissions: user.submissions.length, reason: why });
+  accountDeletedEmail({ name: user.name, email: user.email }, why, admin.name ?? "an administrator", { submissions: user.submissions.length }, notifyUser).catch(() => {});
+  revalidatePath("/admin/users");
+  revalidatePath("/leaderboard");
+  return { ok: true, message: `${user.name} deleted — ${user.submissions.length} submissions removed${notifyUser ? "; the person was e-mailed" : ""}` };
 }
 
 export async function verifyUserAction(userId: string) {
