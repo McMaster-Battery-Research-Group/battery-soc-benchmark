@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+
 import { logEvent } from "@/lib/log";
 import { getEvalSettings } from "@/lib/eval-settings";
 
@@ -293,7 +295,7 @@ export async function deleteSubmissionAction(id: string) {
   if (result?.tracesKey) await storage.remove(result.tracesKey).catch(() => {});
   await db.submission.delete({ where: { id } });
   logEvent("submission.deleted", { id, seq: sub.seq, by: session.user.id, owner: sub.userId });
-  if (owner && actor) submissionDeletedEmail({ ...sub, weightedError: result?.weightedError ?? null, owner }, actor).catch(() => {});
+  if (owner && actor) after(() => submissionDeletedEmail({ ...sub, weightedError: result?.weightedError ?? null, owner }, actor).catch(() => {}));
   revalidatePath("/leaderboard");
   revalidatePath("/submissions");
   redirect("/submissions");

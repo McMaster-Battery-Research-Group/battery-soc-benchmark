@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+
 import { accountEventEmail } from "@/lib/mail";
 import { logEvent } from "@/lib/log";
 
@@ -22,6 +24,6 @@ export async function confirmEmailAction(fd: FormData) {
   // that fires after the click) lands on "already verified" instead of an error.
   await db.user.update({ where: { id: rec.userId }, data: { emailVerified: new Date() } });
   logEvent("user.verified", { userId: rec.userId });
-  accountEventEmail("verified", rec.user, "e-mail link").catch(() => {});
+  after(() => accountEventEmail("verified", rec.user, "e-mail link").catch(() => {}));
   redirect("/login?verified=1");
 }
