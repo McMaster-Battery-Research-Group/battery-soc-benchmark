@@ -56,7 +56,7 @@ async function resizeToDataUrl(file: File): Promise<string> {
   }
 }
 
-export function ProfileForms(v: ProfileValues) {
+export function ProfileForms(v: ProfileValues & { affiliations?: string[] }) {
   const [p, pAction] = useActionState<ActionState, FormData>(updateProfileAction, {});
   const [pw, pwAction] = useActionState<ActionState, FormData>(changePasswordAction, {});
   const [preview, setPreview] = React.useState<string | null>(null);
@@ -113,7 +113,8 @@ export function ProfileForms(v: ProfileValues) {
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Field label="Full name" name="name" defaultValue={v.name} required error={p.errors?.name} autoComplete="name" />
-          <Field label="Affiliation" name="affiliation" defaultValue={v.affiliation} required error={p.errors?.affiliation} autoComplete="organization" placeholder="e.g. McMaster University" />
+          <datalist id="affiliation-options">{(v.affiliations ?? []).map((a) => <option key={a} value={a} />)}</datalist>
+          <Field list="affiliation-options" label="Affiliation" name="affiliation" defaultValue={v.affiliation} required error={p.errors?.affiliation} autoComplete="organization" placeholder="e.g. McMaster University" />
           <Field label="Position / occupation" name="occupation" defaultValue={v.occupation} error={p.errors?.occupation} placeholder="e.g. PhD candidate, BMS engineer" autoComplete="organization-title" />
           <div>
             <p className="mb-1.5 font-heading text-sm font-medium text-grey-800">Email</p>

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Alert } from "@/components/ui/misc";
+import { Term } from "@/components/term";
 import { fmtPct } from "@/lib/utils";
 import { COMPLEXITY_LABELS, EVALUATION_SCOPE } from "@/lib/test-cases";
 import type { DryRunOutput } from "@/evaluator/types";
@@ -75,15 +76,15 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
         Passed the +0.3 A validation and completed the open cycle on the <strong>{r.runtime}</strong> runtime in {r.elapsedSec} s. This is not a score — the blinded evaluation runs {EVALUATION_SCOPE} — but a package that passes here will run there.
       </Alert>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          ["RMSE (open cycle)", `${fmtPct(r.rmse)} %`],
-          ["MAE", `${fmtPct(r.mae)} %`],
-          ["Max error", `${fmtPct(r.maxErr, 1)} %`],
+        {([
+          [<Term key="rmse" k="rmse">RMSE (open cycle)</Term>, `${fmtPct(r.rmse)} %`],
+          [<Term key="mae" k="mae">MAE</Term>, `${fmtPct(r.mae)} %`],
+          [<Term key="maxe" k="maxe">Max error</Term>, `${fmtPct(r.maxErr, 1)} %`],
           // A MATLAB test run times one short cycle including the MATLAB session start-up, so its complexity is meaningless;
           // the full evaluation amortises start-up over 195 input matrices and reports the real bin.
-          ["Complexity", r.runtime === "matlab" ? "measured in the full evaluation" : `${r.complexity} · ${COMPLEXITY_LABELS[r.complexity]}`],
-        ].map(([k, v]) => (
-          <div key={k} className="rounded-brand border border-border px-3 py-2">
+          [<Term key="complexity" k="complexity">Complexity</Term>, r.runtime === "matlab" ? "measured in the full evaluation" : `${r.complexity} · ${COMPLEXITY_LABELS[r.complexity]}`],
+        ] as [React.ReactNode, React.ReactNode][]).map(([k, v], ki) => (
+          <div key={ki} className="rounded-brand border border-border px-3 py-2">
             <p className="text-xs text-grey-600">{k}</p>
             <p className="font-heading font-semibold text-ink">{v}</p>
           </div>

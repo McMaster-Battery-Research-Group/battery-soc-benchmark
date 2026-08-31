@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { Stat } from "@/components/ui/misc";
 import { StatusBadge } from "@/components/ui/badge";
 import { fmtDateTime } from "@/lib/utils";
+import { RelTime } from "@/components/rel-time";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export default async function AdminHome() {
             <li key={e.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
               <span className="mt-0.5 shrink-0 rounded-[3px] bg-grey-100 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-700">{e.kind}</span>
               <span className="min-w-0 flex-1 text-grey-800">{e.text}</span>
-              <span className="shrink-0 text-xs text-grey-600">{fmtDateTime(e.createdAt)}</span>
+              <span className="shrink-0 text-xs text-grey-600"><RelTime date={e.createdAt} absolute={fmtDateTime(e.createdAt)} /></span>
             </li>
           ))}
         </ul>

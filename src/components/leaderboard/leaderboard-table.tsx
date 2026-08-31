@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   flexRender,
@@ -39,6 +40,7 @@ export function LeaderboardTable({
   compact?: boolean;
   title?: string;
 }) {
+  const router = useRouter();
   const columns = React.useMemo(() => buildColumns(), []);
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "weightedError", desc: false }]);
   const [visibility, setVisibility] = React.useState<VisibilityState>(DEFAULT_HIDDEN);
@@ -211,8 +213,13 @@ export function LeaderboardTable({
                   {table.getRowModel().rows.map((row) => (
                     <tr
                       key={row.id}
+                      onClick={(e) => {
+                        // the whole row navigates; real links/controls inside keep their own behaviour
+                        if ((e.target as HTMLElement).closest("a,button,input,label")) return;
+                        router.push(`/submissions/${row.original.id}`);
+                      }}
                       className={cn(
-                        "border-b border-border transition-colors hover:bg-maroon-100/50",
+                        "cursor-pointer border-b border-border transition-colors hover:bg-maroon-100/50",
                         row.original.isPrivate ? "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-[#fffbf5]",
                       )}
                       title={row.original.isPrivate ? "Private — visible only to you; not on the public leaderboard" : undefined}
