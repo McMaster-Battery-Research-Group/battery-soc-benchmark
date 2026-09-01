@@ -20,5 +20,7 @@ jobs:
         env:
           URL: ${{ secrets.OPS_HEALTH_URL }}
         run: |
-          if [ -z "$URL" ]; then echo "OPS_HEALTH_URL secret is not set — run scripts/ops-alert-setup.ps1"; exit 1; fi
+          # green no-op until setup, so an unconfigured repo doesn't page anyone every 10 min
+          # (scripts/ops-alert-setup.ps1 tests the endpoint directly, so this can't hide a typo)
+          if [ -z "$URL" ]; then echo "::notice::OPS_HEALTH_URL secret is not set — run scripts/ops-alert-setup.ps1"; exit 0; fi
           curl -fsS --max-time 30 --retry 3 --retry-delay 20 --retry-all-errors "$URL"
