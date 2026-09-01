@@ -12,6 +12,7 @@ Kept current so "what's pending?" has one answer. Last updated 2026-08-31, eveni
 ## Security (see security.md for the full list)
 
 5. **Weekly DB backup** — Supabase free tier has no backups; a scheduled `pg_dump` (GitHub Action → private bucket) is the cheapest insurance. Top security priority.
+   - ✅ *Worker outage alerting shipped 2026-09-01* — GitHub Action pings `/api/ops/worker-health` every 10 min; admins e-mailed once per outage/recovery ("Worker outages" toggle). See drac-migration.md → Outage alerting.
 6. Session invalidation on password change/reset; **2FA for administrators**.
 7. VM egress allow-list (outbound currently unrestricted; should be Supabase + SMTP + MathWorks licensing only).
 8. **Cheating/duplicate handling** — surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges; PJK to decide whether to withhold results like the old tool did (evaluator-vs-original-tool.md §8).

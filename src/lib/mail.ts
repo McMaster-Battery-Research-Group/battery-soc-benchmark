@@ -379,3 +379,18 @@ export async function accountDeletedEmail(user: { name: string; email: string },
     ),
   );
 }
+
+/**
+ * Operational alert to administrators ("workers" toggle): evaluation workers stopped reporting,
+ * queued work is stranded without a compatible worker, or service recovered. Sent by the
+ * /api/ops/worker-health check only when the state CHANGES, so an outage is one e-mail, not one
+ * every ten minutes.
+ */
+export async function workerAlertEmail(subject: string, lines: string[]) {
+  const { adminNotifyTargets } = await import("@/lib/admin-notify");
+  const targets = await adminNotifyTargets("workers");
+  if (!targets.length) return;
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = layout(subject, `${lines.map((l) => `<p>${esc(l)}</p>`).join("")}${button(`${site()}/admin/workers`, "Open evaluation workers")}`);
+  await Promise.all(targets.map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html, text: lines.join("\n") })));
+}

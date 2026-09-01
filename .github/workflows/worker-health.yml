@@ -1,0 +1,24 @@
+# Dead-man's switch: pings /api/ops/worker-health every 10 minutes. The endpoint itself decides
+# whether to e-mail administrators (state transitions only), so this job stays green during a
+# worker outage — a RED run here means the WEBSITE did not answer, which GitHub e-mails the repo
+# owner about on its own. OPS_HEALTH_URL (repo secret) is the full endpoint URL including ?token=;
+# scripts/ops-alert-setup.ps1 sets it up.
+name: Worker health
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping worker-health endpoint
+        env:
+          URL: ${{ secrets.OPS_HEALTH_URL }}
+        run: |
+          if [ -z "$URL" ]; then echo "OPS_HEALTH_URL secret is not set — run scripts/ops-alert-setup.ps1"; exit 1; fi
+          curl -fsS --max-time 30 --retry 3 --retry-delay 20 --retry-all-errors "$URL"

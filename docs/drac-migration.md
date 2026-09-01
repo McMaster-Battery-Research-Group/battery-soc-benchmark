@@ -102,6 +102,15 @@ How the licence works here: the browser sign-in yields a **one-year identity tok
 7. Egress hardening (todo): replace `bridge` with a Docker network whose only allowed destinations are `login.mathworks.com` / `licensing.mathworks.com` (443). Until then a MATLAB submission has general outbound network access (still no inbound, read-only FS, no privileges, no secrets).
 8. Known issue reported by Paarth (earlier attempt): MATLAB in Docker "wouldn't close". Our harness runs `matlab -batch` (exits on its own) with a hard timeout, and the worker `docker kill`s the container on timeout/cancel, so a hung MATLAB cannot pin the slot.
 
+### Outage alerting (added 2026-09-01)
+
+Lesson from the Sept 1 Arbutus routing outage (VM lost its route to parts of AWS us-west-2 + Cloudflare for hours; the worker was healthy but could not reach Supabase, so it looked "offline" and nobody was told): the web tier is the only vantage point that always sees both the database and SMTP, so it does the watching.
+
+- `GET /api/ops/worker-health?token=…` (token = `OPS_HEALTH_TOKEN` env on Vercel) checks for two conditions — no un-paused worker heartbeat in 3 min, or queued/running work whose runtime no online worker declares — and e-mails admins (per-admin **Worker outages** toggle) on **state transitions only**: one alert per outage, one all-clear. State lives in the latest `kind="ops"` row of the admin activity feed, so every transition is also visible on Admin → Overview.
+- `.github/workflows/worker-health.yml` pings it every 10 minutes. The job stays green during a *worker* outage (the endpoint answers 200 and handles the e-mail itself); a red run means the **website** didn't answer, which GitHub e-mails the repo owner about.
+- Setup / token rotation: `scripts/ops-alert-setup.ps1` (run by a human — it generates the token, sets the Vercel env + GitHub secret together, redeploys).
+- During a database-unreachable outage nothing needs restarting on the VM: the worker catches the Prisma error every loop and resumes by itself the moment the route heals.
+
 **Complexity calibration** — `SOCBENCH_CAL_PYTHON` is machine-specific (seconds per sample of the reference Coulomb counter). Re-measure whenever the VM flavour changes: evaluate `evaluator/examples/coulomb-counter.python.zip` and set the constant to its `secondsPerSample` so that the Coulomb counter lands in complexity bin 1. Measured 2026-08-28 on p8-12gb: **1.80 µs/sample** (laptop: 0.92 µs) → `SOCBENCH_CAL_PYTHON="1.8e-6"` in `worker.env`. Parity check the same day: the CC reference package scored weighted error 15.366 % on both hosts.
 
 ## Security requirements for the DRAC worker (added 2026-08-26)
