@@ -6,25 +6,31 @@
 # .github/workflows/worker-health.yml every 10 minutes), and redeploys the site so the new env
 # var takes effect. Needs: `npx vercel` logged in + project linked, `gh` logged in.
 # Re-running rotates the token safely (both sides are updated together).
-# ASCII-only on purpose: PowerShell 5.1 reads BOM-less files as ANSI and mangles anything fancier.
+#
+# PowerShell 5.1 quirks handled here: ASCII-only (BOM-less files are read as ANSI), no
+# $ErrorActionPreference=Stop (the Vercel CLI prints its banner to stderr, which Stop turns into
+# a terminating error) - failures are detected via exit codes instead, with stderr stringified.
 
-$ErrorActionPreference = "Stop"
 $site = "https://battery-soc-benchmark.vercel.app"
 $repo = "AhmadAli137/battery-soc-benchmark"
 
 $token = -join ((1..48) | ForEach-Object { "0123456789abcdef"[(Get-Random -Maximum 16)] })
 
 Write-Host "1/4  Setting OPS_HEALTH_TOKEN on Vercel (production)..."
-npx vercel env rm OPS_HEALTH_TOKEN production --yes 2>$null | Out-Null
-$token | npx vercel env add OPS_HEALTH_TOKEN production
-if ($LASTEXITCODE -ne 0) { throw "vercel env add failed - is the CLI logged in and the project linked?" }
+$null = $(npx vercel env rm OPS_HEALTH_TOKEN production --yes 2>&1)   # ok if it did not exist
+$out = $($token | npx vercel env add OPS_HEALTH_TOKEN production 2>&1)
+$out | ForEach-Object { Write-Host "  $_" }
+if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: vercel env add - is the CLI logged in and the project linked?"; exit 1 }
 
 Write-Host "2/4  Setting OPS_HEALTH_URL secret on $repo..."
-gh secret set OPS_HEALTH_URL -R $repo -b "$site/api/ops/worker-health?token=$token"
-if ($LASTEXITCODE -ne 0) { throw "gh secret set failed - is gh logged in?" }
+$out = $(gh secret set OPS_HEALTH_URL -R $repo -b "$site/api/ops/worker-health?token=$token" 2>&1)
+$out | ForEach-Object { Write-Host "  $_" }
+if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: gh secret set - is gh logged in?"; exit 1 }
 
 Write-Host "3/4  Redeploying so the new env var takes effect..."
-npx vercel redeploy $site 2>&1 | Select-Object -Last 3
+$out = $(npx vercel redeploy $site 2>&1)
+$out | Select-Object -Last 3 | ForEach-Object { Write-Host "  $_" }
+if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: vercel redeploy - run 'npx vercel redeploy $site' manually."; exit 1 }
 
 Write-Host "4/4  Testing the endpoint..."
 Start-Sleep -Seconds 20
