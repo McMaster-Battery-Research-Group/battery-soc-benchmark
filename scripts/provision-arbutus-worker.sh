@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Battery SOC Benchmark — base provisioning for an evaluation worker on an Alliance Cloud (Arbutus) Ubuntu 24.04 VM.
 # Usage (on the VM, as the default sudo user):  scp scripts/provision-arbutus-worker.sh ubuntu@<ip>: && ssh ubuntu@<ip> ./provision-arbutus-worker.sh
-# Idempotent: safe to re-run. Does NOT copy secrets or the blinded dataset — see docs/drac-migration.md ("Runbook").
+# Idempotent: safe to re-run. Does NOT copy secrets or the blinded dataset — see socbench-internal/docs/drac-migration.md ("Runbook").
 # Needs a read-only GitHub deploy key for the socbench user (the repo is private): see the runbook.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive

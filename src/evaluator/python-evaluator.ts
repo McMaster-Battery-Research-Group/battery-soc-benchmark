@@ -114,7 +114,7 @@ const toDockerPath = (p: string) => path.resolve(p).replace(/\\/g, "/");
  * MATLAB online licensing (MathWorks Hosted License Manager) for the MATLAB sandbox.
  *
  * EVAL_MATLAB_MHLM_FILE points at a JSON file (mode 600, owned by the worker user) holding the
- * long-lived *identity token* obtained by the one-time interactive login (docs/drac-migration.md →
+ * long-lived *identity token* obtained by the one-time interactive login (socbench-internal/docs/drac-migration.md →
  * "MATLAB on the VM"): { identity_token, source_id, entitlement_id }. Before each MATLAB
  * evaluation the worker exchanges it for a short-lived (24 h, "MWAS") *access token* — the same
  * call matlab-proxy makes — and passes only that into the container as MLM_WEB_USER_CRED. The
@@ -142,7 +142,7 @@ export async function mhlmLicenseEnv(log?: (l: string) => Promise<void> | void):
     }).catch((e) => {
       throw new EvaluationError(`MATLAB licensing: could not reach login.mathworks.com (${e instanceof Error ? e.message : String(e)})`, false);
     });
-    if (!res.ok) throw new EvaluationError(`MATLAB licensing: token exchange failed (${res.status}). The identity token may have expired — repeat the one-time login on the evaluation host (docs/drac-migration.md).`, false);
+    if (!res.ok) throw new EvaluationError(`MATLAB licensing: token exchange failed (${res.status}). The identity token may have expired — repeat the one-time login on the evaluation host (socbench-internal/docs/drac-migration.md).`, false);
     const data = (await res.json()) as { accessTokenString?: string };
     if (!data.accessTokenString) throw new EvaluationError("MATLAB licensing: unexpected response from login.mathworks.com (no access token).", false);
     // MWAS tokens last 24 h; refresh well before that so a long evaluation never starts with a stale one
