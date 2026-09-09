@@ -10,7 +10,7 @@ Built for Dr. Phillip Kollmeyer's battery research group, McMaster University. B
 
 ## Contents
 
-1. [The idea](#1-the-idea) · 2. [Submit a model](#2-submit-a-model) · 3. [What happens when you submit](#3-what-happens-when-you-submit) · 4. [How the pieces connect](#4-how-the-pieces-connect) · 5. [How scoring works](#5-how-scoring-works) · 6. [Run it locally](#6-run-it-locally) · 7. [Run an evaluation worker](#7-run-an-evaluation-worker) · 8. [Repository map](#8-repository-map) · 9. [Troubleshooting](#9-troubleshooting)
+1. [The idea](#1-the-idea) · 2. [Submit a model](#2-submit-a-model) · 3. [What happens when you submit](#3-what-happens-when-you-submit) · 4. [How the pieces connect](#4-how-the-pieces-connect) · 5. [How scoring works](#5-how-scoring-works) · 6. [The stack in detail](#6-the-stack-in-detail) · 7. [Run it locally](#7-run-it-locally) · 8. [Run an evaluation worker](#8-run-an-evaluation-worker) · 9. [Repository map](#9-repository-map) · 10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -96,21 +96,21 @@ Working examples of a Coulomb counter, EKF, FNN and LSTM — in both languages �
 ```mermaid
 sequenceDiagram
     participant You
-    participant Web as Website (Vercel)
+    participant Web as Website
     participant DB as Database
-    participant Worker as Worker (lab machine)
+    participant Worker as Worker
     participant Sandbox as Docker sandbox
 
     You->>Web: upload package (.zip)
-    Web->>Web: validate zip, check daily limit
-    Web->>DB: create submission (QUEUED) + job
-    Worker->>DB: poll every 2 s, claim oldest job
-    Worker->>Sandbox: run model against blinded data
-    Sandbox-->>Worker: progress lines, streamed
-    Worker->>DB: live console, % complete, ETA
+    Web->>Web: validate zip, check limits
+    Web->>DB: queue submission + job
+    Worker->>DB: claim oldest job
+    Worker->>Sandbox: run vs blinded data
+    Sandbox-->>Worker: streamed progress
+    Worker->>DB: live console + ETA
     Sandbox-->>Worker: results.json
-    Worker->>DB: scores + traces, mark COMPLETED
-    Worker-->>You: PDF report by e-mail
+    Worker->>DB: scores, mark COMPLETED
+    Worker-->>You: PDF report e-mailed
     Note over Worker,Sandbox: uploaded package is deleted
 ```
 
@@ -179,7 +179,111 @@ Full definitions and the current weights are on the site's **Methodology** page 
 
 ---
 
-## 6. Run it locally
+## 6. The stack in detail
+
+*For developers joining the project.* Everything here is chosen to run on free tiers, keep untrusted code away from the website, and stay boring enough to hand to the next student.
+
+```mermaid
+flowchart TB
+    A["Browser<br/>React 19 · Tailwind CSS 4 · Radix · Recharts"]
+    B["Next.js 15 App Router, on Vercel<br/>Server Components · Server Actions · Route Handlers · Middleware"]
+    C["Prisma 6"]
+    D[("Supabase<br/>PostgreSQL + private object storage")]
+    E["Worker — Node.js + tsx<br/>claims jobs from the same database"]
+    F["Docker sandbox<br/>Python with numpy/scipy, or MATLAB"]
+    A <--> B
+    B --> C
+    C --> D
+    E --> C
+    E --> F
+```
+
+### What each piece is, and why it was chosen
+
+| Layer | Technology | Why this one |
+| --- | --- | --- |
+| Language | TypeScript 5 (strict); Python 3.11+ for the evaluator | One typed language across website and worker; numpy is the right tool for the maths |
+| Framework | Next.js 15.5, React 19 | Pages, forms and small APIs in one project; server rendering keeps database access on the server; free hosting |
+| Styling | Tailwind CSS 4, Radix UI primitives, `class-variance-authority` | Utility CSS with design tokens; Radix gives accessible dialogs, menus and tooltips without dictating the look |
+| Data display | Recharts 3, TanStack Table 8 | SVG charts that export cleanly; a headless table for the leaderboard's sorting, filtering and column picking |
+| ORM | Prisma 6.19 | `prisma/schema.prisma` is the single source of truth; the same typed queries serve the website and the worker |
+| Database | PostgreSQL (Supabase) | Free managed tier; the submission → job → result model is relational |
+| Storage | Supabase Storage, private bucket | Same account as the database; signed URLs let the browser upload large files directly |
+| Auth | Auth.js v5 (`next-auth`), bcryptjs | E-mail and password with verification; no third-party identity provider needed for an academic audience |
+| Validation | zod 4 | One schema per form, reused by the browser and the server action |
+| E-mail | nodemailer 8 over SMTP | Provider-agnostic — swapping Gmail for Resend is configuration only |
+| PDF | pdfkit 0.20 | Vector reports generated server-side; no headless browser required |
+| Isolation | Docker | Submitted code never runs directly on the host |
+| Tests | Playwright 1.62 | Catches the class of bug that only shows up in a real browser |
+
+### How data actually flows
+
+There is **no REST API behind the website**. Pages read the database directly inside Server Components, and forms call Server Actions — typed functions that run on the server and are invoked like ordinary functions from the client.
+
+```mermaid
+sequenceDiagram
+    participant U as Browser
+    participant SC as Server Component
+    participant SA as Server Action
+    participant PR as Prisma
+    participant DB as PostgreSQL
+
+    Note over U,DB: Reading a page
+    U->>SC: request /leaderboard
+    SC->>PR: typed query
+    PR->>DB: SQL
+    DB-->>SC: rows
+    SC-->>U: rendered HTML
+
+    Note over U,DB: Submitting a form
+    U->>SA: invoke the action
+    SA->>SA: validate, auth, rate-limit
+    SA->>PR: write
+    PR->>DB: SQL
+    SA-->>U: result + revalidate
+```
+
+Route Handlers under `src/app/api/` exist only where something genuinely needs its own URL: status polling, the PDF download, and issuing upload URLs.
+
+### Database connections
+
+Each serverless function opens its own connection, which would exhaust PostgreSQL's limit almost immediately. So `DATABASE_URL` points at Supabase's **connection pooler** (port 6543), which funnels many short-lived clients through a few real connections, while `DIRECT_URL` points at the database itself (port 5432). Prisma uses the direct one only for `db push` and migrations, which need a real session.
+
+### Authentication and authorization
+
+Auth.js v5 with a credentials provider, passwords hashed with bcrypt, and a signed JWT session cookie. `src/middleware.ts` gates `/submit`, `/profile` and `/admin` before a page renders — but middleware is a convenience, not the security boundary, so `requireUser()` and `requireAdmin()` in `src/lib/auth.ts` re-check inside every server action. Roles are `USER` and `ADMIN`.
+
+### File uploads
+
+Vercel caps a serverless request body at 4.5 MB and packages can be far larger. The browser therefore asks `/api/upload` for a short-lived signed URL and sends the zip straight to the private bucket; the server re-downloads it and validates structure, size, zip-bombs and path traversal before creating the submission. `src/lib/storage.ts` hides this behind an interface so local development just writes to disk.
+
+### The job queue
+
+There is no Redis and no queue service — **the database is the queue**. `EvaluationJob` rows are claimed with an atomic conditional update, so two machines can never take the same job. Each worker writes a `WorkerHeartbeat` row every 15 seconds carrying its CPU, memory, runtimes and last console lines; that row is what the admin Workers page, the queue positions and the wait estimates all read. A worker only claims jobs whose runtime it declares in `WORKER_RUNTIMES`, so a machine without MATLAB leaves MATLAB packages for one that has it.
+
+### Running untrusted code
+
+Every evaluation runs in a throw-away Docker container: no network (MATLAB gets a bridge only so it can check out its licence), read-only root filesystem, dropped privileges, CPU and memory caps, and no environment variables beyond an allow-list. The blinded dataset is mounted read-only, and the container is destroyed afterwards.
+
+### E-mail, and one Vercel trap
+
+`src/lib/mail.ts` holds every template. **Fire-and-forget sends must be wrapped in `after()` from `next/server`.** Vercel freezes a serverless function the instant it returns its response, so an un-awaited promise is silently dropped — this cost us a batch of admin notifications before it was found. Every notification site now uses `after()`.
+
+### Tests and CI
+
+`npm run smoke` builds the app and runs a Playwright pass over the main pages. A `pre-push` hook (`core.hooksPath=.githooks`) runs it automatically whenever `src/**` changes; `SKIP_SMOKE=1` bypasses it. A GitHub Action pings a health endpoint every 10 minutes and e-mails administrators if the evaluation worker stops reporting in or if queued work has no compatible worker.
+
+### Gotchas worth knowing up front
+
+| Gotcha | What to do |
+| --- | --- |
+| `prisma generate` fails on Windows | Stop the dev server and the worker first — a running process locks the generated client |
+| Windows PowerShell 5.1 has no `&&` | Put commands on separate lines; npm scripts chain internally and are fine |
+| An un-awaited promise in a server action | Wrap it in `after()` from `next/server`, or it will not run in production |
+| You changed `schema.prisma` | Run `npm run db:push`, then restart both the website and the worker — they share the schema |
+| You changed the evaluator | Scores must stay reproducible: re-run the reference packages and check they still match |
+
+## 7. Run it locally
 
 You need **Node.js 20+**, **Docker Desktop** and **Git**.
 
@@ -203,7 +307,7 @@ The local setup uses `EVALUATOR=mock`, which invents plausible scores in a few s
 
 ---
 
-## 7. Run an evaluation worker
+## 8. Run an evaluation worker
 
 A worker is any machine with the blinded data that runs `npm run worker`. One process per machine; add machines to add throughput, since jobs are claimed atomically.
 
@@ -221,7 +325,7 @@ Production today runs on an Alliance Cloud (Arbutus) VM that handles both Python
 
 ---
 
-## 8. Repository map
+## 9. Repository map
 
 | Path | What is in it |
 | --- | --- |
@@ -250,7 +354,7 @@ python -m socbench_eval package.zip outDir --dry-run     # open data only
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Cause and fix |
 | --- | --- |
