@@ -181,7 +181,7 @@ Full definitions and the current weights are on the site's **Methodology** page 
 
 ## 6. The stack in detail
 
-*For developers joining the project.* Everything here is chosen to run on free tiers, keep untrusted code away from the website, and stay boring enough to hand to the next student.
+How the system is built, layer by layer, and the reasoning behind each choice. Two constraints shaped most of it: the whole platform runs on free tiers, and untrusted submitted code must never execute on the website.
 
 ```mermaid
 flowchart TB
@@ -265,9 +265,9 @@ There is no Redis and no queue service — **the database is the queue**. `Evalu
 
 Every evaluation runs in a throw-away Docker container: no network (MATLAB gets a bridge only so it can check out its licence), read-only root filesystem, dropped privileges, CPU and memory caps, and no environment variables beyond an allow-list. The blinded dataset is mounted read-only, and the container is destroyed afterwards.
 
-### E-mail, and one Vercel trap
+### E-mail delivery on Vercel
 
-`src/lib/mail.ts` holds every template. **Fire-and-forget sends must be wrapped in `after()` from `next/server`.** Vercel freezes a serverless function the instant it returns its response, so an un-awaited promise is silently dropped — this cost us a batch of admin notifications before it was found. Every notification site now uses `after()`.
+`src/lib/mail.ts` holds every template. **Fire-and-forget sends must be wrapped in `after()` from `next/server`.** Vercel freezes a serverless function the instant it returns its response, so an un-awaited promise is silently dropped — administrator notifications were lost this way until it was diagnosed. Every notification site now uses `after()`.
 
 ### Tests and CI
 
