@@ -21,12 +21,12 @@ A battery management system cannot measure how full a battery is — it has to *
 This benchmark is the neutral referee:
 
 ```mermaid
-flowchart LR
-    A["Open dataset<br/>published on Borealis"] --> B["You build<br/>an SOC model"]
+flowchart TB
+    A["Open dataset, published on Borealis"] --> B["You build an SOC model"]
     B --> C["Upload a .zip"]
-    C --> D["We run it against<br/>BLINDED data<br/>that was never published"]
-    D --> E["Ranked on the<br/>public leaderboard"]
-    D --> F["PDF report<br/>e-mailed to you"]
+    C --> D["We run it against BLINDED data<br/>that was never published"]
+    D --> E["Ranked on the public leaderboard"]
+    D --> F["PDF report e-mailed to you"]
 ```
 
 Every model is scored on the **same hidden data** with the **same code**, so the numbers are directly comparable. That is the whole point.
@@ -99,19 +99,19 @@ sequenceDiagram
     participant Web as Website (Vercel)
     participant DB as Database
     participant Worker as Worker (lab machine)
-    participant Box as Docker sandbox
+    participant Sandbox as Docker sandbox
 
     You->>Web: upload package (.zip)
     Web->>Web: validate zip, check daily limit
     Web->>DB: create submission (QUEUED) + job
     Worker->>DB: poll every 2 s, claim oldest job
-    Worker->>Box: run model against blinded data
-    Box-->>Worker: progress lines, streamed
+    Worker->>Sandbox: run model against blinded data
+    Sandbox-->>Worker: progress lines, streamed
     Worker->>DB: live console, % complete, ETA
-    Box-->>Worker: results.json
+    Sandbox-->>Worker: results.json
     Worker->>DB: scores + traces, mark COMPLETED
     Worker-->>You: PDF report by e-mail
-    Note over Worker,Box: uploaded package is deleted
+    Note over Worker,Sandbox: uploaded package is deleted
 ```
 
 If a run fails it is retried once — unless the fault is in the package itself, in which case you get the exact error message instead.
@@ -223,22 +223,22 @@ Production today runs on an Alliance Cloud (Arbutus) VM that handles both Python
 
 ## 8. Repository map
 
-```
-src/app/            pages, one folder per URL
-  (marketing)/      dataset, methodology, examples, glossary, help, about, contests
-  (auth)/           register, login, verify, password reset
-  (app)/            leaderboard, compare, submit, submissions, profile
-  (admin)/admin/    submissions, users, contests, messages, workers
-  api/              status polling, PDF report, uploads
-src/components/     React components — ui/, charts/, leaderboard/, layout/
-src/lib/            shared logic: queries, scoring, storage, mail, PDF, validation
-src/evaluator/      the worker: job claiming, sandbox launch, result parsing
-evaluator/python/   THE BENCHMARK — numpy implementation of the scoring pipeline
-evaluator/examples/ runnable reference packages (CC, EKF, FNN, LSTM)
-matlab/             Run_Model.m (executes a MATLAB model) and the blind-data exporter
-prisma/schema.prisma  every database table
-scripts/            setup and operations scripts
-```
+| Path | What is in it |
+| --- | --- |
+| `src/app/` | Every page — one folder per URL |
+| ⤷ `(marketing)/` | dataset, methodology, examples, glossary, help, about, contests |
+| ⤷ `(auth)/` | register, login, verify, password reset |
+| ⤷ `(app)/` | leaderboard, compare, submit, submissions, profile |
+| ⤷ `(admin)/admin/` | submissions, users, contests, messages, workers |
+| ⤷ `api/` | status polling, PDF report, uploads |
+| `src/components/` | React components — `ui/`, `charts/`, `leaderboard/`, `layout/` |
+| `src/lib/` | Shared logic: queries, scoring, storage, mail, PDF, validation |
+| `src/evaluator/` | The worker: job claiming, sandbox launch, result parsing |
+| `evaluator/python/` | **The benchmark itself** — numpy implementation of the scoring pipeline |
+| `evaluator/examples/` | Runnable reference packages (CC, EKF, FNN, LSTM) |
+| `matlab/` | `Run_Model.m` (executes a MATLAB model) and the blind-data exporter |
+| `prisma/schema.prisma` | Every database table |
+| `scripts/` | Setup and operations scripts |
 
 To debug a package by hand:
 
