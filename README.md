@@ -1,445 +1,270 @@
 # Battery SOC Benchmark
 
-The web platform behind the **Blind Modeling Tool** of Dr. Phillip Kollmeyer's battery research group (Electrical and Computer Engineering, McMaster University): researchers anywhere upload a battery **state-of-charge (SOC) estimation algorithm**, we run it against a **hidden ("blinded") dataset** measured on Tesla Model 3 2170 cells, and the result goes on a public **leaderboard** — with model comparison, PDF reports, co-authors, and time-boxed prize **contests**.
+Upload a battery **state-of-charge (SOC) estimation** algorithm. We run it against a **hidden dataset** measured on Tesla Model 3 2170 cells and publish the score on a public leaderboard.
 
-Live site: https://battery-soc-benchmark.vercel.app · Code: https://github.com/AhmadAli137/battery-soc-benchmark
+**Live site:** https://battery-soc-benchmark.vercel.app
 
-This README is written for someone joining the project with modest programming experience. It explains **what** the system does, **how** each part works, **why** it is built that way, and **how to run and operate it**. Skim the table of contents, read Part 1 fully, and come back to the rest as you need it.
+Built for Dr. Phillip Kollmeyer's battery research group, McMaster University. Based on *"A Blind Modeling Tool for Standardized Evaluation of Battery State of Charge Estimation Algorithms"* (IEEE ITEC+EATS 2022, [doi:10.1109/ITEC53557.2022.9813996](https://doi.org/10.1109/ITEC53557.2022.9813996)).
 
 ---
 
 ## Contents
 
-**Part 1 — Understanding the project**
-1. [What the benchmark does, in plain words](#1-what-the-benchmark-does-in-plain-words)
-2. [Glossary](#2-glossary)
-3. [The big picture (architecture)](#3-the-big-picture-architecture)
-4. [Life of a submission, step by step](#4-life-of-a-submission-step-by-step)
-5. [The evaluator — the actual science](#5-the-evaluator--the-actual-science)
-6. [How scores are computed](#6-how-scores-are-computed)
-
-**Part 2 — Working on the code**
-7. [Set up your computer](#7-set-up-your-computer)
-8. [Where things live (repository map)](#8-where-things-live-repository-map)
-9. [Key mechanisms explained](#9-key-mechanisms-explained)
-10. [Day-to-day development workflow](#10-day-to-day-development-workflow)
-
-**Part 3 — Security**
-11. [Threat model and defences](#11-threat-model-and-defences)
-
-**Part 4 — Running it for real**
-12. [Production layout and deployment](#12-production-layout-and-deployment)
-13. [Operating the evaluation worker](#13-operating-the-evaluation-worker)
-14. [Configuration reference (environment variables)](#14-configuration-reference-environment-variables)
-15. [Troubleshooting](#15-troubleshooting)
-
-**Part 5 — Reference**
-16. [Branding and institutional logos](#16-branding-and-institutional-logos)
-17. [Other documents](#17-other-documents)
-18. [TODO](#18-todo)
+1. [The idea](#1-the-idea) · 2. [Submit a model](#2-submit-a-model) · 3. [What happens when you submit](#3-what-happens-when-you-submit) · 4. [How the pieces connect](#4-how-the-pieces-connect) · 5. [How scoring works](#5-how-scoring-works) · 6. [Run it locally](#6-run-it-locally) · 7. [Run an evaluation worker](#7-run-an-evaluation-worker) · 8. [Repository map](#8-repository-map) · 9. [Troubleshooting](#9-troubleshooting)
 
 ---
 
-# Part 1 — Understanding the project
+## 1. The idea
 
-## 1. What the benchmark does, in plain words
+A battery management system cannot measure how full a battery is — it has to *estimate* SOC from current, voltage and temperature. Hundreds of algorithms exist, but every paper reports results on its own data, so nobody can tell which is actually better.
 
-A battery management system needs to know how full a battery is — its **state of charge (SOC)**, 0–100 %. It cannot measure this directly; it must *estimate* it from things it can measure: current, voltage and temperature. Many algorithms exist (Coulomb counting, Kalman filters, neural networks…) and every paper claims its own is best, usually on its own data. That makes results hard to compare.
+This benchmark is the neutral referee:
 
-This benchmark fixes that by being a neutral referee:
+```mermaid
+flowchart LR
+    A["Open dataset<br/>published on Borealis"] --> B["You build<br/>an SOC model"]
+    B --> C["Upload a .zip"]
+    C --> D["We run it against<br/>BLINDED data<br/>that was never published"]
+    D --> E["Ranked on the<br/>public leaderboard"]
+    D --> F["PDF report<br/>e-mailed to you"]
+```
 
-1. The lab published an **open dataset** (Tesla 2170 cells driven through standard drive cycles at six temperatures) that anyone can use to build and train a model.
-2. The lab kept a second, **blinded** part of the data secret. Nobody outside the lab has seen it.
-3. A researcher packages their algorithm as a single function — `Model(X, z)` in MATLAB or Python — that takes one measurement at a time and returns an SOC estimate.
-4. They upload it here. Our **worker** runs their model over every blinded drive cycle (144 of them, plus charging cycles and robustness tests) and computes the error against the true SOC.
-5. The results are scored with published weights, published on the leaderboard, and e-mailed to the author as a PDF report. The uploaded model is deleted right after.
+Every model is scored on the **same hidden data** with the **same code**, so the numbers are directly comparable. That is the whole point.
 
-Because everyone is scored on the *same hidden data* with the *same code*, the numbers are directly comparable. That is the whole point.
+**The blinded data** lives only on the evaluation machine. It is never in this repository, never on the website, and never sent anywhere. Your uploaded model is deleted immediately after it is scored.
 
-### Who uses it
+---
 
-- **Researchers / students** (anywhere): register, test their package, submit, read results, add co-authors, enter contests.
-- **The lab (administrators)**: run the evaluation machine(s), watch the queue, manage contests and users, answer feedback.
-- **You**: keep the software working and improve it.
+## 2. Submit a model
 
-## 2. Glossary
+### Your package
 
-| Term | Meaning here |
+A `.zip` with **one** of these at the top level, plus any parameter files it loads:
+
+| File | Runtime |
 | --- | --- |
-| **SOC** | State of charge, the battery's "fuel gauge", as a percentage. The quantity every submitted model must estimate. |
-| **Cell** | One physical battery. The dataset has four: `m80`, `m448`, `m448N`, `m1000` (named after the vehicle-mass profiles they were driven with). `m448` is the fully blinded cell — no data about it is public at all. |
-| **Drive cycle** | A standard speed-vs-time profile (UDDS, HWFET, LA92, US06, plus custom HWCUST/HWGRADE) converted into a current profile the cell was subjected to. |
-| **Open data / blinded data** | Open = published on Borealis, use it to build your model. Blinded = kept secret on the evaluation machine only; used to score. **The blinded file must never leave the worker machine or enter this repository.** |
-| **Submission / package** | A `.zip` containing `Model.m`, `Model.p` (MATLAB) or `Model.py` (Python) at the top level, plus any parameter files it loads. |
-| **Dry run** | A quick test of a package on *one open* drive cycle (2 h of the public m80 data). Catches format and runtime errors before a real submission. Never touches blinded data, does not create a leaderboard entry. |
-| **Evaluation / job** | A full run of a submitted package over all blinded data. Takes 10 s (simple Coulomb counter, Python) to ~45 min (heavy neural network in MATLAB). |
-| **Worker** | The background program (`npm run worker`) on a machine that has the blinded data and MATLAB. It watches the database for queued jobs and runs them. |
-| **Sandbox** | The Docker container each evaluation runs in, isolated from the machine (no network, read-only, no secrets). See Part 3. |
-| **Test case** | One of the 11 published scoring categories (all cells, blinded cell, charging, each temperature, sensor-offset robustness…). |
-| **Weighted error** | The single headline score: the per-test-case RMSE values combined with the official weights. Lower is better. |
-| **RMSE / MAE / max error** | Root-mean-square error, mean absolute error, and worst instantaneous error between estimated and true SOC, in % SOC. |
-| **Complexity** | A 1–10 bin describing how much compute the model needs per sample, relative to a plain Coulomb counter, so cheap and expensive models are visibly different. |
-| **Contest** | A time-boxed event with its own frozen leaderboard and prize; contest entries must stay public. |
-| **Collaborator / co-author** | Another registered user listed on a submission. They must accept an invitation before appearing publicly. |
-| **Web tier / worker tier** | The website (runs on Vercel, in the cloud) versus the evaluation worker (runs on a lab machine). Two separate programs sharing one database. |
+| `Model.py` | Python (numpy, scipy; PyTorch on request) |
+| `Model.m` or `Model.p` | MATLAB (any toolbox the lab licence covers) |
 
-## 3. The big picture (architecture)
+### The function
 
-```
-   Researcher's browser                     Cloud (free tiers)                         Lab machine(s)
- ┌──────────────────────┐        ┌────────────────────────────────────┐        ┌──────────────────────────────┐
- │ Next.js pages (React)│ HTTPS  │  Vercel — the web tier             │        │  Worker  (npm run worker)     │
- │ leaderboard, submit, │◀──────▶│  • server-rendered pages           │        │  • polls the DB every 2 s     │
- │ profile, admin …     │        │  • server actions (form handlers)  │        │  • claims a queued job         │
- └──────────┬───────────┘        │  • API routes (status, PDF, upload)│        │  • runs the evaluator in a     │
-            │ direct upload      └───────┬───────────────────┬────────┘        │    Docker sandbox              │
-            │ (signed URL)               │ Prisma            │ SMTP            │  • writes results + e-mails    │
-            ▼                            ▼                   ▼                 │  • heartbeat every 15 s        │
- ┌──────────────────────┐        ┌────────────────┐   ┌─────────────┐          └──────┬────────────┬───────────┘
- │ Supabase Storage     │        │ Supabase       │   │ Mail relay  │                 │ Prisma     │ download
- │ private bucket       │◀───────│ PostgreSQL     │◀──┤ (Gmail now, │                 ▼            ▼ package
- │ "packages" (zips)    │ delete │ users, subs,   │   │ Resend soon)│        (same PostgreSQL)  (same bucket)
- └──────────────────────┘ after  │ results, jobs, │   └─────────────┘
-                          eval   │ heartbeats …   │
-                                 └────────────────┘
-                                                                              blind_data.mat lives ONLY here ──▶ 🔒
+Your model is called **once per sample**, in order, and carries its own memory `z` between calls — exactly as a real BMS would run it.
+
+**Input** `X = [current, voltage, temperature]` — amps (negative = discharging), volts, °C.
+**Return** the SOC estimate (0–1) and whatever state you want handed back next call.
+
+```python
+# Model.py — online Coulomb counter
+CAPACITY_AH = 4.6
+
+def Model(X, z=None):
+    current = float(X[0])
+    if z is None:                 # first sample: assume fully charged
+        soc = 1.0
+    else:
+        soc = float(z) + current * (1 / 3600) / CAPACITY_AH
+    return soc, soc               # (estimate, memory for next call)
 ```
 
-The design rule that explains almost everything: **the website never runs anyone's code and never sees the blinded data.** The website only reads and writes rows in the database. The worker — a normal Node.js process on a machine the lab controls — does all the dangerous work, and even it hands the actual model execution to a throw-away Docker container.
-
-**Why these pieces**
-
-| Piece | Technology | Why |
-| --- | --- | --- |
-| Website | Next.js 15 (React 19, TypeScript, Tailwind CSS 4) | One framework for pages, forms and small APIs; free hosting on Vercel; server-side rendering keeps data access on the server. |
-| Database | PostgreSQL on Supabase, accessed through Prisma | Free, managed, backed up manually; Prisma gives us typed queries and one schema file (`prisma/schema.prisma`) that is the single source of truth for every table. |
-| File storage | Supabase Storage (private bucket) | Vercel functions cannot accept 50 MB uploads, so the browser uploads straight to the bucket through a short-lived signed URL; the worker downloads with a secret key. Same account as the database — one dashboard. |
-| Authentication | Auth.js v5, e-mail + password, e-mail verification, JWT cookies | Simple, no third-party identity provider needed for an academic audience. |
-| Worker | Node.js + Python (`socbench_eval`) + MATLAB, Docker for isolation | The benchmark maths is numpy; MATLAB only executes `.m/.p` models; Docker contains untrusted code. |
-| E-mail | SMTP via nodemailer | Provider-agnostic: Gmail today, Resend once the domain exists — config only. |
-| PDF report | pdfkit (server-side, vector charts) | Attached to results e-mails and downloadable; no browser needed. |
-
-## 4. Life of a submission, step by step
-
-This is the one flow to understand end to end. File names are given so you can follow along in the code.
-
-1. **Register & verify.** `src/app/(auth)/register` → `registerAction` creates a `User` (password hashed with bcrypt) and e-mails a verification link. Opening the link shows a *Confirm my email* button; pressing it (a POST) marks the account verified. (Two steps, because corporate mail scanners "click" links automatically — see §9.)
-2. **Test the package (optional but recommended).** On `/submit`, *Test your package first* uploads the zip, creates a `DryRun` row, and the worker runs it on 2 h of open data. The page polls `/api/dry-runs/[id]` every 2 s and shows the live console, then RMSE/complexity and a chart.
-3. **Submit.** The browser asks `/api/upload` for a signed URL, PUTs the zip into the private bucket, then posts the form to `createSubmissionAction` (`src/app/(app)/submit/actions.ts`). The server re-downloads the file, checks the zip (structure, size, zip-bomb, traversal), checks daily limits and contest rules, and creates a `Submission` row with status `QUEUED` plus an `EvaluationJob` row. Chosen collaborators are stored as *pending*.
-4. **Queue.** The submission page shows position, estimated wait and whether the evaluator machine is online — all derived from the `WorkerHeartbeat` and job tables (`src/lib/worker-status.ts`).
-5. **Claim.** The worker (`src/evaluator/worker.ts`) calls `claimNext()` (`run-job.ts`), which atomically locks the oldest unclaimed job so two machines never take the same one. Dry runs jump the queue because they are short.
-6. **Evaluate.** `runJob()` downloads the package (`storage.materialize`), then `PythonEvaluator.spawn()` (`python-evaluator.ts`) starts a Docker container running `python -m socbench_eval package.zip out --data blind_data.mat`. Every progress line the evaluator prints is streamed into the job log in the database, which is what the web page shows as the console, percentage and ETA. Each log write also refreshes the job lock (a heartbeat) so a long run is not mistaken for a dead one.
-7. **Score & store.** The evaluator writes `results.json`; the worker parses it (`results.ts`), stores an `EvaluationResult` (scores, per-cycle table, time-series traces), flips the submission to `COMPLETED`, and **deletes the package** from the bucket.
-8. **Notify.** The worker builds the PDF (`src/lib/report.ts`) and e-mails it to the owner and every *accepted* collaborator. The submission page reloads itself to show charts, tables and the download button. The leaderboard (`src/lib/queries.ts`) recomputes ranks from the stored scores.
-9. **Afterwards.** The owner can **edit the name/description/type** (noted in the history), **submit a new version** of the package for the same submission (previous score kept in the history, leaderboard shows the latest; counts against the daily limit; frozen once a contest closes), make it private/public, add collaborators (pending → invited → accepted), cancel a queued/running one, or delete it. Admins can hide/moderate it with a reason, retry it, or release a stuck lock.
-
-If anything fails, the job is retried once (`MAX_ATTEMPTS = 2`) unless the failure was the submitter's fault (bad package, model error), in which case the user gets the exact error and a failure e-mail.
-
-## 5. The evaluator — the actual science
-
-`evaluator/python/socbench_eval/` **is** the benchmark: ~450 lines of numpy that reproduce the lab's original *Standardized Evaluation Tool* exactly. This was verified on the real blinded data — the CC, EKF, FNN and LSTM example packages reproduce every column of the lab's historical `Leaderboard.csv` to 0.000, and Python and MATLAB runtimes agree to three decimals.
-
-What it does for one package:
-
-1. **Validation run** — m80 UDDS at 10 °C with +0.3 A added to the current. If the model crashes or produces nonsense here, the whole evaluation stops with a user-facing error (saves 45 minutes).
-2. **Padding** — every cycle is preceded by one hour of constant rest so models with internal state (filters, RNNs) settle; the padded part is excluded from the metrics.
-3. **144 blinded cycles** (4 cells × 6 temperatures × 6 cycles) plus charging cycles — the model is called once per sample, carrying its state `z` forward exactly as a real BMS would.
-4. **Robustness sweeps** — the same model started at wrong initial SOC (90/60/30 % instead of 100 %) and with constant current-sensor offsets (±0.05 / 0.1 / 0.3 A).
-5. **Metrics** — RMSE, MAE and max error per cycle; positional means per test case; the weighted headline score; and a complexity bin from time-per-sample relative to a calibrated Coulomb counter (`SOCBENCH_CAL_PYTHON` / `SOCBENCH_CAL_MATLAB`, seconds per sample on that host — recalibrate when the evaluation machine changes).
-
-The only runtime-specific part is *executing the model*:
-
-| Package contains | Executed by | Needs |
-| --- | --- | --- |
-| `Model.py` | Python, in-process (`runner.py → PythonBackend`) | numpy/scipy (PyTorch optional in the sandbox image) |
-| `Model.m` / `Model.p` | one MATLAB session via `matlab/Run_Model.m` (~40 lines; `MatlabBackend`) | MATLAB + whatever toolboxes the model calls |
-
-Layout:
-
-```
-evaluator/python/socbench_eval/   the benchmark — data.py (load .mat), runner.py (execute models, stream progress),
-                                  pipeline.py (metrics, weights, complexity), __main__.py (CLI, safe zip extraction)
-evaluator/python/dryrun_data.mat  2 h of OPEN data for dry runs (ships with the repo)
-evaluator/examples/*.zip          runnable reference packages (CC, EKF, FNN, LSTM × MATLAB/Python)
-evaluator/Dockerfile              sandbox image for Python packages      evaluator/Dockerfile.matlab  for MATLAB (Linux)
-matlab/Run_Model.m                executes a MATLAB model on a batch of inputs — nothing else
-matlab/Export_Blind_Data.m        one-time export of the lab's Data_m*.mat tables → blind_data.mat
-blind-data/                       blind_data.mat (git-ignored; evaluation host ONLY)
+```matlab
+% Model.m — the same thing in MATLAB
+function [Y_est, z] = Model(X, z)
+    Current  = X(1);              % [A], negative = discharging
+    Capacity = 4.6;               % [Ah]
+    if nargin == 1                % first sample
+        SOC = 1;
+    else
+        SOC = z + Current*(1/3600)/Capacity;
+    end
+    Y_est = SOC;  z = SOC;
+end
 ```
 
-Run it by hand (useful when debugging a package): `cd evaluator/python && python -m socbench_eval package.zip outDir --data ../../blind-data/blind_data.mat [--runtime python|matlab]`, or add `--dry-run` for the open-data check. Progress lines look like `12.5% | cycle:m80:3` — the percentage is weighted by samples, and the website's progress bar and ETA are computed from these.
+Working examples of a Coulomb counter, EKF, FNN and LSTM — in both languages — are on the site's **Examples** page and in [`evaluator/examples/`](evaluator/examples/). Download one, unzip it, and start from there.
 
-**Example packages** — the Examples page shows each reference model in MATLAB and Python with a toggle, offers the zips for download (`/examples/download/<file>`), and can queue a dry run of any of them with one click. All eight give identical open-cycle RMSE across runtimes (0.172 / 0.076 / 1.463 / 2.009 %).
+### The four steps
 
-## 6. How scores are computed
-
-Everything on the leaderboard derives from the 18 numbers the evaluator produces per submission (`src/lib/test-cases.ts` lists them with descriptions, weights and display labels):
-
-- **Tests 1–8** — mean RMSE over groups of cycles: all cells (weight 0 — headline only), the blinded cell, non-blinded cells, charging, each payload/HVAC condition, standard cycles, non-standard cycles.
-- **Test 9** — six temperature entries (−20 … 40 °C) for the m80 cell, weight 1/60 each.
-- **Tests 10–11** — initial-SOC error (weighted 3/2/1 for the 90/60/30 % starts) and current-sensor offset.
-
-**Weighted error** = Σ weightᵢ × RMSEᵢ with the published V2 weights (1/10, 1/30, 2/30, 1/60 — they sum to exactly 1). The evaluator computes it; the website re-derives it from the stored values as a cross-check and logs a warning if they ever disagree. Lower is better; ties are ranked by submission time.
-
-The leaderboard shows only **public, completed, non-hidden** submissions. A signed-in user may tick *show where my private models would rank*, which adds their private ones with a dashed "~16" ghost badge without changing anyone else's rank.
-
-### What happens if we change the grading?
-
-Every stored result carries the evaluator stamp that produced it (`EvaluationResult.evaluatorVersion`, e.g. `socbench-eval-0.1.0/python`). `src/lib/benchmark-version.ts` names the **current** benchmark version; anything older is shown with a *legacy scoring* badge on the leaderboard, the admin table and the submission page, with a note to re-submit. The rules:
-
-- **Only the weights change** (a policy decision): use **Admin → Scoring weights** — edit the 18 weights (they must sum to 1), give a reason, preview how many scores change, save (or *Reset to defaults*). Everything re-derives from the active weights: leaderboard, worker (new results), PDF, Methodology page. The equivalent CLI is `npx tsx scripts/rescore.ts --apply --notify --note "<what changed and why>"` — it recomputes every weighted error from the 18 stored per-test values (no re-evaluation), appends a **score revision** to each affected submission, and e-mails the owner and accepted collaborators the old → new score, your note and a fresh PDF. Run it without `--apply` first to preview.
-- **Score history**: every evaluation attempt, failure, re-run and re-score is an immutable `ScoreRevision` row (`src/lib/history.ts`). The submission page (*Details → Score history*) and the PDF's *Score history* table show them; `EvaluationResult` always holds the current numbers.
-- **Metrics, data, padding, sweeps or complexity bins change**: bump `__version__` in `socbench_eval/__init__.py` and `BENCHMARK_VERSION` in `benchmark-version.ts`. Old results cannot be recomputed — the uploaded packages are deleted after evaluation on purpose (third-party IP) — so they stay listed as **legacy · unranked** (rank badge "—", sorted below the ranked block, excluded from rank numbers) until the author uses *Submit new version*. Run `npx tsx scripts/announce-benchmark-version.ts --note "<what changed>" --send` to e-mail every affected author and collaborator with the explanation and the re-submit link (it also adds a history entry). Announce the change on the Methodology page and, for a contest, freeze its leaderboard before the switch.
-- Keeping packages to allow automatic re-evaluation would require explicit consent from submitters; if the lab wants that, add an opt-in checkbox at submission time and a retention policy before enabling it.
+1. **Register** and confirm your e-mail.
+2. **Test your package** on the `/submit` page. A *dry run* executes it against 2 hours of *open* data in seconds and shows the live console — this catches format and runtime errors before you spend a real submission.
+3. **Submit.** You get a queue position and a live progress bar.
+4. **Read the results.** Scores appear on your submission page and the leaderboard, and a PDF report is e-mailed to you and any co-authors you added.
 
 ---
 
-# Part 2 — Working on the code
+## 3. What happens when you submit
 
-## 7. Set up your computer
+```mermaid
+sequenceDiagram
+    participant You
+    participant Web as Website (Vercel)
+    participant DB as Database
+    participant Worker as Worker (lab machine)
+    participant Box as Docker sandbox
 
-You need: **Node.js 20+**, **Docker Desktop** (for the local database, and for the sandbox if you run a worker), **Git**, and optionally **Python 3.11+ with numpy/scipy** and **MATLAB** if you want to run evaluations locally. Windows, macOS and Linux all work; the commands below are for PowerShell/Git Bash.
+    You->>Web: upload package (.zip)
+    Web->>Web: validate zip, check daily limit
+    Web->>DB: create submission (QUEUED) + job
+    Worker->>DB: poll every 2 s, claim oldest job
+    Worker->>Box: run model against blinded data
+    Box-->>Worker: progress lines, streamed
+    Worker->>DB: live console, % complete, ETA
+    Box-->>Worker: results.json
+    Worker->>DB: scores + traces, mark COMPLETED
+    Worker-->>You: PDF report by e-mail
+    Note over Worker,Box: uploaded package is deleted
+```
+
+If a run fails it is retried once — unless the fault is in the package itself, in which case you get the exact error message instead.
+
+---
+
+## 4. How the pieces connect
+
+```mermaid
+flowchart TB
+    subgraph B["Your browser"]
+        UI["Next.js pages<br/>leaderboard · submit · admin"]
+    end
+    subgraph C["Cloud (free tiers)"]
+        V["Vercel — web tier<br/>pages, forms, APIs"]
+        PG[("PostgreSQL<br/>users, submissions, results")]
+        ST[("Private bucket<br/>uploaded .zip files")]
+    end
+    subgraph L["Lab machine (Arbutus VM)"]
+        WK["Worker process"]
+        DK["Docker sandbox<br/>no network · read-only"]
+        BD[("blind_data.mat<br/>never leaves this machine")]
+    end
+    UI <--> V
+    UI -. "direct upload via signed URL" .-> ST
+    V <--> PG
+    WK <--> PG
+    WK --> ST
+    WK --> DK
+    DK --- BD
+```
+
+**The one rule that explains the whole design:** the website never runs anyone's code and never sees the blinded data. It only reads and writes database rows. All dangerous work happens on the worker — and even the worker hands model execution to a throw-away Docker container with no network access and a read-only filesystem.
+
+The two tiers share nothing but the database. Add another worker machine and it simply starts claiming jobs; nothing needs reconfiguring.
+
+| Piece | Technology |
+| --- | --- |
+| Website | Next.js 15, React 19, TypeScript, Tailwind CSS 4, hosted on Vercel |
+| Database | PostgreSQL (Supabase) through Prisma — `prisma/schema.prisma` is the single source of truth |
+| File storage | Supabase Storage, private bucket; browser uploads via short-lived signed URL |
+| Auth | Auth.js v5 — e-mail + password with verification |
+| Worker | Node.js + Python (`socbench_eval`) + MATLAB, isolated with Docker |
+| Reports | pdfkit (server-side vector charts), e-mail over SMTP |
+
+---
+
+## 5. How scoring works
+
+For each submission the evaluator runs:
+
+- a **validation cycle** first — if the model crashes here, you get the error in seconds instead of after 45 minutes;
+- **144 blinded drive cycles** — 4 cells × 6 temperatures × 6 cycles — plus charging cycles;
+- **robustness sweeps** — the model started at the wrong initial SOC (90 / 60 / 30 % instead of 100 %) and with current-sensor offsets (±0.05 / 0.1 / 0.3 A).
+
+Each cycle is preceded by an hour of rest so models with internal state (filters, RNNs) can settle; that part is excluded from the metrics.
+
+That produces **18 numbers** — mean RMSE per test case (blinded cell, non-blinded cells, charging, payload/HVAC conditions, standard vs non-standard cycles, each temperature from −20 to 40 °C, initial-SOC error, sensor offset).
+
+> **Weighted error** = Σ (weight × RMSE), using the published weights, which sum to exactly 1. **Lower is better.** Ties break by submission time.
+
+You also get a **complexity** bin (1–10) from measured time-per-sample relative to a plain Coulomb counter, so a cheap model and an expensive one are visibly different rather than judged on accuracy alone.
+
+Full definitions and the current weights are on the site's **Methodology** page and in [`src/lib/test-cases.ts`](src/lib/test-cases.ts).
+
+---
+
+## 6. Run it locally
+
+You need **Node.js 20+**, **Docker Desktop** and **Git**.
 
 ```bash
-git clone https://github.com/AhmadAli137/battery-soc-benchmark.git
+git clone https://github.com/McMaster-Battery-Research-Group/battery-soc-benchmark.git
 cd battery-soc-benchmark
-cp .env.example .env            # defaults work for local dev
+cp .env.example .env      # defaults work for local development
 npm install
-npm run setup                   # Postgres in Docker (port 5433) + schema + seed data
-npm run dev                     # website at http://localhost:3000
-npm run worker                  # in a second terminal: processes evaluation jobs (mock evaluator by default)
+npm run setup             # Postgres in Docker + schema + demo data
+npm run dev               # website at http://localhost:3000
+npm run worker            # second terminal — processes jobs (fake scores by default)
 ```
 
-(`npm run setup` = `db:up` + `prisma db push` + `seed`. In Windows PowerShell 5.1 run commands on separate lines — it does not support `&&`; npm scripts do.)
+Seeded local accounts: `admin@batterysocbenchmark.ca` / `Admin123!` (admin) and `a.rahman@example.edu` / `Password1` (user).
 
-Seeded accounts (local only):
+With no `SMTP_HOST` set, e-mails go to a throw-away **Ethereal** inbox and the preview link is printed in the terminal.
 
-| Role  | Email                                  | Password    |
-| ----- | -------------------------------------- | ----------- |
-| Admin | `admin@batterysocbenchmark.ca`         | `Admin123!` |
-| User  | `a.rahman@example.edu` (and others)    | `Password1` |
+The local setup uses `EVALUATOR=mock`, which invents plausible scores in a few seconds so you can work on the website without the blinded data. Every setting is annotated in [`.env.example`](.env.example).
 
-Without `SMTP_HOST` set, e-mails go to an auto-created **Ethereal** test inbox and the preview URL is printed in the terminal — open it to see the verification/results mails.
-
-The local `.env` uses `EVALUATOR=mock`, which produces plausible fake scores in a few seconds so you can work on the site without the blinded data. To run **real** evaluations locally you need the blinded `.mat` (from the lab — never commit it), `EVALUATOR=real`, `SOCBENCH_BLIND_DATA=<path>`, Python with numpy/scipy, and `docker build -t socbench-eval evaluator` for the sandbox.
-
-## 8. Where things live (repository map)
-
-```
-src/app/                     Next.js App Router — one folder per URL
-  page.tsx                   landing page
-  (marketing)/               dataset, docs (methodology), getting-started, examples, glossary, help, about, contact, contest/[slug], [legal]
-  (auth)/                    register, login, verify, forgot/reset password  + actions.ts (the form handlers)
-  (app)/                     leaderboard, compare, submit (+ dry-run panel), submissions, submissions/[id], profile, users/[id], collab/[token]
-  (admin)/admin/             overview, submissions, contests, users, messages, workers (evaluation machines)
-  api/                       small JSON/binary endpoints: submissions/[id]/status, …/report.pdf, dry-runs/[id], upload, users/[id]/avatar, jobs/run
-  actions/                   server actions shared across pages (user search, dry-run quota)
-src/components/              React components: ui/ (buttons, inputs, dialogs…), charts/ (Recharts, MATLAB-style zoom), leaderboard/, layout/, avatar, user-picker, log-view …
-src/lib/                     plain TypeScript used by pages and the worker
-  auth.ts, auth.config.ts    Auth.js setup, requireUser/requireAdmin, admin allow-list
-  queries.ts                 leaderboard rows, submission detail, visibility rules (canViewSubmission)
-  scoring.ts, test-cases.ts  weights and metric definitions          progress.ts   progress %/ETA parsing (shared client+server)
-  storage.ts                 local-disk or Supabase Storage           rate-limit.ts  DB-backed sliding-window limiter
-  mail.ts                    every e-mail template                    report.ts      the PDF
-  package-check.ts           zip validation                           worker-status.ts  heartbeats, queue position, wait estimate
-  validation.ts              zod schemas for every form               log.ts         structured event logging
-src/evaluator/               the worker tier
-  worker.ts                  the resident process: polling loop, heartbeat, diagnostics, graceful shutdown
-  run-job.ts                 claim/run one job or dry run; logging, cancellation, e-mails, retries
-  python-evaluator.ts        starts socbench_eval (in Docker or on the host); kill/timeout/abort handling
-  mock-evaluator.ts          fake results for development
-  results.ts, types.ts       parsing results.json; the Evaluator interface
-evaluator/                   the benchmark itself (Python), Dockerfiles, example packages   (see §5)
-matlab/                      the two MATLAB scripts
-prisma/schema.prisma         every database table (read this to understand the data model); prisma/seed.ts
-scripts/                     setup-storage.ts (create the bucket), install-worker-task.ps1 (Windows service-style worker)
-public/logos/                McMaster + NSERC marks (placeholders until official files arrive)
-```
-
-**The data model in one breath** (`prisma/schema.prisma`): `User` ⟶ has many `Submission` ⟶ each has one `EvaluationJob` (queue state + log) and, when done, one `EvaluationResult` (scores + per-cycle + traces); `SubmissionCollaborator` links extra users to a submission with pending/invited/accepted state; `DryRun` is the lightweight test record; `Contest`/`ContestEntry` for events; `WorkerHeartbeat` one row per running worker; `RateLimitHit` for abuse limits; `UserToken` for verification/reset links; `ContactMessage` for the feedback form.
-
-## 9. Key mechanisms explained
-
-These are the parts that are not obvious from reading a single file.
-
-**Server actions vs API routes.** Forms call *server actions* — plain async functions marked `"use server"` that Next.js runs on the server when a form is submitted (`registerAction`, `createSubmissionAction`, …). They return `{ errors, values }` so the form can show messages without losing what was typed. *API routes* (`src/app/api/**/route.ts`) exist only for things that are not form posts: polling status as JSON, streaming a PDF, issuing signed upload URLs, the cron endpoint.
-
-**Authorization.** Every server action and API route decides for itself who may do what: `requireUser()`, `requireAdmin()`, `ownedSubmission()`, and `canViewSubmission()` (owner, admin or accepted/invited collaborator may see a private one). The middleware only redirects unauthenticated visitors away from `/submit`, `/profile`, `/admin`.
-
-**Admin accounts.** Anyone whose e-mail is in `ADMIN_EMAILS` is an administrator the moment they sign in (checked in the session callback, so no re-login needed) and is exempt from the dry-run limit; the *Admin → Users* page can also grant/revoke the role.
-
-**The job queue is the database.** There is no separate queue service. `claimJob()` does an atomic `updateMany` on the oldest unclaimed `EvaluationJob` with a fresh `lockedAt`; if two workers race, only one update succeeds. A lock older than 30 minutes with no heartbeat is considered abandoned and can be re-claimed. Every progress line refreshes the lock, so healthy long runs are never stolen.
-
-**Heartbeat and "evaluator online".** Each worker upserts a `WorkerHeartbeat` row every 15 s with liveness, machine diagnostics (CPU, RAM, disk, Python, MATLAB + toolboxes, blinded data present, code version), current jobs and its last 200 console lines. The Submit page turns this into *Evaluator online / paused*; the admin *Evaluation workers* page shows everything and can send pause/resume/stop commands back through the same row.
-
-**Progress and ETA.** The evaluator prints `NN.N% | stage` after each input matrix (weighted by samples). `src/lib/progress.ts` parses the job log for the percentage and extrapolates the remaining time; for queued jobs `worker-status.ts` adds the live remaining time of running jobs plus typical durations of the jobs ahead (from past runs of the same model type).
-
-**Cancellation and shutdown.** Cancel sets `cancelRequestedAt`; the worker notices within seconds, kills the evaluator process tree (including MATLAB and the container) and deletes the submission. Ctrl+C on the worker aborts in-flight runs the same way but hands the jobs back to the queue without using an attempt.
-
-**Collaborators.** Added people are *pending* (no e-mail, not public) until the owner presses *Send invitations* (confirmation dialog, owner CC'd). The invitee must accept — from the e-mail landing page while signed in as themselves, or from the submission page — before appearing on the leaderboard, researcher pages and the PDF. Accepted collaborators receive results e-mails; the owner is told when someone accepts or declines.
-
-**E-mail verification in two steps.** Mail security products (Microsoft Safe Links etc.) fetch every link in an e-mail before the person sees it. A verify-on-click link would be "clicked" by the scanner. So opening the link only shows a *Confirm my email* button; the POST behind it does the verification, and the token is kept until expiry so a second visit says "already verified" rather than "invalid".
-
-**Uploads.** Vercel limits request bodies to ~4.5 MB, far below a 50 MB package. `/api/upload` returns a signed URL for the private bucket; the browser PUTs the file there directly (with progress); the server action then receives only the object key, re-validates the zip, and the worker downloads it with the service key. The object is deleted after evaluation.
-
-**Dates.** Every timestamp is formatted in the benchmark's home timezone (`America/Toronto`, with the zone label) regardless of where the code runs — Vercel's servers are in UTC.
-
-**Logging.** The worker prints a startup banner (environment, host, Python/MATLAB, blinded data, sandbox state) and one line per event (claimed, progress, e-mail sent/failed, sandbox held/resumed, idle). The web tier writes one structured line per event via `logEvent()` (`event=submission.created seq=64 …`) — visible in Vercel → Logs or the `next dev` terminal.
-
-## 10. Day-to-day development workflow
-
-### Render smoke test
-
-`npm run smoke` builds the site and loads every public page (plus a real results page and a populated compare page) in headless Chromium, failing on any client-side exception, hydration error, "Application error" screen, console error or 5xx — the class of bug `tsc`/`eslint` cannot see (e.g. a missing React context provider). Read-only: nothing signs in or submits. Once per clone, enable the pre-push guard with `git config core.hooksPath .githooks`; it runs the smoke test only when the push touches UI files (`SKIP_SMOKE=1 git push` to bypass). Failure details: `npx playwright show-report`.
-
-
-1. **Branch or commit on `main`** — the project currently commits straight to `main`; every push triggers a Vercel build and, if it passes, a production deploy. Keep commits small and described.
-2. **Before every commit** run `npx tsc --noEmit` (types) and `npx eslint src` (lint); both must be clean. `npm run build` occasionally, especially after touching `next.config.ts` or adding server dependencies.
-3. **Database changes**: edit `prisma/schema.prisma`, run `npx prisma db push` (development) — then **stop the dev server and any worker before `npx prisma generate`** on Windows, or the engine file stays locked and the generated client silently lags behind the schema (symptom: `Unknown argument <newField>` at runtime). Production schema is pushed with the production `DATABASE_URL`/`DIRECT_URL` in the environment.
-4. **Evaluator changes** (Python): `python -m py_compile …`, then run a dry run of an example package by hand (§5). The worker spawns Python fresh for each job, so no restart is needed; the sandbox image must be rebuilt (`docker build -t socbench-eval evaluator`) when Python dependencies change.
-5. **Worker changes** (TypeScript under `src/evaluator/`): the running worker must be restarted (Ctrl+C is graceful) to pick them up.
-6. **Commit identity**: commits are authored by the maintainer's GitHub account; do not add AI co-author trailers.
-7. **Never commit** `.env*` (except `.env.example`), `blind-data/`, `uploads/`, `worker.log` — they are git-ignored, keep it that way.
-
-Useful scripts: `dev` · `build` · `start` · `lint` · `typecheck` · `db:up` · `db:push` · `db:migrate` · `db:studio` (browse the database) · `seed` · `worker` (local `.env`) · `worker:prod` (`.env.production`).
+**Useful scripts:** `npm run dev` · `npm run worker` · `npm run typecheck` · `npm run lint` · `npm run smoke` (Playwright) · `npm run db:studio` (browse the database).
 
 ---
 
-# Part 3 — Security
+## 7. Run an evaluation worker
 
-## 11. Threat model and defences
+A worker is any machine with the blinded data that runs `npm run worker`. One process per machine; add machines to add throughput, since jobs are claimed atomically.
 
-Read this before touching the worker or deployment. The full status list and the McMaster policy mapping live in the private `socbench-internal` repository.
+```bash
+EVALUATOR=real                    # not the mock scorer
+SOCBENCH_BLIND_DATA=/path/to/blind_data.mat
+WORKER_RUNTIMES=python,matlab     # what this machine can execute
+docker build -t socbench-eval evaluator     # the Python sandbox image
+npm run worker
+```
 
-**The core problem:** the benchmark *must* execute code written by strangers. A malicious "model" could try to (1) read or memorise the blinded data — the answer key, (2) read the worker's secrets (database, storage, e-mail), (3) send data out or plant something on the evaluation machine, (4) flood the queue. The website faces ordinary risks: password guessing, spam, injection.
+Each worker reports in every 15 seconds and appears on **Admin → Evaluation workers** with its CPU, memory, runtimes and live console. A worker only claims packages whose runtime it declares, so a machine without MATLAB will leave MATLAB submissions for one that has it.
 
-Defences, in layers (each assumes the previous one failed):
-
-1. **Container sandbox** (`EVAL_SANDBOX=docker`, the default). Every evaluation runs in a throw-away Docker container: no network, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, CPU/memory/process limits, unprivileged user, and only three mounts — the package (read-only), the blinded data (read-only, real runs only) and an output folder. The container never receives the worker's environment, so no secrets exist inside it. If Docker is not running, the worker starts Docker Desktop itself; if that fails it **holds the queue** rather than running unsandboxed. MATLAB packages are the exception on Windows (MATLAB cannot run in the container there) — they use layer 2 until the MATLAB image (`evaluator/Dockerfile.matlab`) is built on a Linux host.
-2. **Allow-listed environment for anything running on the host.** Only `SOCBENCH_*`, `MATLAB_*`, PATH/temp/home variables reach a model process — never `DATABASE_URL`, `SUPABASE_SERVICE_KEY`, `SMTP_PASS`, `AUTH_SECRET`. Run the worker as a dedicated low-privilege account (`scripts\install-worker-task.ps1 -RunAsUser socbench`) and keep the repo, `.env.production` and `blind-data/` outside OneDrive or any synced folder.
-3. **Package hygiene.** Zip entries are validated on upload *and* again before extraction: no `..` or absolute paths, no symlinks, ≤ 500 entries, ≤ 512 MB uncompressed, compression ratio ≤ 200 (zip bombs), top-level files only.
-4. **Process control.** Hard timeouts (360 min real, 10 min dry run), cancel and shutdown all kill the *whole* process tree — Python, MATLAB and the container.
-5. **Abuse limits.** Database-backed sliding windows (they work across Vercel's stateless functions): login 10/15 min per account + 40 per IP, registration 5/h per IP, reset & verification e-mails 3/h per address, contact form 5/h per IP, upload URLs 30/h per user, dry runs 5/h per user, and `SUBMISSIONS_PER_DAY` full evaluations per user (default 3; admins exempt).
-6. **Web hardening.** CSP, HSTS, `nosniff`, `frame-ancestors 'none'`, referrer and permissions policies; bcrypt password hashes; e-mail verification required; per-object authorization on every action; the cron endpoint takes its secret in the `Authorization` header only (constant-time compare); signed short-lived upload URLs into a private bucket; packages deleted after evaluation; no user-supplied HTML in e-mails.
-7. **Cheating detection** is statistical, not technical: a model that has memorised the blinded data cannot be stopped by sandboxing. Watch for implausibly low error on the blinded cell relative to open cells and for duplicate score vectors (admin badges on the TODO list). Contest prizes should involve a manual review.
-
-If a secret is ever exposed, rotate it at the source (Supabase → Settings → Database / API) and update **both** Vercel and the worker's `.env.production`.
+Production today runs on an Alliance Cloud (Arbutus) VM that handles both Python and MATLAB, updates itself from `main` every 10 minutes, and is watched by an alerting job that e-mails administrators if it stops reporting in. Setup and operations are documented in the private `socbench-internal` repository.
 
 ---
 
-# Part 4 — Running it for real
+## 8. Repository map
 
-## 12. Production layout and deployment
+```
+src/app/            pages, one folder per URL
+  (marketing)/      dataset, methodology, examples, glossary, help, about, contests
+  (auth)/           register, login, verify, password reset
+  (app)/            leaderboard, compare, submit, submissions, profile
+  (admin)/admin/    submissions, users, contests, messages, workers
+  api/              status polling, PDF report, uploads
+src/components/     React components — ui/, charts/, leaderboard/, layout/
+src/lib/            shared logic: queries, scoring, storage, mail, PDF, validation
+src/evaluator/      the worker: job claiming, sandbox launch, result parsing
+evaluator/python/   THE BENCHMARK — numpy implementation of the scoring pipeline
+evaluator/examples/ runnable reference packages (CC, EKF, FNN, LSTM)
+matlab/             Run_Model.m (executes a MATLAB model) and the blind-data exporter
+prisma/schema.prisma  every database table
+scripts/            setup and operations scripts
+```
 
-Everything runs on free tiers except the electricity for the evaluation machine.
+To debug a package by hand:
 
-| Piece | Where | Cost |
-| --- | --- | --- |
-| Website | **Vercel** (Hobby), auto-deploys from `main` | free |
-| PostgreSQL | **Supabase** (free project, 500 MB) | free |
-| Submission packages | **Supabase Storage**, private bucket `packages` | free |
-| Evaluation (Python **and** MATLAB packages) | **Alliance Cloud VM** on Arbutus (`<vm-instance>`, 8 vCPU / 12 GB) running `socbench-worker.service`; Python in the `socbench-eval` sandbox, MATLAB R2026a in the `socbench-eval-matlab` sandbox licensed through MathWorks online licensing with the lab's campus-wide licence — see the VM runbook in `socbench-internal` | free (Alliance allocation + campus MATLAB licence) |
+```bash
+cd evaluator/python
+python -m socbench_eval package.zip outDir --data ../../blind-data/blind_data.mat
+python -m socbench_eval package.zip outDir --dry-run     # open data only
+```
 
-**First-time setup (already done for the live site; kept for rebuilding from scratch)**
+---
 
-1. **Supabase** — New project → *Connect → ORMs → Prisma* gives two URLs: `DATABASE_URL` = transaction pooler (port 6543) + `?pgbouncer=true`; `DIRECT_URL` = session pooler (port 5432). Push the schema from your machine:
-   ```powershell
-   $env:DATABASE_URL="<pooler url>?pgbouncer=true"; $env:DIRECT_URL="<session url>"
-   npx prisma db push
-   ```
-   Create the private bucket: `STORAGE=supabase SUPABASE_URL=… SUPABASE_SERVICE_KEY=… npx tsx scripts/setup-storage.ts` (idempotent; also round-trips a test object through both upload paths).
-2. **Vercel** — *Add New → Project* → import the GitHub repo. Environment variables (Production): `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET` (`openssl rand -base64 32`), `AUTH_URL` + `NEXT_PUBLIC_SITE_URL` (the site URL), `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (service-role secret), `SUPABASE_BUCKET=packages`, `MAX_UPLOAD_MB=50`, `CRON_SECRET` (`openssl rand -hex 24`), `SMTP_*` + `MAIL_FROM`, `ADMIN_EMAILS`, optional `ADMIN_NOTIFY_EMAIL`, `SUBMISSIONS_PER_DAY`. The web tier never evaluates anything, so do **not** set `EVALUATOR` there unless you use the cron option.
-3. **Worker** — see §13.
-4. **Domain** — when `batterysocbenchmark.ca` is available: Vercel → Domains, then update `AUTH_URL`/`NEXT_PUBLIC_SITE_URL` and move e-mail to Resend (§18).
+## 9. Troubleshooting
 
-Vercel builds every push to `main` (`prisma generate && next build`). A failed build never goes live — the previous deployment keeps serving.
-
-**Paid alternative** — `render.yaml` defines a $7/mo always-on Render worker; only useful for the mock evaluator (no MATLAB there).
-
-## 13. Operating the evaluation worker
-
-The worker is the only part that needs care. One instance per machine; add machines to add throughput (jobs are claimed atomically), or `WORKER_CONCURRENCY=n` for parallel runs on one machine (≤ physical cores ÷ 2). Each worker declares which package runtimes it can run with `WORKER_RUNTIMES` (`python`, `matlab`, or both); a package's runtime is recorded at submission time from its `Model.*` file, so a Linux VM without MATLAB never claims a MATLAB package — it waits for a worker that can run it. The **Arbutus VM** runs both runtimes (runbook in `socbench-internal`); a laptop or lab PC can still join as an extra worker at any time.
-
-**Prepare the machine** (Windows today; Linux VM later — see the runbook in `socbench-internal`)
-1. Node 20+, Git, Docker Desktop (enable *Start Docker Desktop when you sign in*), Python 3.11+ with numpy/scipy, MATLAB with the toolboxes submissions commonly need (Signal Processing, Deep Learning, Statistics & ML, Control System, System Identification, Optimization, Curve Fitting). The admin page lists what a machine has.
-2. Clone the repo **outside OneDrive**, `npm install`, `docker build -t socbench-eval evaluator`.
-3. Obtain `blind_data.mat` from the lab, place it outside the repo, restrict its permissions.
-4. Create `.env.production` (git-ignored) with the production `DATABASE_URL`, `DIRECT_URL`, `STORAGE=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET`, `NEXT_PUBLIC_SITE_URL`, `SMTP_*`, `MAIL_FROM`, `ADMIN_EMAILS`, plus `EVALUATOR=real`, `SOCBENCH_BLIND_DATA`, `SOCBENCH_PYTHON`, `MATLAB_BIN`, `SOCBENCH_CAL_*`, `EVAL_SANDBOX=docker`.
-
-**Run it**
-- Interactive: `npm run worker:prod`. The startup banner tells you the site/db/storage it connects to, the machine specs, Python/MATLAB versions and toolboxes, whether the blinded data is present and whether the Docker sandbox is up. Then `waiting for work…`, one line per claimed job, per progress step, per e-mail, and an idle line every 10 minutes.
-- As a service: `scripts\install-worker-task.ps1` (elevated) registers a Scheduled Task that starts at boot/logon, restarts on crash, logs to `worker.log`, and stops the laptop from sleeping on AC. Add `-RunAsUser socbench` to run as a separate low-privilege account (create it and grant read-only permissions first — instructions in the script header).
-- Stop: **Ctrl+C** — in-flight evaluations are aborted cleanly (MATLAB killed), their jobs returned to the queue with the attempt refunded, the heartbeat row removed. Never force-kill the process if you can avoid it; if you must, also stop leftover `MATLAB` processes.
-
-**Watch it** — *Admin → Evaluation workers* shows each machine (online/idle/evaluating/paused/offline), diagnostics, its console, the queue with lock ages, and buttons to pause/resume/stop a worker, release a stuck lock or retry a failed job. The Submit page shows users a one-line *Evaluator online/paused* status.
-
-**Policy limits** — the evaluation time limit, test-run limit and daily submission cap are edited on **Admin → Evaluation workers → Evaluation settings** (stored in the DB; every worker applies changes within ~15 s, no restart). Only machine tuning (`EVAL_CPUS`, `EVAL_MEMORY`, `WORKER_CONCURRENCY`) lives in the worker env.
-
-**Update it** — laptop: `git pull`, then Ctrl+C and restart (Docker image changes need `docker build …` again). Arbutus VM: automatic — a systemd timer pulls `main` every 10 minutes and restarts the worker when idle (`scripts/vm-update.sh`; see the runbook in `socbench-internal`).
-
-## 14. Configuration reference (environment variables)
-
-Full annotated list in `.env.example`. The important ones:
-
-| Variable | Used by | Meaning |
-| --- | --- | --- |
-| `DATABASE_URL`, `DIRECT_URL` | web + worker | Postgres (pooled / direct). |
-| `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL` | web (+ worker for links in e-mails) | Session signing key; canonical site URL. |
-| `STORAGE` = `local` \| `supabase`; `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET`; `UPLOAD_DIR`; `MAX_UPLOAD_MB` | web + worker | Where packages live. `local` for development only. |
-| `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM`, `ADMIN_NOTIFY_EMAIL` | web + worker | Outgoing mail; unset host = Ethereal test inbox. |
-| `ADMIN_EMAILS` | web | Comma-separated administrators. |
-| `SUBMISSIONS_PER_DAY` | web | Full evaluations per user per day (default 3, 0 = unlimited). |
-| `CRON_SECRET` | web | Bearer token for `/api/jobs/run`. |
-| `EVALUATOR` = `mock` \| `real`; `MOCK_EVAL_SECONDS` | worker | Which evaluator. |
-| `SOCBENCH_BLIND_DATA`, `SOCBENCH_PYTHON`, `MATLAB_BIN`, `SOCBENCH_CAL_PYTHON`, `SOCBENCH_CAL_MATLAB`, `PY_EVAL_TIMEOUT_MIN`, `DRY_RUN_TIMEOUT_MIN` | worker | Real-evaluator inputs, executables, calibration, timeouts. |
-| `EVAL_SANDBOX` = `docker` \| `none`; `EVAL_SANDBOX_IMAGE`; `EVAL_SANDBOX_MATLAB_IMAGE`; `EVAL_MATLAB_LICENSE`; `EVAL_MATLAB_NETWORK`; `EVAL_CPUS`; `EVAL_MEMORY`; `EVAL_PIDS` | worker | Sandbox settings (§11). |
-| `WORKER_CONCURRENCY` | worker | Parallel evaluations on one machine. |
-| `NEXT_PUBLIC_SITE_TZ` | web | Display timezone (default `America/Toronto`). |
-
-## 15. Troubleshooting
-
-| Symptom | Likely cause → fix |
+| Symptom | Cause and fix |
 | --- | --- |
-| Submit page says **Evaluator paused**; submissions stay *Queued* | No worker running, or it is holding for Docker. Start `npm run worker:prod`; check the worker terminal/admin page for "sandbox unavailable". |
-| Worker prints `Docker is not available — evaluations are ON HOLD` | Docker Desktop is off and could not be started. Start it; enable auto-start at sign-in. |
-| A model fails with `Undefined function 'butter'` (or similar) | Missing MATLAB toolbox on the evaluation host; the error names the product. Install it via MATLAB → Add-Ons. |
-| `Unknown argument <field>` (Prisma) at runtime after a schema change | The generated client is stale: stop dev server + worker, delete `node_modules/.prisma/client/*.tmp*`, run `npx prisma generate`, restart. |
-| A page 404s on Vercel but works locally | The file is ignored by git (check `git check-ignore -v <path>`) or read at runtime without being traced (`outputFileTracingIncludes` in `next.config.ts`). |
-| Verification link says invalid though the e-mail just arrived | The account is probably already verified (mail scanner pre-clicked it) — sign in. The two-step confirm page prevents this now. |
-| E-mail arrives minutes late at McMaster | Unaligned Gmail sender; fixed by the domain + Resend migration (§18). |
-| Results e-mail links to `localhost` | The worker that evaluated it ran with the local `.env`. Only ever run one worker per environment; use `worker:prod` for the live site. |
-| Two workers evaluate the same job / a job runs after being cancelled | An old worker process is still alive. Check *Admin → Evaluation workers* and Task Manager; Ctrl+C the extra one. |
-| PDF route 500 on Vercel | pdfkit must stay external + traced (`next.config.ts`); do not remove those entries. |
-
-When in doubt: the worker terminal, the job log on the submission page (owners/admins see it), *Admin → Evaluation workers*, and Vercel → Logs (filter `event=`) between them explain almost every problem.
+| Submission stuck in **Queued** | No worker is online, or none declares that package's runtime. Check Admin → Evaluation workers. |
+| "No evaluator for MATLAB packages is online" | A MATLAB-capable worker needs to be started; the job resumes on its own when one reports in. |
+| Dry run fails instantly | `Model.py` / `Model.m` is not at the top level of the zip, or the function is not named `Model`. |
+| Worker logs "Can't reach database server" | Network problem between the worker and the database. The worker retries every loop and recovers by itself. |
+| E-mails not arriving | Without `SMTP_HOST` they go to Ethereal — look for the preview URL in the terminal. |
+| `prisma generate` fails on Windows | Stop the dev server and worker first; a running process locks the generated client. |
 
 ---
 
-# Part 5 — Reference
+## More
 
-## 16. Branding and institutional logos
-
-Design follows [brand.mcmaster.ca](https://brand.mcmaster.ca): Heritage Maroon `#7A003C` primary, Gold `#FDBF57` secondary, Grey `#495965` body text, Poppins headings / Arial body, 4 px radii, 1280 px container, WCAG 2.2 / AODA. Tokens live in `src/app/globals.css`; chart colours in `src/components/charts/palette.ts` were validated for colour-vision accessibility. The site has its own wordmark; McMaster and NSERC appear in the funding acknowledgement.
-
-Logos appear in the footer (every page), the About page, the landing-page partner strip, the PDF report header and the e-mail footer, all read from `public/logos/` (paths in `src/lib/logos.ts`):
-
-| File | Used by | Spec |
-| --- | --- | --- |
-| `mcmaster.svg`, `nserc.svg` | web pages | official SVG, horizontal lockup, transparent |
-| `mcmaster.png`, `nserc.png` | PDF report, e-mails (optional) | PNG, transparent, ≥ 600 px wide |
-
-**Usage rules (checked 2026-08-29).** *McMaster:* faculty and staff may use the logo for McMaster initiatives such as approved programs, research institutes and centres; a research-group site needs an approved logo lockup/suite requested through Brand Marketing's Logo Request Form (brandmrk@mcmaster.ca). Minimum 100 px wide on screen, keep the clear space, full-colour preferred (reversed / single-colour black or white allowed), never alter, separate, border or re-draw it, no custom lockups (brand.mcmaster.ca → Logos & Marks). *NSERC:* grantees are required to acknowledge NSERC and may use the NSERC signature (download from nserc-crsng.canada.ca → Policies and guidelines → Acknowledgement and logos: "colour signature for digital use"); minimum 100 px wide, clear space of half the symbol's height, NSERC red #DF202D, the Canada wordmark in the signature must not be removed; wording "We acknowledge the support of the Natural Sciences and Engineering Research Council of Canada (NSERC)" / "Nous remercions le Conseil de recherches en sciences naturelles et en génie du Canada (CRSNG) de son soutien", with the funding reference number (RGPIN-2024-06796) — both are on the About page and in the footer. NSERC also encourages a bilingual project description for publicly funded websites.
-
-Today the SVGs are text-only wordmarks and the PNGs are absent (PDF/e-mail fall back to text). The marks are trademarked and cannot be redrawn: request McMaster's from Brand Marketing (brandmrk@mcmaster.ca, with approval for the benchmark site) and download NSERC's acknowledgement logo from nserc-crsng.gc.ca. Drop the files in — no code change.
-
-## 17. Other documents
-
-- **`socbench-internal`** (private, same organization) — operations documentation kept out of this repository: the evaluation-VM runbook, security status, compliance mapping, the open-work roadmap, and the comparison against the lab's original MATLAB Standardized Evaluation Tool. Ask an organization owner for access.
-- `.env.example` — every setting, annotated.
-- Dataset: https://doi.org/10.5683/SP3/ZVTR4B (Borealis; the archives are git-ignored). Paper: P. J. Kollmeyer, M. Naguib, F. Khanum, A. Emadi, "A Blind Modeling Tool for Standardized Evaluation of Battery State of Charge Estimation Algorithms," IEEE ITEC+EATS 2022, doi:10.1109/ITEC53557.2022.9813996.
-
-## 18. Open work
-
-The maintained list of open items — launch blockers, security follow-ups, features and
-housekeeping — lives in `docs/roadmap.md` in the private **`socbench-internal`** repository,
-alongside the security status and the VM runbook. Ask an organization owner for access.
+- **Methodology, dataset and glossary** — on the live site under *Learn*.
+- **Dataset** — [doi:10.5683/SP3/ZVTR4B](https://doi.org/10.5683/SP3/ZVTR4B) (Borealis, CC-BY 4.0).
+- **`socbench-internal`** (private, same organization) — operations runbook, security status, compliance notes and the open-work roadmap. Ask an organization owner for access.
