@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time MATLAB online-licensing setup for an evaluation host (run ON the VM, as the sudo user).
-# See docs/drac-migration.md → "MATLAB on the VM".
+# See socbench-internal/docs/drac-migration.md → "MATLAB on the VM".
 #
 # Prerequisite: a container named socbench-matlab-login in which the licence holder has signed in through the
 # browser UI (`--entrypoint /bin/run.sh ... -browser`, port-forwarded, http://localhost:8888). That sign-in leaves a

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Keeps the Arbutus evaluation worker in sync with `main` — run by socbench-update.timer every 10 minutes
-# (see docs/drac-migration.md → Runbook). Idempotent; safe to run by hand: sudo /opt/socbench/scripts/vm-update.sh
+# (see socbench-internal/docs/drac-migration.md → Runbook). Idempotent; safe to run by hand: sudo /opt/socbench/scripts/vm-update.sh
 #
 #   1. fetch; exit quietly if /opt/socbench already matches origin/main
 #   2. pull; npm ci only if package-lock.json changed; prisma generate only if the schema changed
