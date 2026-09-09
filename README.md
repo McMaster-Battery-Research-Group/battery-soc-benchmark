@@ -253,7 +253,6 @@ evaluator/                   the benchmark itself (Python), Dockerfiles, example
 matlab/                      the two MATLAB scripts
 prisma/schema.prisma         every database table (read this to understand the data model); prisma/seed.ts
 scripts/                     setup-storage.ts (create the bucket), install-worker-task.ps1 (Windows service-style worker)
-docs/                        security.md, compliance.md, drac-migration.md
 public/logos/                McMaster + NSERC marks (placeholders until official files arrive)
 ```
 
@@ -310,7 +309,7 @@ Useful scripts: `dev` · `build` · `start` · `lint` · `typecheck` · `db:up` 
 
 ## 11. Threat model and defences
 
-Read this before touching the worker or deployment. The full status list with open items is in `docs/security.md`; the McMaster policy mapping is in `docs/compliance.md`.
+Read this before touching the worker or deployment. The full status list and the McMaster policy mapping live in the private `socbench-internal` repository.
 
 **The core problem:** the benchmark *must* execute code written by strangers. A malicious "model" could try to (1) read or memorise the blinded data — the answer key, (2) read the worker's secrets (database, storage, e-mail), (3) send data out or plant something on the evaluation machine, (4) flood the queue. The website faces ordinary risks: password guessing, spam, injection.
 
@@ -339,7 +338,7 @@ Everything runs on free tiers except the electricity for the evaluation machine.
 | Website | **Vercel** (Hobby), auto-deploys from `main` | free |
 | PostgreSQL | **Supabase** (free project, 500 MB) | free |
 | Submission packages | **Supabase Storage**, private bucket `packages` | free |
-| Evaluation (Python **and** MATLAB packages) | **Alliance Cloud VM** on Arbutus (`<vm-instance>`, 8 vCPU / 12 GB) running `socbench-worker.service`; Python in the `socbench-eval` sandbox, MATLAB R2026a in the `socbench-eval-matlab` sandbox licensed through MathWorks online licensing with the lab's campus-wide licence — see `docs/drac-migration.md` → *Runbook* | free (Alliance allocation + campus MATLAB licence) |
+| Evaluation (Python **and** MATLAB packages) | **Alliance Cloud VM** on Arbutus (`<vm-instance>`, 8 vCPU / 12 GB) running `socbench-worker.service`; Python in the `socbench-eval` sandbox, MATLAB R2026a in the `socbench-eval-matlab` sandbox licensed through MathWorks online licensing with the lab's campus-wide licence — see the VM runbook in `socbench-internal` | free (Alliance allocation + campus MATLAB licence) |
 
 **First-time setup (already done for the live site; kept for rebuilding from scratch)**
 
@@ -359,9 +358,9 @@ Vercel builds every push to `main` (`prisma generate && next build`). A failed b
 
 ## 13. Operating the evaluation worker
 
-The worker is the only part that needs care. One instance per machine; add machines to add throughput (jobs are claimed atomically), or `WORKER_CONCURRENCY=n` for parallel runs on one machine (≤ physical cores ÷ 2). Each worker declares which package runtimes it can run with `WORKER_RUNTIMES` (`python`, `matlab`, or both); a package's runtime is recorded at submission time from its `Model.*` file, so a Linux VM without MATLAB never claims a MATLAB package — it waits for a worker that can run it. The **Arbutus VM** runs both runtimes (`docs/drac-migration.md` → *Runbook*); a laptop or lab PC can still join as an extra worker at any time.
+The worker is the only part that needs care. One instance per machine; add machines to add throughput (jobs are claimed atomically), or `WORKER_CONCURRENCY=n` for parallel runs on one machine (≤ physical cores ÷ 2). Each worker declares which package runtimes it can run with `WORKER_RUNTIMES` (`python`, `matlab`, or both); a package's runtime is recorded at submission time from its `Model.*` file, so a Linux VM without MATLAB never claims a MATLAB package — it waits for a worker that can run it. The **Arbutus VM** runs both runtimes (runbook in `socbench-internal`); a laptop or lab PC can still join as an extra worker at any time.
 
-**Prepare the machine** (Windows today; Linux VM later — see `docs/drac-migration.md`)
+**Prepare the machine** (Windows today; Linux VM later — see the runbook in `socbench-internal`)
 1. Node 20+, Git, Docker Desktop (enable *Start Docker Desktop when you sign in*), Python 3.11+ with numpy/scipy, MATLAB with the toolboxes submissions commonly need (Signal Processing, Deep Learning, Statistics & ML, Control System, System Identification, Optimization, Curve Fitting). The admin page lists what a machine has.
 2. Clone the repo **outside OneDrive**, `npm install`, `docker build -t socbench-eval evaluator`.
 3. Obtain `blind_data.mat` from the lab, place it outside the repo, restrict its permissions.
@@ -376,7 +375,7 @@ The worker is the only part that needs care. One instance per machine; add machi
 
 **Policy limits** — the evaluation time limit, test-run limit and daily submission cap are edited on **Admin → Evaluation workers → Evaluation settings** (stored in the DB; every worker applies changes within ~15 s, no restart). Only machine tuning (`EVAL_CPUS`, `EVAL_MEMORY`, `WORKER_CONCURRENCY`) lives in the worker env.
 
-**Update it** — laptop: `git pull`, then Ctrl+C and restart (Docker image changes need `docker build …` again). Arbutus VM: automatic — a systemd timer pulls `main` every 10 minutes and restarts the worker when idle (`scripts/vm-update.sh`; see `docs/drac-migration.md` → Runbook).
+**Update it** — laptop: `git pull`, then Ctrl+C and restart (Docker image changes need `docker build …` again). Arbutus VM: automatic — a systemd timer pulls `main` every 10 minutes and restarts the worker when idle (`scripts/vm-update.sh`; see the runbook in `socbench-internal`).
 
 ## 14. Configuration reference (environment variables)
 
@@ -435,30 +434,12 @@ Today the SVGs are text-only wordmarks and the PNGs are absent (PDF/e-mail fall 
 
 ## 17. Other documents
 
-- `docs/security.md` — security status: done / needs a human / open, and accepted residual risks.
-- `docs/compliance.md` — mapping to McMaster's Information Security Policy (IS-00), data inventory, §26(b) risk assessment.
-- `docs/roadmap.md` — the maintained list of open improvements (launch blockers, security, features, polish); the answer to "what's pending?".
-- `docs/evaluator-vs-original-tool.md` — every way the new evaluator and platform differ from the lab's original MATLAB Standardized Evaluation Tool (what is numerically identical, what changed, what was dropped, open decisions).
-- `docs/drac-migration.md` — plan and checklist for moving the worker to a Digital Research Alliance of Canada VM, including the MATLAB sandbox image and firewall rules.
+- **`socbench-internal`** (private, same organization) — operations documentation kept out of this repository: the evaluation-VM runbook, security status, compliance mapping, the open-work roadmap, and the comparison against the lab's original MATLAB Standardized Evaluation Tool. Ask an organization owner for access.
 - `.env.example` — every setting, annotated.
 - Dataset: https://doi.org/10.5683/SP3/ZVTR4B (Borealis; the archives are git-ignored). Paper: P. J. Kollmeyer, M. Naguib, F. Khanum, A. Emadi, "A Blind Modeling Tool for Standardized Evaluation of Battery State of Charge Estimation Algorithms," IEEE ITEC+EATS 2022, doi:10.1109/ITEC53557.2022.9813996.
 
-## 18. TODO
+## 18. Open work
 
-- [ ] **Domain + Resend for e-mail (high priority).** Gmail (`smtp.gmail.com:587` + App Password) is a stop-gap: ~500 messages/day, sent from a personal address, and — because the sender is not domain-aligned (no SPF/DKIM/DMARC for the benchmark) — Microsoft 365 at McMaster holds results e-mails for minutes and flags them "External". Our side hands mail off in < 5 s; the delay is entirely on the receiving side and only a verified sending domain fixes it.
-  1. **Domain**: get DNS access to `batterysocbenchmark.ca` from the lab (whoever registered it), or register a stop-gap domain (any `.ca`/`.com`, ≈ $12/yr) — the sender domain does not have to match the site URL. Point the site at it in Vercel → Domains when ready and update `AUTH_URL` / `NEXT_PUBLIC_SITE_URL`.
-  2. **Resend** (free: 3,000/month, 100/day; plain SMTP, no code change): resend.com → *Domains → Add* → add the DKIM TXT, SPF/MX (bounce subdomain) and DMARC records at the registrar → *Verify* → *API Keys → Create* (sending-only).
-  3. Set on Vercel **and** in the worker's `.env.production`: `SMTP_HOST=smtp.resend.com`, `SMTP_PORT=465`, `SMTP_USER=resend`, `SMTP_PASS=<api key>`, `MAIL_FROM="Battery SOC Benchmark <no-reply@<domain>>"`; redeploy and restart the worker; send a test from the contact form and a dry-run/evaluation e-mail.
-  4. Optional: results e-mail as **link-only** (PDF downloaded from the site) to also bypass M365 Safe-Attachments scanning — one-line change in `src/evaluator/run-job.ts`.
-  Alternatives if Resend is unsuitable: Brevo (300/day free, SMTP), Amazon SES (cheapest at scale, more setup), Postmark (paid, best deliverability). Revoke the Gmail app password afterwards.
-- [ ] Drop the official McMaster and NSERC assets into `public/logos/` (SVG for web, PNG for PDF/e-mail) once Brand Marketing approves — see §16.
-- [x] Parity-tested the CC / EKF / FNN / LSTM example packages: all 21 score columns match the historical `Leaderboard.csv` to 0.000 (2026-08-25).
-- [ ] Decide whether the evaluation host ships PyTorch for Python submissions (three archived Python submissions depend on it) — `docker build --build-arg TORCH=1`.
-- [ ] Import the 13 historical leaderboard entries (`archive/old-evaluation-tool/Models/Leaderboard.csv`) as legacy submissions.
-- [ ] Calibrate `SOCBENCH_CAL_*` per evaluation host (the laptop constants are in `.env.production`; the Arbutus VM's are in `/etc/socbench/worker.env` — see the runbook).
-- [ ] Surface the evaluator's `suspicious` flag (mean RMSE > 25 %) and exact-duplicate scores as admin badges instead of silently hiding data (old tool behaviour).
-- [ ] Rotate the Gmail app password that is hard-coded in the old tool's `Standardized_Evaluation_Tool_V2.m`.
-- [x] **Migrated the evaluation worker to Digital Research Alliance of Canada resources** (2026-08-28): Python and MATLAB packages evaluate on the Arbutus VM in Docker sandboxes; parity with the previous host verified on the four example packages (all 20 score columns identical). Remaining: egress allow-list for MATLAB containers, capacity (quota) — see `docs/drac-migration.md`. Original note: via Dr. Kollmeyer's sponsored account — persistent Alliance Cloud VM for the worker, cluster MATLAB / MATLAB Runtime for evaluation, `/project` storage for the blinded data. Plan and checklist: `docs/drac-migration.md`. Info: https://research.mcmaster.ca/free-supercomputing-resources-via-digital-research-alliance-of-canada/
-- [ ] Confirm hosting option and file the §26(b) risk assessment (see `docs/compliance.md`).
-- [ ] Trim demo users/submissions from `prisma/seed.ts` before seeding production, and delete the `example.edu` demo accounts from the live database (Admin → Users) before announcing the site.
-- [ ] **Security follow-ups** — tracked in detail in `docs/security.md`. Human steps still outstanding: rotate the Supabase DB password + service-role key; move repo/`.env.production`/`blind-data` out of OneDrive; run the worker as the low-privilege `socbench` account; build the MATLAB sandbox image on the DRAC VM (host-mode MATLAB packages remain the main residual risk). Not started: cheating-detection badges, session invalidation on password change, admin 2FA, audit log, Dependabot/`npm audit`, weekly `pg_dump` backups, ZAP scan before launch.
+The maintained list of open items — launch blockers, security follow-ups, features and
+housekeeping — lives in `docs/roadmap.md` in the private **`socbench-internal`** repository,
+alongside the security status and the VM runbook. Ask an organization owner for access.
