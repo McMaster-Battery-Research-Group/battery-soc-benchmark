@@ -183,19 +183,19 @@ Full definitions and the current weights are on the site's **Methodology** page 
 
 How the system is built, layer by layer, and the reasoning behind each choice. Two constraints shaped most of it: the whole platform runs on free tiers, and untrusted submitted code must never execute on the website.
 
+Read it as a straight line from top to bottom. Each box is one layer, and the technologies inside it are what that layer is built from. The worker is a separate program that joins at the bottom, because the database is the only thing the two share.
+
 ```mermaid
 flowchart TB
     A["Browser<br/>React 19 · Tailwind CSS 4 · Radix · Recharts"]
-    B["Next.js 15 App Router, on Vercel<br/>Server Components · Server Actions · Route Handlers · Middleware"]
-    C["Prisma 6"]
-    D[("Supabase<br/>PostgreSQL + private object storage")]
-    E["Worker — Node.js + tsx<br/>claims jobs from the same database"]
-    F["Docker sandbox<br/>Python with numpy/scipy, or MATLAB"]
-    A <--> B
+    B["Next.js 15 on Vercel<br/>Server Components · Server Actions · Route Handlers"]
+    C["Prisma 6<br/>typed database access"]
+    D[("Supabase<br/>PostgreSQL + private file storage")]
+    E["Worker on a lab machine<br/>Node.js → Docker → Python or MATLAB"]
+    A --> B
     B --> C
     C --> D
-    E --> C
-    E --> F
+    E --> D
 ```
 
 ### What each piece is, and why it was chosen
@@ -220,27 +220,30 @@ flowchart TB
 
 There is **no REST API behind the website**. Pages read the database directly inside Server Components, and forms call Server Actions — typed functions that run on the server and are invoked like ordinary functions from the client.
 
+**Reading a page.** The page component itself queries the database and returns finished HTML. Nothing is fetched from the browser afterwards.
+
 ```mermaid
 sequenceDiagram
-    participant U as Browser
+    participant B as Browser
     participant SC as Server Component
-    participant SA as Server Action
-    participant PR as Prisma
     participant DB as PostgreSQL
-
-    Note over U,DB: Reading a page
-    U->>SC: request /leaderboard
-    SC->>PR: typed query
-    PR->>DB: SQL
+    B->>SC: request /leaderboard
+    SC->>DB: query, via Prisma
     DB-->>SC: rows
-    SC-->>U: rendered HTML
+    SC-->>B: finished HTML
+```
 
-    Note over U,DB: Submitting a form
-    U->>SA: invoke the action
-    SA->>SA: validate, auth, rate-limit
-    SA->>PR: write
-    PR->>DB: SQL
-    SA-->>U: result + revalidate
+**Submitting a form.** The browser calls a Server Action as if it were a local function. All the checking and writing happens on the server, and the affected pages re-render.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant SA as Server Action
+    participant DB as PostgreSQL
+    B->>SA: submit the form
+    SA->>SA: validate, check session, rate-limit
+    SA->>DB: write, via Prisma
+    SA-->>B: result, pages refreshed
 ```
 
 Route Handlers under `src/app/api/` exist only where something genuinely needs its own URL: status polling, the PDF download, and issuing upload URLs.
