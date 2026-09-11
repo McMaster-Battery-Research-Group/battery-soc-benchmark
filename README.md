@@ -171,7 +171,7 @@ Each cycle is preceded by an hour of rest so models with internal state (filters
 
 That produces **18 numbers** — mean RMSE per test case (blinded cell, non-blinded cells, charging, payload/HVAC conditions, standard vs non-standard cycles, each temperature from −20 to 40 °C, initial-SOC error, sensor offset).
 
-> **Weighted error** = Σ (weight × RMSE), using the published weights, which sum to exactly 1. **Lower is better.** Ties break by submission time.
+> **Weighted error** = Σ (weight × RMSE), using the published weights, which sum to exactly 1. **Lower is better.**
 
 You also get a **complexity** bin (1–10) from measured time-per-sample relative to a plain Coulomb counter, so a cheap model and an expensive one are visibly different rather than judged on accuracy alone.
 
