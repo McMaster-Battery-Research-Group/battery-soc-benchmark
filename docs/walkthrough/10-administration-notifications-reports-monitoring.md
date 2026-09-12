@@ -1,8 +1,8 @@
 ## 10. Administration, notifications, reports, monitoring
 
-> **Plain English.** Administrators can moderate submissions, manage users and contests, tune the evaluation limits, change the scoring weights, and watch the worker machines. Every admin action is recorded in an activity feed on the site; e-mail is only a copy of that feed, and each admin chooses which kinds of e-mail they want. A robot checks every ten minutes that a worker is alive and e-mails the admins once if it isn't, and once when it comes back.
+> 💡 **Plain English.** Administrators can moderate submissions, manage users and contests, tune the evaluation limits, change the scoring weights, and watch the worker machines. Every admin action is recorded in an activity feed on the site; e-mail is only a copy of that feed, and each admin chooses which kinds of e-mail they want. A robot checks every ten minutes that a worker is alive and e-mails the admins once if it isn't, and once when it comes back.
 
-### The admin area
+### 🛎️ The admin area
 
 ```mermaid
 flowchart TB
@@ -20,7 +20,7 @@ flowchart TB
     class O,S,C,U,M,W,G,N web
 ```
 
-### The admin actions and their safety rails
+### 🛡️ The admin actions and their safety rails
 
 All in [admin/actions.ts](../../src/app/(admin)/admin/actions.ts); every one begins with `requireAdmin()`.
 
@@ -36,7 +36,7 @@ All in [admin/actions.ts](../../src/app/(admin)/admin/actions.ts); every one beg
 | Scoring weights | preview first; must sum to 1; identical-to-active rejected |
 | Contests | only one OPEN at a time |
 
-### Notifications: who gets told, and how
+### ✉️ Notifications: who gets told, and how
 
 ```mermaid
 flowchart TB
@@ -74,7 +74,7 @@ after(() => accountDeletedEmail(user, reason, adminName, counts, notifyUser).cat
 
 All templates live in [mail.ts](../../src/lib/mail.ts): a maroon header, the McMaster and NSERC logo row and acknowledgement in the footer; the results e-mail embeds a confetti GIF as an inline attachment so it shows even where remote images are blocked. With no `SMTP_HOST` configured, mail goes to a throw-away Ethereal inbox and the preview link is printed — how development works.
 
-### The PDF report
+### 📄 The PDF report
 
 Built by [report.ts](../../src/lib/report.ts) with pdfkit — A4, entirely vector, no browser involved.
 
@@ -98,16 +98,16 @@ flowchart TB
     class FT ext
 ```
 
-### Outage monitoring
+### 💓 Outage monitoring
 
 Born from the 1 September Arbutus routing outage: the worker was healthy but could not reach the database for ten hours, and nobody was told. The website is the one vantage point that always sees both the database and SMTP, so it does the watching.
 
 ```mermaid
 sequenceDiagram
-    participant GH as GitHub Action
-    participant W as worker-health endpoint
-    participant DB as Database
-    participant A as Admins
+    participant GH as 🐙 GitHub Action
+    participant W as 🌐 worker-health endpoint
+    participant DB as 🗄️ Database
+    participant A as 👤 Admins
 
     Note over GH: every 10 minutes
     GH->>W: GET with the token
@@ -136,5 +136,5 @@ stateDiagram-v2
 
 Three minutes = twelve missed 15-second heartbeats — long enough that the routine 10-minute update restart never trips it. Counts (how many queued) go into the details, never into the problem text, so a growing queue cannot read as a new outage. A **red** Action run means the *website* was unreachable — GitHub reports that separately. The Workers admin page uses a stricter 60 s window for its "online" badge; the two thresholds are deliberately different (display versus alerting).
 
-**Files to open, in order:** [admin/actions.ts](../../src/app/(admin)/admin/actions.ts) → [admin-notify.ts](../../src/lib/admin-notify.ts) → [mail.ts](../../src/lib/mail.ts) → [report.ts](../../src/lib/report.ts) → [api/ops/worker-health/route.ts](../../src/app/api/ops/worker-health/route.ts) → [.github/workflows/worker-health.yml](../../.github/workflows/worker-health.yml).
+📌 **Files to open, in order:** [admin/actions.ts](../../src/app/(admin)/admin/actions.ts) → [admin-notify.ts](../../src/lib/admin-notify.ts) → [mail.ts](../../src/lib/mail.ts) → [report.ts](../../src/lib/report.ts) → [api/ops/worker-health/route.ts](../../src/app/api/ops/worker-health/route.ts) → [.github/workflows/worker-health.yml](../../.github/workflows/worker-health.yml).
 

@@ -1,10 +1,10 @@
 ## 5. The evaluation engine — running the model
 
-> **Plain English.** This and the next part describe the ~800 lines of Python that *are* the benchmark. They reproduce the lab's original MATLAB scoring tool exactly — checked against the real hidden data: the four reference models match every column of the old leaderboard to three decimal places, and the Python and MATLAB paths agree with each other. This part is about *running* the model: what data it is fed, in what order, and how. The next part is about turning the errors into a score.
+> 💡 **Plain English.** This and the next part describe the ~800 lines of Python that *are* the benchmark. They reproduce the lab's original MATLAB scoring tool exactly — checked against the real hidden data: the four reference models match every column of the old leaderboard to three decimal places, and the Python and MATLAB paths agree with each other. This part is about *running* the model: what data it is fed, in what order, and how. The next part is about turning the errors into a score.
 
 Directory: [evaluator/python/socbench_eval/](../../evaluator/python/socbench_eval/) — `__main__.py` (the run), `data.py` (load the .mat), `runner.py` (execute models), `pipeline.py` (jobs, scoring, complexity, traces).
 
-### The answer key: `blind_data.mat`
+### 🔐 The answer key: `blind_data.mat`
 
 The lab's data lives in MATLAB *tables*, which Python cannot read. [Export_Blind_Data.m](../../matlab/Export_Blind_Data.m) is run **once** to convert them to plain arrays in a version-7 `.mat` that scipy understands. **The cycle order is preserved and load-bearing** — every grouping in the scorer is positional, exactly as the original tool relied on.
 
@@ -19,7 +19,7 @@ flowchart TB
     class B,CY,FLD data
 ```
 
-### The test grid
+### 🚗 The test grid
 
 Every model faces the same grid. Each square is one drive cycle of roughly one to three hours of one-second measurements.
 
@@ -53,7 +53,7 @@ flowchart TB
     class TOT web
 ```
 
-### The run, in order (`__main__.py`)
+### ▶️ The run, in order (`__main__.py`)
 
 ```mermaid
 flowchart TB
@@ -77,7 +77,7 @@ flowchart TB
 
 The validation job exists for one reason: a broken model fails in seconds with its real error message instead of after 45 minutes.
 
-### What `build_jobs` produces
+### 🧾 What `build_jobs` produces
 
 ```mermaid
 flowchart TB
@@ -119,14 +119,14 @@ flowchart LR
     class M web
 ```
 
-### How the model is executed (`runner.py`)
+### 🔋 How the model is executed (`runner.py`)
 
 Both backends honour the same contract: **call `Model(X[i], z)` once per sample, in order, carrying `z` forward.** That is how a BMS runs an estimator, and it is why a model cannot cheat by looking ahead.
 
 ```mermaid
 sequenceDiagram
-    participant E as Evaluator
-    participant M as Model
+    participant E as 🧮 Evaluator
+    participant M as 🔋 Model
 
     E->>M: Model(X[0])
     M-->>E: soc0, z
@@ -161,11 +161,11 @@ def Model(X, z=None):
 
 `Run_Model.m` prints `[Run_Model] k/n done` after every matrix; the Python side turns that into the same `NN.N% | key` progress lines the Python backend emits, so the website's progress bar is identical for both. Progress is weighted by *samples*, not matrix count, so long cycles move the bar proportionally.
 
-### Dry run and mock
+### 🧪 Dry run and mock
 
 `--dry-run` uses **open** data shipped with the repo (`dryrun_data.mat`, 2 h of public m80 data): the +0.3 A validation, then one padded cycle. No blinded data is mounted, no leaderboard row. This replaced the lab's downloadable "Model Submission Test Tool".
 
 `EVALUATOR=mock` ([mock-evaluator.ts](../../src/evaluator/mock-evaluator.ts)) fabricates plausible numbers from a seeded random generator — per-family baselines (LSTM ≈ 2.6 %, EKF ≈ 9 %, Coulomb counter ≈ 30 %) with temperature, cycle and cell factors — deterministically, so the same submission always "evaluates" identically. It exists so the entire website can be developed with no blinded data and no Docker.
 
-**Files to open, in order:** [__main__.py](../../evaluator/python/socbench_eval/__main__.py) → [data.py](../../evaluator/python/socbench_eval/data.py) → [runner.py](../../evaluator/python/socbench_eval/runner.py) → [Run_Model.m](../../matlab/Run_Model.m) → [Export_Blind_Data.m](../../matlab/Export_Blind_Data.m).
+📌 **Files to open, in order:** [__main__.py](../../evaluator/python/socbench_eval/__main__.py) → [data.py](../../evaluator/python/socbench_eval/data.py) → [runner.py](../../evaluator/python/socbench_eval/runner.py) → [Run_Model.m](../../matlab/Run_Model.m) → [Export_Blind_Data.m](../../matlab/Export_Blind_Data.m).
 

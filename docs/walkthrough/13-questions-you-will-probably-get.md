@@ -1,6 +1,6 @@
 ## 13. Questions you will probably get
 
-### From researchers and non-developers
+### 👤 From researchers and non-developers
 
 **"Is my model safe with you?"** It is deleted the moment it has been scored. What remains is the scores, the down-sampled traces on your results page, and the full-resolution traces file you can download. Nobody at the lab opens packages; the worker is the only thing that reads them.
 
@@ -16,7 +16,7 @@
 
 **"Why do I have to click a button in the verification e-mail?"** Corporate mail scanners open every link before you do; the button stops them activating your account on your behalf.
 
-### From developers
+### 💻 From developers
 
 **"How do you stop someone's model from stealing the blinded data?"** It can read it — it has to, to be evaluated — but it cannot send it anywhere: no network in the container, read-only filesystem, no secrets in the environment, container destroyed afterwards. And it cannot reach the website or the database at all; those are on a different machine.
 

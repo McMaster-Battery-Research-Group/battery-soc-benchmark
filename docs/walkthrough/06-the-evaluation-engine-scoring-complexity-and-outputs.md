@@ -1,8 +1,8 @@
 ## 6. The evaluation engine — scoring, complexity and outputs
 
-> **Plain English.** After the model has run on every cycle, the evaluator has one error number per cycle. This part shows how those become the 18 numbers on the scorecard, how the 18 become one leaderboard score, what "complexity" means, and what gets sent back to the website for the charts.
+> 💡 **Plain English.** After the model has run on every cycle, the evaluator has one error number per cycle. This part shows how those become the 18 numbers on the scorecard, how the 18 become one leaderboard score, what "complexity" means, and what gets sent back to the website for the charts.
 
-### From one number per cycle to 18 metrics
+### 📊 From one number per cycle to 18 metrics
 
 Per-cycle RMSE (in % SOC) is arranged as a matrix `R` — rows are test cycles in file order, columns are the four cells — and the metrics are positional means over it, mirroring the original `Obtain_Output_Data.m`.
 
@@ -27,7 +27,7 @@ flowchart TB
     class G,W web
 ```
 
-### The weights
+### ⚖️ The weights
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"pie1": "#7A003C", "pie2": "#9E3D67", "pie3": "#C27A99", "pie4": "#FDBF57", "pie5": "#E5A93E", "pie6": "#C99027", "pie7": "#B8860B", "pie8": "#0D5D78", "pie9": "#3A7F98", "pie10": "#7FB0C4", "pie11": "#0E5B3D", "pie12": "#4E8A6A", "pieStrokeColor": "#ffffff", "pieSectionTextColor": "#ffffff"}}}%%
@@ -59,11 +59,11 @@ The weights in metric order: `[0, 1/10, 1/10, 1/10, 1/30, 2/30, 2/30, 1/30, 1/10
 
 Two extras the scorer emits: `suspicious = mean(R) > 25` (the original tool *withheld* such results; we flag it in the log and leave the decision to an administrator), and `maxError` = the single worst instantaneous error across all test cycles.
 
-### RMSE, in words
+### 📏 RMSE, in words
 
 For one cycle: take the difference between the estimated and true SOC at every second, square each difference (so misses in both directions count and big misses count more), average them, and take the square root to get back to % SOC. A model that is always 2 % off scores an RMSE of 2. A model that is perfect most of the time but 30 % off for a minute scores worse than that minute's share would suggest — which is the point.
 
-### Complexity
+### ⏱️ Complexity
 
 ```mermaid
 flowchart TB
@@ -79,7 +79,7 @@ flowchart TB
 
 Informational only — it never enters the weighted error. The constants are per evaluation host. A caveat worth knowing: MATLAB's JIT is ~20× faster inside a function than in a script, so the MATLAB constant can only be re-measured by calling the model the way `Run_Model.m` does. For a researcher, complexity answers "would this fit on a real battery controller?" — a bin of 2 is a few arithmetic operations per second; a bin of 9 is a neural network that would need a much larger processor.
 
-### What leaves the engine
+### 📤 What leaves the engine
 
 ```mermaid
 flowchart TB
@@ -111,5 +111,5 @@ flowchart LR
     class O web
 ```
 
-**Files to open, in order:** [pipeline.py](../../evaluator/python/socbench_eval/pipeline.py) (`score`, `complexity`, `display_indices`, `per_cycle_rows`, `robustness_traces`, `write_full_traces`) → [test-cases.ts](../../src/lib/test-cases.ts) (the same 18 with labels and descriptions for the website).
+📌 **Files to open, in order:** [pipeline.py](../../evaluator/python/socbench_eval/pipeline.py) (`score`, `complexity`, `display_indices`, `per_cycle_rows`, `robustness_traces`, `write_full_traces`) → [test-cases.ts](../../src/lib/test-cases.ts) (the same 18 with labels and descriptions for the website).
 

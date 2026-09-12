@@ -1,8 +1,8 @@
 ## 1. Glossary
 
-> **Plain English.** Two vocabularies meet in this project: battery science and web software. Nobody is expected to know both. This part defines every word the rest of the document uses, in one line each, and shows how the concepts hang together.
+> 💡 **Plain English.** Two vocabularies meet in this project: battery science and web software. Nobody is expected to know both. This part defines every word the rest of the document uses, in one line each, and shows how the concepts hang together.
 
-### How the battery concepts fit together
+### 🔋 How the battery concepts fit together
 
 ```mermaid
 flowchart TB
@@ -29,7 +29,7 @@ flowchart TB
     class SCORE web
 ```
 
-### Battery and benchmark terms
+### 🔋 Battery and benchmark terms
 
 | Term | Meaning |
 |---|---|
@@ -52,7 +52,7 @@ flowchart TB
 | **Package** | The `.zip` a researcher uploads: `Model.py` (Python) or `Model.m`/`Model.p` (MATLAB) at the top level plus any parameter files. |
 | **Legacy result** | A score produced by an older version of the evaluator's maths. Still shown, but unranked; the author is asked to resubmit. |
 
-### Software terms
+### 💻 Software terms
 
 | Term | Meaning |
 |---|---|
@@ -87,7 +87,7 @@ flowchart TB
 | **TypeScript / Node.js / npm / tsx** | TypeScript is JavaScript with types. Node.js runs JavaScript outside a browser. npm installs libraries and runs scripts. tsx runs TypeScript files directly with no build step. |
 | **Zod schema** | A declaration of what a form input must look like, checked at runtime, reused in the browser and on the server. |
 
-### Numbers worth remembering
+### 🔢 Numbers worth remembering
 
 | | |
 |---|---|

@@ -1,16 +1,16 @@
 ## 4. Life of a submission, end to end
 
-> **Plain English.** A researcher uploads a zip. The website checks that it is well-formed and puts a ticket in a queue. A worker machine takes the ticket, downloads the zip, runs the model inside a sealed box against the secret data, saves the scores, deletes the zip, and e-mails a PDF. If anything goes wrong the researcher is told exactly what. Follow this part once with the files open and you can answer almost any question about the system.
+> 💡 **Plain English.** A researcher uploads a zip. The website checks that it is well-formed and puts a ticket in a queue. A worker machine takes the ticket, downloads the zip, runs the model inside a sealed box against the secret data, saves the scores, deletes the zip, and e-mails a PDF. If anything goes wrong the researcher is told exactly what. Follow this part once with the files open and you can answer almost any question about the system.
 
-### The whole journey in one picture
+### 🗺️ The whole journey in one picture
 
 ```mermaid
 sequenceDiagram
-    participant R as Browser
-    participant W as Website
-    participant DB as Storage
-    participant K as Worker
-    participant S as Sandbox
+    participant R as 👤 Browser
+    participant W as 🌐 Website
+    participant DB as 🗄️ Storage
+    participant K as ⚙️ Worker
+    participant S as 🐳 Sandbox
 
     rect rgb(242,230,236)
     Note over R,DB: on the website
@@ -32,7 +32,7 @@ sequenceDiagram
     K-->>R: 7 e-mail with PDF
 ```
 
-### What the researcher sees at each step
+### 👤 What the researcher sees at each step
 
 | Step | On screen | Behind it |
 |---|---|---|
@@ -42,7 +42,7 @@ sequenceDiagram
 | Done | Confetti, the plain-English insights, the scorecard, an e-mail with a PDF | One database transaction, then package deletion, then mail |
 | Failed | The exact error, with the model's own traceback lines | `EvaluationError` marked user-facing — never retried |
 
-### An evaluation on a clock
+### ⏱️ An evaluation on a clock
 
 Rough proportions for a mid-weight model (a heavy LSTM in MATLAB can take 45 minutes; a Coulomb counter in Python takes 10 seconds):
 
@@ -64,7 +64,7 @@ gantt
     store, PDF, e-mail (worker)     :c2, after c1, 15s
 ```
 
-### Step 1 — Upload: browser → bucket, bypassing the website
+### 📤 Step 1 — Upload: browser → bucket, bypassing the website
 
 Vercel caps the body of a serverless request at 4.5 MB; packages can be 50 MB. So the file never passes through our server on the way in.
 
@@ -87,7 +87,7 @@ flowchart TB
 
 Files: [api/upload/route.ts](../../src/app/api/upload/route.ts), `uploadPackage()` in [upload-client.ts](../../src/lib/upload-client.ts), `createSignedUpload()` in [storage.ts](../../src/lib/storage.ts). Keys look like `submissions/1724600000000-ab12cd.zip`; the website accepts only keys matching `OBJECT_KEY_RE`, so a tampered form cannot point at some other object. In local development (`STORAGE=local`) the file simply travels inside the form.
 
-### Step 2 — Validate and create
+### ✅ Step 2 — Validate and create
 
 Everything below happens inside one server action, `createSubmissionAction` in [submit/actions.ts](../../src/app/(app)/submit/actions.ts), in this order. Cheap checks come first, and the pre-uploaded object is deleted on any rejection so the bucket never fills with rejects.
 
@@ -126,7 +126,7 @@ flowchart TB
 
 The `runtime` column (`python` or `matlab`) is set here, from which model file was found, so the right kind of worker claims the job later.
 
-### Step 3 — Waiting: where the numbers on the status page come from
+### ⏳ Step 3 — Waiting: where the numbers on the status page come from
 
 The page polls `/api/submissions/[id]/status` — first after 1 s, then every 2.5 s. Everything it shows derives from two tables:
 
@@ -155,7 +155,7 @@ The average duration comes from the last 10 completed runs of the same model typ
 
 *Worked example:* two slots, one job running with 12 minutes left, two queued jobs ahead of yours averaging 20 minutes each. Slot A: 12 min → then queued job 1 (ends at 32). Slot B: queued job 2 (ends at 20). Your job starts on the first free slot: **about 20 minutes**.
 
-### Step 4 — Claim: how two workers never take the same job
+### 🔒 Step 4 — Claim: how two workers never take the same job
 
 The worker ([worker.ts](../../src/evaluator/worker.ts)) polls every 2 s. Dry runs are claimed first — they are short and someone is watching. Then `claimJob()` in [run-job.ts](../../src/evaluator/run-job.ts):
 
@@ -193,17 +193,17 @@ No transaction, no advisory lock, no queue service — a **compare-and-swap** on
 
 **Why a 30-minute stale lock is safe for a 6-hour evaluation:** every progress line the evaluator prints is written to the job log, and *that write also refreshes `lockedAt`*. A live job is never stale. A job whose worker died stops being refreshed and becomes reclaimable after 30 quiet minutes.
 
-### Step 5 — Evaluate: the sandbox
+### 🐳 Step 5 — Evaluate: the sandbox
 
 `runJob` marks the submission RUNNING, downloads the package to a temporary file (`storage.materialize`), and hands off to `PythonEvaluator.spawn()` in [python-evaluator.ts](../../src/evaluator/python-evaluator.ts), which builds exactly one `docker run` command.
 
 ```mermaid
 flowchart TB
-    subgraph HOST["Worker machine"]
-        PKG["package.zip (temp file)"]
-        BD["blind_data.mat (mode 600)"]
+    subgraph HOST["⚙️ Worker machine"]
+        PKG["📦 package.zip (temp file)"]
+        BD["🔐 blind_data.mat (mode 600)"]
         OUT["output folder (temp)"]
-        subgraph C["Container socbench-id"]
+        subgraph C["🐳 Container socbench-id"]
             direction TB
             R1["--network none"] ~~~ R2["--read-only root filesystem"]
             R2 ~~~ R3["--cap-drop ALL · no-new-privileges"]
@@ -247,7 +247,7 @@ flowchart LR
 
 **Host mode** (`EVAL_SANDBOX=none`, or a MATLAB package on a machine with no MATLAB image — this is how the laptop ran MATLAB natively during the outage): the same Python entry point, run directly, with an *allow-listed environment* — only `SOCBENCH_*`, `MATLAB_*`, `PATH` and locale variables reach it. Faster, not isolated. Dedicated low-privilege account only.
 
-### Step 6 — Score and store
+### 🏁 Step 6 — Score and store
 
 Back in `runJob`, [results.ts](../../src/evaluator/results.ts) parses `results.json`: all 18 metric keys must be finite numbers. The website **re-derives** the weighted error from them with the *active* weights and logs a note if it disagrees with the evaluator by more than 0.01 (it never has, with default weights; when an admin has overridden the weights, the website's value wins).
 
@@ -274,7 +274,7 @@ flowchart TB
 
 The large trace file goes to the bucket, not the database row, and replaces the previous one on a re-evaluation. The package is deleted *before* the e-mail step — nothing that happens afterwards can leave it behind.
 
-### Step 7 — The branches people forget
+### 🔁 Step 7 — The branches people forget
 
 ```mermaid
 stateDiagram-v2
@@ -294,5 +294,5 @@ stateDiagram-v2
 - **Cancel** while unclaimed → deleted outright. Once claimed → `cancelRequestedAt` is set; the worker notices within 10 s, aborts, and then either deletes the submission or — if this was a resubmitted v2+ — restores the previous version's score.
 - **Worker shutdown** (Ctrl+C, `systemctl stop`, admin "stop"): in-flight evaluations are aborted with the reason `SHUTDOWN`; the job is handed back *with the attempt refunded* and the heartbeat row is deleted so the admin page does not show a ghost.
 
-**Files to open, in order:** [submit/actions.ts](../../src/app/(app)/submit/actions.ts) → [package-check.ts](../../src/lib/package-check.ts) → [worker.ts](../../src/evaluator/worker.ts) → [run-job.ts](../../src/evaluator/run-job.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts) → [results.ts](../../src/evaluator/results.ts) → [worker-status.ts](../../src/lib/worker-status.ts).
+📌 **Files to open, in order:** [submit/actions.ts](../../src/app/(app)/submit/actions.ts) → [package-check.ts](../../src/lib/package-check.ts) → [worker.ts](../../src/evaluator/worker.ts) → [run-job.ts](../../src/evaluator/run-job.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts) → [results.ts](../../src/evaluator/results.ts) → [worker-status.ts](../../src/lib/worker-status.ts).
 

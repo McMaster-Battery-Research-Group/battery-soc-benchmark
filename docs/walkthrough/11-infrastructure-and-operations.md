@@ -1,18 +1,18 @@
 ## 11. Infrastructure and operations
 
-> **Plain English.** The website is hosted by Vercel and deploys itself whenever code is pushed. The database and file storage are hosted by Supabase. The worker is a rented Linux computer in the Alliance research cloud that updates itself every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through Dr. Kollmeyer's MathWorks account. Secrets live in files only the worker's own account can read.
+> 💡 **Plain English.** The website is hosted by Vercel and deploys itself whenever code is pushed. The database and file storage are hosted by Supabase. The worker is a rented Linux computer in the Alliance research cloud that updates itself every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through Dr. Kollmeyer's MathWorks account. Secrets live in files only the worker's own account can read.
 
-### Deployment topology
+### 🗺️ Deployment topology
 
 ```mermaid
 flowchart TB
-    GH["GitHub<br/>McMaster-Battery-Research-Group/battery-soc-benchmark"]
-    V["Vercel<br/>website, iad1, 60 s functions"]
-    VM["Arbutus VM<br/>Ubuntu 24.04 · 8 vCPU · 12 GB<br/>socbench-worker.service"]
-    GA["GitHub Action<br/>worker-health"]
-    SB[("Supabase<br/>PostgreSQL via pooler :6543<br/>private bucket 'packages'")]
-    MW["login.mathworks.com<br/>licence token exchange"]
-    SMTP["SMTP"]
+    GH["🐙 GitHub<br/>McMaster-Battery-Research-Group/battery-soc-benchmark"]
+    V["🌐 Vercel<br/>website, iad1, 60 s functions"]
+    VM["⚙️ Arbutus VM<br/>Ubuntu 24.04 · 8 vCPU · 12 GB<br/>socbench-worker.service"]
+    GA["💓 GitHub Action<br/>worker-health"]
+    SB[("🗄️ Supabase<br/>PostgreSQL via pooler :6543<br/>🪣 private bucket 'packages'")]
+    MW["🔑 login.mathworks.com<br/>licence token exchange"]
+    SMTP["✉️ SMTP"]
     GH -- "push to main → auto-deploy" --> V
     GH -- "git fetch every 10 min<br/>(read-only deploy key)" --> VM
     GH -- "cron every 10 min" --> GA
@@ -32,7 +32,7 @@ flowchart TB
     class SB data
 ```
 
-### The VM, as provisioned by one script
+### 🏗️ The VM, as provisioned by one script
 
 [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) is idempotent — safe to re-run — and copies **no secrets and no blinded data**; those are placed by hand afterwards.
 
@@ -53,7 +53,7 @@ flowchart TB
 
 The systemd unit is hardened: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only`, write access only to its own state directory and `/tmp`, `ConditionPathExists=/etc/socbench/worker.env` so it cannot start before secrets land, `Restart=always`, and `KillSignal=SIGINT` so the worker's graceful shutdown hands jobs back to the queue rather than abandoning them.
 
-### Self-update, without killing an evaluation
+### 🔁 Self-update, without killing an evaluation
 
 [vm-update.sh](../../scripts/vm-update.sh) runs from a timer every 10 minutes.
 
@@ -84,16 +84,16 @@ flowchart TB
     class L good
 ```
 
-### MATLAB inside the sandbox, and how it is licensed
+### 🔑 MATLAB inside the sandbox, and how it is licensed
 
 The image `socbench-eval-matlab` is MathWorks' `matlab-deep-learning:r2026a` (24.5 GB, every toolbox submissions have needed) plus Python and the harness, with the image's `matlab` user **remapped to the `socbench` uid** so the blinded data can stay mode 600 and the licence file is owned by the same account. No licence material is baked into the image.
 
 ```mermaid
 sequenceDiagram
-    participant O as Licence holder
-    participant VM as VM
-    participant MW as MathWorks
-    participant S as Sandbox
+    participant O as 👤 Licence holder
+    participant VM as ⚙️ VM
+    participant MW as 🔑 MathWorks
+    participant S as 🐳 Sandbox
 
     rect rgb(239,230,245)
     O->>VM: one-time browser sign-in via SSH tunnel
@@ -111,7 +111,7 @@ sequenceDiagram
 
 The worst a malicious MATLAB submission can do is read a token that expires within a day and licenses nothing but MATLAB. The identity token's expiry date is shown on the Workers page; renewal is repeating the sign-in.
 
-### The two sandbox images
+### 🐳 The two sandbox images
 
 | | `socbench-eval` (Python) | `socbench-eval-matlab` |
 |---|---|---|
@@ -122,7 +122,7 @@ The worst a malicious MATLAB submission can do is read a token that expires with
 | Build context | `evaluator/` | repo root (needs `matlab/`) |
 | Baked in | `dryrun_data.mat` — dry runs mount nothing | same |
 
-### Storage abstraction
+### 🪣 Storage abstraction
 
 ```mermaid
 flowchart TB
@@ -143,7 +143,7 @@ flowchart TB
     class M worker
 ```
 
-### Configuration: the environment variables, by purpose
+### ⚙️ Configuration: the environment variables, by purpose
 
 | Group | Variables |
 |---|---|
@@ -157,7 +157,7 @@ flowchart TB
 
 Every line is annotated in [.env.example](../../.env.example). Production values live only on Vercel (website) and in `/etc/socbench/worker.env` (worker, mode 600).
 
-### Tests and the push hook
+### ✅ Tests and the push hook
 
 ```mermaid
 flowchart TB
@@ -178,7 +178,7 @@ flowchart TB
     class S ext
 ```
 
-### The 1 September outage, as it unfolded
+### ⚠️ The 1 September outage, as it unfolded
 
 The event that shaped the monitoring design. Nothing on the VM was wrong; the route between the research cloud and the part of the internet where the database lives had disappeared overnight.
 
@@ -199,7 +199,7 @@ gantt
     outage alerting built + deployed :18:00, 19:00
 ```
 
-### Developer bootstrap
+### 🚀 Developer bootstrap
 
 ```
 git clone …
@@ -212,5 +212,5 @@ npm run worker    # in a second terminal, mock evaluator by default
 
 The seed wipes and creates 7 users, one open contest with 4 entries, 15 completed submissions scored by the deterministic mock evaluator, and one failed one — so every page has something to show. Two things that bite on Windows: stop the dev server and the worker before `prisma generate` (a running process locks the generated client), and PowerShell 5.1 has no `&&` — run commands on separate lines.
 
-**Files to open, in order:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile](../../evaluator/Dockerfile) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [matlab-mhlm-setup.sh](../../scripts/matlab-mhlm-setup.sh) → [storage.ts](../../src/lib/storage.ts) → [playwright.smoke.config.ts](../../playwright.smoke.config.ts).
+📌 **Files to open, in order:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile](../../evaluator/Dockerfile) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [matlab-mhlm-setup.sh](../../scripts/matlab-mhlm-setup.sh) → [storage.ts](../../src/lib/storage.ts) → [playwright.smoke.config.ts](../../playwright.smoke.config.ts).
 
