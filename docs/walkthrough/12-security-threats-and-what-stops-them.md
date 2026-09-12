@@ -28,22 +28,22 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph VER["Vercel environment"]
-        V1["DATABASE_URL · AUTH_SECRET · SMTP_PASS<br/>SUPABASE_SERVICE_KEY · OPS_HEALTH_TOKEN · CRON_SECRET"]
+        V1["DATABASE_URL · AUTH_SECRET<br/>SMTP_PASS · SUPABASE_SERVICE_KEY<br/>OPS_HEALTH_TOKEN · CRON_SECRET"]
     end
-    subgraph VMS["VM — /etc/socbench, mode 600, owner socbench"]
-        W1["worker.env — the same database, storage and SMTP secrets"]
-        W2["matlab-mhlm.json — the 1-year MATLAB identity token"]
-        W3["/var/lib/socbench/blind-data/blind_data.mat — the answer key"]
+    subgraph VMS["VM — /etc/socbench, mode 600"]
+        W1["worker.env — the same database,<br/>storage and SMTP secrets"]
+        W2["matlab-mhlm.json —<br/>the 1-year MATLAB identity token"]
+        W3["🔐 blind-data/blind_data.mat —<br/>the answer key"]
     end
     subgraph GHS["GitHub"]
         G1["repo secret OPS_HEALTH_URL"]
         G2["read-only deploy key on the VM"]
     end
     subgraph NEVER["Never"]
-        N1["in the repository · in a Docker image · in a job log · in an e-mail"]
+        N1["in the repository · in a Docker image<br/>in a job log · in an e-mail"]
     end
-    V1 ~~~ W1
-    W3 ~~~ G1
+    V1 ~~~ W1 ~~~ W2 ~~~ W3
+    W3 ~~~ G1 ~~~ G2
     G2 ~~~ N1
     style VER fill:#F2E6EC,stroke:#7A003C
     style VMS fill:#FFF3D6,stroke:#B8860B

@@ -59,7 +59,7 @@ flowchart LR
 1. [Glossary](01-glossary.md) — 1 diagram
 2. [The five-minute version](02-the-five-minute-version.md) — 3 diagrams
 3. [The tools and libraries, and why each one](03-the-tools-and-libraries-and-why-each-one.md) — 2 diagrams
-4. [Life of a submission, end to end](04-life-of-a-submission-end-to-end.md) — 10 diagrams
+4. [Life of a submission, end to end](04-life-of-a-submission-end-to-end.md) — 11 diagrams
 5. [The evaluation engine — running the model](05-the-evaluation-engine-running-the-model.md) — 6 diagrams
 6. [The evaluation engine — scoring, complexity and outputs](06-the-evaluation-engine-scoring-complexity-and-outputs.md) — 5 diagrams
 7. [The data model](07-the-data-model.md) — 3 diagrams
