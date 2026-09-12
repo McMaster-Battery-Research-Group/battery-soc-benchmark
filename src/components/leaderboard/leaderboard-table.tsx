@@ -86,9 +86,11 @@ export function LeaderboardTable({
     const m = new Map<string, { rank: number; ghost: boolean; unranked: boolean }>();
     // Only public rows scored by the CURRENT benchmark are ranked; legacy-scored rows stay listed but unranked.
     const current = filtered.filter((r) => isCurrentBenchmark(r.evaluatorVersion));
-    const pub = current.filter((r) => !r.isPrivate).sort((a, b) => a.weightedError - b.weightedError);
+    // Ties break on all-cells RMSE, then earlier submission — the same order publicRankOf uses on the server.
+    const cmp = (a: (typeof current)[number], b: (typeof current)[number]) => a.weightedError - b.weightedError || a.allCells - b.allCells || +new Date(a.submittedAt) - +new Date(b.submittedAt);
+    const pub = current.filter((r) => !r.isPrivate).sort(cmp);
     pub.forEach((r, i) => m.set(r.id, { rank: i + 1, ghost: false, unranked: false }));
-    for (const r of current) if (r.isPrivate) m.set(r.id, { rank: pub.filter((p) => p.weightedError < r.weightedError).length + 1, ghost: true, unranked: false });
+    for (const r of current) if (r.isPrivate) m.set(r.id, { rank: pub.filter((p) => cmp(p, r) < 0).length + 1, ghost: true, unranked: false });
     for (const r of filtered) if (!m.has(r.id)) m.set(r.id, { rank: 0, ghost: false, unranked: true });
     return m;
   }, [filtered]);
