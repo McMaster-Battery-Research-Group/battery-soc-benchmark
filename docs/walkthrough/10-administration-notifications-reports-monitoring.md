@@ -105,19 +105,19 @@ Born from the 1 September Arbutus routing outage: the worker was healthy but cou
 ```mermaid
 sequenceDiagram
     participant GH as 🐙 GitHub Action
-    participant W as 🌐 worker-health endpoint
+    participant W as 🌐 health endpoint
     participant DB as 🗄️ Database
     participant A as 👤 Admins
 
     Note over GH: every 10 minutes
-    GH->>W: GET with the token
-    W->>DB: heartbeats · queue · last "ops" event
-    W->>W: heartbeat in the last 3 min?<br/>stranded work?
-    alt problem, and different from the last recorded state
-        W->>DB: AdminEvent "Worker alert: …"
+    GH->>W: GET with token
+    W->>DB: read heartbeats, queue,<br/>last "ops" event
+    W->>W: heartbeat in 3 min?<br/>stranded work?
+    alt new problem
+        W->>DB: AdminEvent "Worker alert"
         W-->>A: one alert e-mail
-    else problems cleared, and the last state was an alert
-        W->>DB: AdminEvent "Workers recovered"
+    else recovered
+        W->>DB: AdminEvent "recovered"
         W-->>A: one all-clear e-mail
     else no change
         W->>W: nothing

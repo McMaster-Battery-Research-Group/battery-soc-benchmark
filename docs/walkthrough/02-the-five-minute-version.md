@@ -96,11 +96,11 @@ The website and the worker share **nothing but the database**. They never talk t
 
 | What | Where | Why there |
 |---|---|---|
-| <img src="img/logos/vercel.svg" width="16" height="16" alt=""> Website | Vercel, free tier | Zero-ops hosting for Next.js; scales itself |
-| <img src="img/logos/supabase.svg" width="16" height="16" alt=""> Database + file bucket | Supabase, free tier | PostgreSQL and object storage in one account |
+| <img src="img/logos/vercel.svg" width="20" height="20" alt=""> Website | Vercel, free tier | Zero-ops hosting for Next.js; scales itself |
+| <img src="img/logos/supabase.svg" width="20" height="20" alt=""> Database + file bucket | Supabase, free tier | PostgreSQL and object storage in one account |
 | Worker | Arbutus VM, Ubuntu 24.04, 8 vCPU / 12 GB | The lab controls it; MATLAB can be licensed there; the only place the blinded data exists |
 | MATLAB | Inside a Docker image on that VM | So MATLAB models run in the same kind of sandbox as Python ones |
-| <img src="img/logos/github.svg" width="16" height="16" alt=""> Source code | GitHub, `McMaster-Battery-Research-Group` organization | Read-only collaborators can read and propose; only the owner merges |
+| <img src="img/logos/github.svg" width="20" height="20" alt=""> Source code | GitHub, `McMaster-Battery-Research-Group` organization | Read-only collaborators can read and propose; only the owner merges |
 | E-mail | Gmail SMTP today; Resend once a domain exists | Configuration only — the code is provider-agnostic |
 
 📌 **Files to open, in order:** [README.md](../../README.md) → [prisma/schema.prisma](../../prisma/schema.prisma) → [src/evaluator/worker.ts](../../src/evaluator/worker.ts).

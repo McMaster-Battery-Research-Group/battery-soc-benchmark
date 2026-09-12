@@ -25,31 +25,14 @@ Every model faces the same grid. Each square is one drive cycle of roughly one t
 
 ```mermaid
 flowchart TB
-    subgraph CELLS["4 cells"]
-        direction TB
-        c1["m80 — 80 kg payload"]
-        c2["m448 — 448 kg, <b>fully blinded</b>"]
-        c3["m448N — 448 kg, open data exists"]
-        c4["m1000 — 1000 kg, highest currents"]
-    end
-    subgraph TEMPS["× 6 temperatures"]
-        direction TB
-        t["−20 · −10 · 0 · 10 · 25 · 40 °C"]
-    end
-    subgraph CYC["× 6 drive cycles"]
-        direction TB
-        s["standard: UDDS · HWFET · LA92 · US06"]
-        n["non-standard: HWCUST · HWGRADE"]
-    end
-    CELLS --> TEMPS --> CYC --> TOT["= <b>144</b> test cycles<br/>+ CC-CV charging cycles"]
-    style CELLS fill:#E3F0F5,stroke:#0D5D78
-    style TEMPS fill:#E3F0F5,stroke:#0D5D78
-    style CYC fill:#E3F0F5,stroke:#0D5D78
+    C["<b>4 cells</b><br/>m80 — 80 kg payload<br/>🔐 m448 — 448 kg, fully blinded<br/>m448N — 448 kg, open data exists<br/>m1000 — 1000 kg, highest currents"]
+    T["<b>× 6 temperatures</b><br/>−20 · −10 · 0 · 10 · 25 · 40 °C"]
+    Y["<b>× 6 drive cycles</b><br/>standard: UDDS · HWFET · LA92 · US06<br/>non-standard: HWCUST · HWGRADE"]
+    TOT["= <b>144</b> test cycles<br/>+ CC-CV charging cycles"]
+    C --> T --> Y --> TOT
     classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
-    classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
-    class c1,c3,c4,t,s,n data
-    class c2 danger
+    class C,T,Y data
     class TOT web
 ```
 
@@ -81,15 +64,16 @@ The validation job exists for one reason: a broken model fails in seconds with i
 
 ```mermaid
 flowchart TB
-    subgraph CYC["Drive and charge cycles"]
+    subgraph CYC["🚗 Drive and charge cycles"]
         A["4 cells × every cycle in the file<br/>= 144 test cycles + charge cycles + 'Other'<br/>key  cycle:cell:i"]
     end
     subgraph ISOC["Test 10 — wrong initial SOC (9 jobs)"]
-        B["m80: LA92 @ 25 °C, US06 @ −10 °C, US06 @ 10 °C<br/>each started where the true SOC has already<br/>fallen below 90 %, 60 %, 30 %<br/>key  isoc:b:q:idx"]
+        B["m80: LA92 @ 25 °C, US06 @ −10 °C,<br/>US06 @ 10 °C — each started where the<br/>true SOC is already below 90 / 60 / 30 %<br/>key  isoc:b:q:idx"]
     end
     subgraph OFF["Test 11 — current-sensor offset (18 jobs)"]
-        C["m1000: US06 @ −10 °C, HWFET @ 10 °C, LA92 @ 40 °C<br/>with −0.3, −0.1, −0.05, +0.05, +0.1, +0.3 A<br/>added to the measured current<br/>key  offset:b:j"]
+        C["m1000: US06 @ −10 °C, HWFET @ 10 °C,<br/>LA92 @ 40 °C — with −0.3, −0.1, −0.05,<br/>+0.05, +0.1, +0.3 A added to the current<br/>key  offset:b:j"]
     end
+    A ~~~ B ~~~ C
     A --> BATCH["one batch, run in one pass"]
     B --> BATCH
     C --> BATCH

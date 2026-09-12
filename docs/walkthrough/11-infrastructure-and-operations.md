@@ -62,23 +62,16 @@ flowchart TB
     A["git fetch origin main"] --> B{"changed, or a<br/>restart still pending?"}
     B -- no --> Z["exit"]
     B -- yes --> C["git reset --hard origin/main<br/>(a deploy target is never blocked by a stray edit)"]
-    C --> D{"what changed?"}
-    D -- "package-lock.json" --> E["npm ci"]
-    D -- "schema.prisma" --> F["prisma generate"]
-    D -- "evaluator/" --> G["rebuild socbench-eval"]
-    D -- "evaluator/ or matlab/" --> H["rebuild socbench-eval-matlab<br/>(only if it exists here)"]
-    E --> I
-    F --> I
-    G --> I
-    H --> I["touch /run/socbench-restart-pending"]
-    I --> J{"any socbench-* container running?"}
-    J -- yes --> K["defer: 'worker busy — restart at the next tick'"]
+    C --> D["<b>only what changed:</b><br/>package-lock.json → npm ci<br/>schema.prisma → prisma generate<br/>evaluator/ → rebuild socbench-eval<br/>evaluator/ or matlab/ → rebuild the<br/>MATLAB image (if it exists here)"]
+    D --> I["touch /run/socbench-restart-pending"]
+    I --> J{"any socbench-* container<br/>running?"}
+    J -- yes --> K["defer — 'worker busy,<br/>restart at the next tick'"]
     J -- no --> L["systemctl restart socbench-worker<br/>clear the flag"]
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
     classDef ext fill:#F0F0F0,stroke:#495965,color:#1d2428
     classDef good fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428
     classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
-    class A,B,C,D,E,F,G,H,I,J worker
+    class A,B,C,D,I,J worker
     class Z ext
     class K danger
     class L good
@@ -96,16 +89,16 @@ sequenceDiagram
     participant S as 🐳 Sandbox
 
     rect rgb(239,230,245)
-    O->>VM: one-time browser sign-in via SSH tunnel
-    VM->>VM: extract 1-year identity token<br/>→ matlab-mhlm.json (mode 600)
+    O->>VM: one-time browser sign-in
+    VM->>VM: 1-year identity token<br/>→ file, mode 600
     end
     rect rgb(255,243,214)
     Note over VM: per MATLAB evaluation
     VM->>MW: identity token
-    MW-->>VM: 24 h access token (cached 12 h)
-    VM->>S: docker run … access token only
+    MW-->>VM: 24 h access token
+    VM->>S: run with access token
     S->>MW: licence check-out
-    Note over S: identity token never enters the sandbox
+    Note over S: identity token<br/>never enters
     end
 ```
 
@@ -183,6 +176,7 @@ flowchart TB
 The event that shaped the monitoring design. Nothing on the VM was wrong; the route between the research cloud and the part of the internet where the database lives had disappeared overnight.
 
 ```mermaid
+%%{init: {"gantt": {"fontSize": 15, "sectionFontSize": 15, "barHeight": 28, "barGap": 6, "leftPadding": 90}}}%%
 gantt
     title 1 September 2026 (UTC)
     dateFormat HH:mm

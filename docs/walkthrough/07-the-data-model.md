@@ -5,41 +5,15 @@
 ```mermaid
 erDiagram
     USER ||--o{ SUBMISSION : owns
-    USER ||--o{ SUBMISSION_COLLABORATOR : coauthors
-    SUBMISSION ||--|| EVALUATION_JOB : "queue ticket"
-    SUBMISSION ||--o| EVALUATION_RESULT : "current scores"
-    SUBMISSION ||--o{ SCORE_REVISION : history
-    SUBMISSION ||--o{ SUBMISSION_COLLABORATOR : has
+    USER ||--o{ COAUTHOR : "is one"
+    SUBMISSION ||--|| JOB : "queue ticket"
+    SUBMISSION ||--o| RESULT : "current scores"
+    SUBMISSION ||--o{ REVISION : history
+    SUBMISSION ||--o{ COAUTHOR : has
     CONTEST ||--o{ SUBMISSION : contains
-
-    USER {
-        string email
-        string role
-        datetime emailVerified
-    }
-    SUBMISSION {
-        int seq
-        string runtime
-        string status
-        int version
-        bool isPrivate
-    }
-    EVALUATION_JOB {
-        int attempts
-        datetime lockedAt
-        text log
-    }
-    EVALUATION_RESULT {
-        float weightedError
-        int complexity
-        json perCycle
-        string tracesKey
-    }
-    SCORE_REVISION {
-        string kind
-        float weightedError
-    }
 ```
+
+The picture shows only how the tables relate; the names are shortened for space — `JOB` is `EvaluationJob`, `RESULT` is `EvaluationResult`, `REVISION` is `ScoreRevision`, `COAUTHOR` is `SubmissionCollaborator`. Each table's columns are listed just below.
 
 ### 🗄️ Which rows exist at each moment
 

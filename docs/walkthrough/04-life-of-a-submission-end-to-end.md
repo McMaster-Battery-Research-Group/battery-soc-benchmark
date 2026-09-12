@@ -4,32 +4,40 @@
 
 ### 🗺️ The whole journey in one picture
 
+First half — on the website:
+
 ```mermaid
 sequenceDiagram
     participant R as 👤 Browser
     participant W as 🌐 Website
     participant DB as 🗄️ Storage
-    participant K as ⚙️ Worker
-    participant S as 🐳 Sandbox
 
     rect rgb(242,230,236)
-    Note over R,DB: on the website
     R->>DB: 1 upload zip to the bucket
     R->>W: 2 submit form with the file key
     W->>W: validate metadata + zip
     W->>DB: Submission + job (QUEUED)
     Note over R,W: 3 page polls every 2.5 s
     end
+```
+
+Second half — on the worker:
+
+```mermaid
+sequenceDiagram
+    participant DB as 🗄️ Storage
+    participant K as ⚙️ Worker
+    participant S as 🐳 Sandbox
+
     rect rgb(255,243,214)
-    Note over DB,S: on the worker
     K->>DB: 4 claim oldest job (atomic)
     K->>DB: download package
     K->>S: 5 run vs blinded data
     S-->>K: progress lines
     S-->>K: results.json + traces.mat
     K->>DB: 6 store result, delete package
+    Note over K: 7 e-mail with PDF to the researcher
     end
-    K-->>R: 7 e-mail with PDF
 ```
 
 ### 👤 What the researcher sees at each step
@@ -47,6 +55,7 @@ sequenceDiagram
 Rough proportions for a mid-weight model (a heavy LSTM in MATLAB can take 45 minutes; a Coulomb counter in Python takes 10 seconds):
 
 ```mermaid
+%%{init: {"gantt": {"fontSize": 15, "sectionFontSize": 15, "barHeight": 28, "barGap": 6, "leftPadding": 110}}}%%
 gantt
     title One evaluation, roughly to scale
     dateFormat HH:mm:ss
@@ -200,22 +209,22 @@ No transaction, no advisory lock, no queue service — a **compare-and-swap** on
 ```mermaid
 flowchart TB
     subgraph HOST["⚙️ Worker machine"]
-        PKG["📦 package.zip (temp file)"]
-        BD["🔐 blind_data.mat (mode 600)"]
-        OUT["output folder (temp)"]
+        PKG["📦 package.zip<br/>→ /in/package.zip"]
+        BD["🔐 blind_data.mat (mode 600)<br/>→ /data/blind_data.mat"]
+        OUT["output folder (temp)<br/>→ /out"]
         subgraph C["🐳 Container socbench-id"]
             direction TB
             R1["--network none"] ~~~ R2["--read-only root filesystem"]
-            R2 ~~~ R3["--cap-drop ALL · no-new-privileges"]
-            R3 ~~~ R4["--memory 4g · --cpus 2 · --pids-limit 256"]
+            R2 ~~~ R3["--cap-drop ALL<br/>--security-opt no-new-privileges"]
+            R3 ~~~ R4["--memory 4g · --cpus 2<br/>--pids-limit 256"]
             R4 ~~~ R5["--user worker uid (Linux)"]
-            R5 ~~~ R6["tmpfs /work 2 GB, /tmp 512 MB (RAM, vanishes with the container)"]
-            R6 ~~~ EV["python -m socbench_eval<br/>/in/package.zip /out --data /data/blind_data.mat"]
+            R5 ~~~ R6["tmpfs /work 2 GB, /tmp 512 MB<br/>(RAM — vanishes with the container)"]
+            R6 ~~~ EV["python -m socbench_eval<br/>/in/package.zip /out<br/>--data /data/blind_data.mat"]
         end
     end
-    PKG -- "/in/package.zip  read-only" --> C
-    BD -- "/data/blind_data.mat  read-only" --> C
-    OUT -- "/out  read-write" --> C
+    PKG -- "read-only" --> C
+    BD -- "read-only" --> C
+    OUT -- "read-write" --> C
     style HOST fill:#FFF3D6,stroke:#B8860B
     style C fill:#E6F2EC,stroke:#0E5B3D
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
@@ -281,13 +290,13 @@ stateDiagram-v2
     [*] --> QUEUED : created
     QUEUED --> RUNNING : worker claims
     RUNNING --> COMPLETED : results stored
-    RUNNING --> FAILED : user-facing error, no retry
-    RUNNING --> QUEUED : internal error, attempts left
-    RUNNING --> QUEUED : worker shutting down, attempt refunded
-    QUEUED --> [*] : owner cancels before claim, row deleted
-    RUNNING --> [*] : owner cancels, worker aborts, row deleted
-    FAILED --> QUEUED : owner presses Re-run
-    COMPLETED --> QUEUED : owner submits a new version
+    RUNNING --> FAILED : user-facing error
+    RUNNING --> QUEUED : internal error, retry
+    RUNNING --> QUEUED : worker shutdown
+    QUEUED --> [*] : cancelled before claim
+    RUNNING --> [*] : cancelled while running
+    FAILED --> QUEUED : Re-run
+    COMPLETED --> QUEUED : new version
 ```
 
 - **Retry happens only for our faults.** An `EvaluationError` marked `userFacing` — bad package, the model threw, timeout — is final; the exact message is stored and e-mailed. An internal error (Docker daemon down, a crash in our code) with `attempts < 2` unlocks the job and someone claims it again.

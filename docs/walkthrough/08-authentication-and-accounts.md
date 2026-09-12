@@ -14,17 +14,17 @@ sequenceDiagram
     participant DB as 🗄️ Database
 
     P->>W: register
-    W->>DB: user + bcrypt hash + 24 h token
-    W-->>P: e-mail with /verify?token=…
+    W->>DB: user, hash, 24 h token
+    W-->>P: e-mail with a link
     rect rgb(255,229,223)
-    Note over M: corporate scanners GET every link<br/>before the person clicks
-    M->>W: GET /verify?token=…
-    W-->>M: a page with a button — nothing changes
+    Note over M: scanners GET every link<br/>before the person clicks
+    M->>W: GET the link
+    W-->>M: just a button page
     end
     rect rgb(230,242,236)
-    P->>W: click "Confirm" (a POST)
+    P->>W: click Confirm (POST)
     W->>DB: emailVerified = now
-    W-->>P: redirect to login
+    W-->>P: go to login
     end
 ```
 
@@ -35,12 +35,12 @@ The GET is side-effect free on purpose: before this change, mail scanners (Micro
 ```mermaid
 flowchart TB
     A["POST login"] --> L{"rate limits:<br/>10 / 15 min per e-mail<br/>40 / 15 min per IP"}
-    L -- exceeded --> X["'Too many attempts, retry in N min'"]
-    L -- ok --> B["bcrypt.compare(password, hash)"]
-    B -- wrong --> Y["'Incorrect e-mail or password'"]
+    L -- exceeded --> X["too many attempts"]
+    L -- ok --> B["bcrypt.compare<br/>(password, hash)"]
+    B -- wrong --> Y["wrong password"]
     B -- right --> C{"e-mail verified?"}
-    C -- no --> Z["'Resend verification e-mail' path"]
-    C -- yes --> D["signed JWT cookie, 14 days<br/>carrying id, role, name, affiliation"]
+    C -- no --> Z["resend verification"]
+    C -- yes --> D["signed JWT cookie, 14 days<br/>id, role, name, affiliation"]
     D --> E{"?next= present<br/>and starts with '/'?"}
     E -- yes --> F["go there"]
     E -- no --> G{"has any submissions?"}

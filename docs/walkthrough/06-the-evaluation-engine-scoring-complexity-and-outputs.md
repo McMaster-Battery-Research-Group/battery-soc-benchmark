@@ -9,21 +9,17 @@ Per-cycle RMSE (in % SOC) is arranged as a matrix `R` — rows are test cycles i
 ```mermaid
 flowchart TB
     R["<b>Matrix R</b> — per-cycle RMSE<br/>rows = test cycles in file order<br/>columns = m80 · m448 · m448N · m1000"]
-    CH["charge-cycle RMSEs"]
-    IS["9 initial-SOC RMSEs"]
-    OF["18 offset RMSEs"]
-    G["<b>Positional means → 18 metrics</b><br/>1 allCells — mean of non-zero R (weight 0)<br/>2 blindedCell — the m448 column<br/>3 nonBlindedCells — mean of the other three<br/>4 charging — the charge cycles<br/>5–8 massM80 / M448 / M448N / M1000 — column means<br/>9 standard vs non-standard — blocks of 4 and 2 cycles<br/>10 six temperatures — m80 in blocks of 6 (−10/−20 swapped)<br/>11 initialSocError — 3 : 2 : 1 for 90 / 60 / 30 %<br/>12 currentSensorOffset — mean of the ±0.3 A runs"]
+    X["<b>the other runs</b><br/>charge-cycle RMSEs<br/>9 initial-SOC RMSEs<br/>18 offset RMSEs"]
+    G["<b>Positional means → 18 metrics</b><br/>1 allCells — mean of non-zero R (weight 0)<br/>2 blindedCell — the m448 column<br/>3 nonBlindedCells — mean of the other three<br/>4 charging — the charge cycles<br/>5–8 mass m80 / m448 / m448N / m1000<br/>— the four column means<br/>9 standard vs non-standard cycles<br/>— blocks of 4 and 2<br/>10 six temperatures — m80 in blocks of 6<br/>(−10 and −20 swapped)<br/>11 initialSocError — 3 : 2 : 1 for 90 / 60 / 30 %<br/>12 currentSensorOffset — mean of the ±0.3 A runs"]
     W["<b>weighted error</b> = Σ weight × metric<br/>weights sum to exactly 1"]
     R --> G
-    CH --> G
-    IS --> G
-    OF --> G
+    X --> G
     G --> W
     classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
-    class R,CH data
-    class IS,OF worker
+    class R data
+    class X worker
     class G,W web
 ```
 
@@ -101,7 +97,7 @@ flowchart TB
 **Peak-preserving down-sampling.** A three-hour cycle has 10 800 points; a chart can show about 240. Taking every 45th point would hide the very spike that produced the max-error number. Instead `display_indices` splits the cycle into 120 buckets and keeps the sample with the largest *and* the smallest signed error in each — so every spike survives and the plotted line agrees with the scorecard.
 
 ```mermaid
-flowchart LR
+flowchart TB
     F["10 800 samples"] --> B["120 buckets of 90"]
     B --> K["keep max-error and min-error<br/>sample in each bucket + both ends"]
     K --> O["≈ 240 points, every spike intact"]
