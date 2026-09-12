@@ -1,4 +1,4 @@
-## 7. The data model
+## 7. 🗄️ The data model
 
 > 💡 **Plain English.** The database is a set of tables. A person has submissions; each submission has one queue ticket, one current result, and a history of everything that ever happened to it. Separate tables track contests, worker machines, settings and the admin activity feed. One file — `prisma/schema.prisma` — describes all of it, and both the website and the worker read that same description.
 

@@ -1,4 +1,4 @@
-## 6. The evaluation engine — scoring, complexity and outputs
+## 6. 🧮 The evaluation engine — scoring, complexity and outputs
 
 > 💡 **Plain English.** After the model has run on every cycle, the evaluator has one error number per cycle. This part shows how those become the 18 numbers on the scorecard, how the 18 become one leaderboard score, what "complexity" means, and what gets sent back to the website for the charts.
 

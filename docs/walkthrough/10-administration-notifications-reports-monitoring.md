@@ -1,4 +1,4 @@
-## 10. Administration, notifications, reports, monitoring
+## 10. 🛎️ Administration, notifications, reports, monitoring
 
 > 💡 **Plain English.** Administrators can moderate submissions, manage users and contests, tune the evaluation limits, change the scoring weights, and watch the worker machines. Every admin action is recorded in an activity feed on the site; e-mail is only a copy of that feed, and each admin chooses which kinds of e-mail they want. A robot checks every ten minutes that a worker is alive and e-mails the admins once if it isn't, and once when it comes back.
 

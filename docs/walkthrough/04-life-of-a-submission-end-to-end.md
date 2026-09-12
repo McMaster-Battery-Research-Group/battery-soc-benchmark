@@ -1,4 +1,4 @@
-## 4. Life of a submission, end to end
+## 4. 📦 Life of a submission, end to end
 
 > 💡 **Plain English.** A researcher uploads a zip. The website checks that it is well-formed and puts a ticket in a queue. A worker machine takes the ticket, downloads the zip, runs the model inside a sealed box against the secret data, saves the scores, deletes the zip, and e-mails a PDF. If anything goes wrong the researcher is told exactly what. Follow this part once with the files open and you can answer almost any question about the system.
 
