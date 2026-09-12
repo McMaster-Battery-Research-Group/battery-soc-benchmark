@@ -1,8 +1,8 @@
 ## 12. Security: threats and what stops them
 
-> **Plain English.** The system runs code written by strangers, on a machine that holds a secret dataset, and it does so in public. This part lists what could go wrong and, for each, the specific thing that prevents it. Most defences are layers: a model would have to break out of several boxes in a row to do any harm.
+> 💡 **Plain English.** The system runs code written by strangers, on a machine that holds a secret dataset, and it does so in public. This part lists what could go wrong and, for each, the specific thing that prevents it. Most defences are layers: a model would have to break out of several boxes in a row to do any harm.
 
-### The onion
+### 🧅 The onion
 
 ```mermaid
 flowchart TB
@@ -10,7 +10,7 @@ flowchart TB
         subgraph L1["Website on Vercel — no code execution, no blinded data, no worker access"]
             subgraph L2["Worker VM — firewall, no-login service user, secrets mode 600, hardened systemd"]
                 subgraph L3["Docker container — no network, read-only root, no privileges, memory and CPU caps"]
-                    M["the submitted model"]
+                    M["📦 the submitted model"]
                 end
             end
         end
@@ -23,7 +23,7 @@ flowchart TB
     class M danger
 ```
 
-### Where every secret lives
+### 🔑 Where every secret lives
 
 ```mermaid
 flowchart TB
@@ -53,7 +53,7 @@ flowchart TB
     class V1,W1,W2,W3,G1,G2,N1 danger
 ```
 
-### Threats and defences
+### 🛡️ Threats and defences
 
 | Threat | Defence | Where |
 |---|---|---|
@@ -76,12 +76,12 @@ flowchart TB
 | Worker VM exposure | ufw default-deny, SSH only from listed addresses, no-login service user, `ProtectSystem=strict` | provision script |
 | Silent outage | health endpoint + GitHub Action; one alert per transition | worker-health |
 
-### What is deliberately *not* defended, and why
+### ⚠️ What is deliberately *not* defended, and why
 
 - **A model can burn its full time budget doing nothing.** Accepted: the cap is per submission and per day, so the cost is bounded.
 - **A model can read the blinded data into memory.** Unavoidable — it has to, to be scored. The defence is that nothing it computes can leave except the SOC estimates we read back.
 - **Host-mode MATLAB (the laptop fallback) is not sandboxed.** Documented as "dedicated low-privilege account only"; the production path is always the container.
 - **The worker VM has general outbound network access.** On the roadmap: an egress allow-list to the database, SMTP and MathWorks only.
 
-**Files to open, in order:** [python-evaluator.ts](../../src/evaluator/python-evaluator.ts) → [package-check.ts](../../src/lib/package-check.ts) → [rate-limit.ts](../../src/lib/rate-limit.ts) → [next.config.ts](../../next.config.ts) → [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh).
+📌 **Files to open, in order:** [python-evaluator.ts](../../src/evaluator/python-evaluator.ts) → [package-check.ts](../../src/lib/package-check.ts) → [rate-limit.ts](../../src/lib/rate-limit.ts) → [next.config.ts](../../next.config.ts) → [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh).
 

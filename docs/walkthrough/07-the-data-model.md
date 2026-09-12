@@ -1,6 +1,6 @@
 ## 7. The data model
 
-> **Plain English.** The database is a set of tables. A person has submissions; each submission has one queue ticket, one current result, and a history of everything that ever happened to it. Separate tables track contests, worker machines, settings and the admin activity feed. One file — `prisma/schema.prisma` — describes all of it, and both the website and the worker read that same description.
+> 💡 **Plain English.** The database is a set of tables. A person has submissions; each submission has one queue ticket, one current result, and a history of everything that ever happened to it. Separate tables track contests, worker machines, settings and the admin activity feed. One file — `prisma/schema.prisma` — describes all of it, and both the website and the worker read that same description.
 
 ```mermaid
 erDiagram
@@ -41,7 +41,7 @@ erDiagram
     }
 ```
 
-### Which rows exist at each moment
+### 🗄️ Which rows exist at each moment
 
 One submission's footprint grows as it moves through its life:
 
@@ -60,7 +60,7 @@ flowchart TB
     class S3 good
 ```
 
-### The columns that matter
+### 🗂️ The columns that matter
 
 | Table | Key columns |
 |---|---|
@@ -84,7 +84,7 @@ Tables that stand alone:
 | `ContactMessage` | The feedback inbox |
 | `Contest`, `ContestEntry` | A time-boxed event with its own frozen leaderboard, and who registered for it |
 
-### Two conventions that recur everywhere
+### 📐 Two conventions that recur everywhere
 
 ```mermaid
 flowchart TB
@@ -104,5 +104,5 @@ flowchart TB
     class A,A2 good
 ```
 
-**Files to open, in order:** [prisma/schema.prisma](../../prisma/schema.prisma) (read it top to bottom once — it is the best map of the system) → [src/lib/db.ts](../../src/lib/db.ts) → [src/lib/history.ts](../../src/lib/history.ts).
+📌 **Files to open, in order:** [prisma/schema.prisma](../../prisma/schema.prisma) (read it top to bottom once — it is the best map of the system) → [src/lib/db.ts](../../src/lib/db.ts) → [src/lib/history.ts](../../src/lib/history.ts).
 

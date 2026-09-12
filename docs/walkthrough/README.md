@@ -12,13 +12,13 @@ Every claim is anchored to a file path so it can be checked. Diagrams are Mermai
 
 ```mermaid
 flowchart LR
-    W["Website<br/>(Vercel)"]
-    K["Worker<br/>(lab VM)"]
-    S["Sandbox<br/>(Docker)"]
-    D[("Data<br/>(database, bucket)")]
-    E["External service<br/>(MathWorks, GitHub, SMTP)"]
-    P["A person"]
-    X["Secret or danger"]
+    W["🌐 Website<br/>(Vercel)"]
+    K["⚙️ Worker<br/>(lab VM)"]
+    S["🐳 Sandbox<br/>(Docker)"]
+    D[("🗄️ Data<br/>(database, bucket)")]
+    E["🔗 External service<br/>(MathWorks, GitHub, SMTP)"]
+    P["👤 A person"]
+    X["🔑 Secret · ⚠️ danger"]
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
     classDef sandbox fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428
@@ -34,6 +34,21 @@ flowchart LR
     class P person
     class X danger
 ```
+
+
+**Icon key** — the same symbol always means the same thing, in prose and in diagrams
+
+| | Meaning | | Meaning | | Meaning |
+|---|---|---|---|---|---|
+| 🌐 | Website / web tier | ⚙️ | Worker | 🐳 | Sandbox (Docker container) |
+| 🗄️ | Database | 🪣 | File bucket / storage | 👤 | A person (researcher, admin) |
+| 🔐 | Blinded data — the answer key | 🔑 | A secret or token | ⚠️ | Danger / a risk |
+| 📦 | A submitted package (.zip) | 🧪 | Dry run / validation | 📊 | Scores, leaderboard, charts |
+| 🔋 | Battery / SOC | 🌡️ | Temperature | 🚗 | Drive cycle |
+| ⏱️ | Timer / timeout | 💓 | Heartbeat | 🔁 | Retry / polling |
+| 🏁 | Completed | ❌ | Failed | ✉️ | E-mail |
+| 📄 | PDF report | 🔒 | Locked / protected | 🛡️ | Security |
+| 💡 | Plain-English summary | 📌 | Files to open | 🧭 | Navigation |
 
 ---
 

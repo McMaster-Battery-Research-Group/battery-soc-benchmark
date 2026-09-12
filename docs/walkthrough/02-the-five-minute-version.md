@@ -1,8 +1,8 @@
 ## 2. The five-minute version
 
-> **Plain English.** Researchers upload a small program that guesses how full a battery is. We run that program against battery data that has never been published, score it with a fixed public formula, and put the score on a public leaderboard. Everyone is scored on the same hidden data with the same code, so for the first time the numbers are comparable. The uploaded program is deleted the moment it has been scored, and it never touches the website.
+> 💡 **Plain English.** Researchers upload a small program that guesses how full a battery is. We run that program against battery data that has never been published, score it with a fixed public formula, and put the score on a public leaderboard. Everyone is scored on the same hidden data with the same code, so for the first time the numbers are comparable. The uploaded program is deleted the moment it has been scored, and it never touches the website.
 
-### The problem it solves
+### 🎯 The problem it solves
 
 ```mermaid
 flowchart TB
@@ -24,7 +24,7 @@ flowchart TB
     class B,L web
 ```
 
-### A researcher's experience, start to finish
+### 👤 A researcher's experience, start to finish
 
 ```mermaid
 flowchart TB
@@ -44,22 +44,22 @@ flowchart TB
     class G,H good
 ```
 
-### The three tiers, and what each may touch
+### 🧱 The three tiers, and what each may touch
 
 Everything in the system is one of three kinds of program. The most important fact about the design is *what each is allowed to reach*.
 
 ```mermaid
 flowchart TB
-    subgraph WEB["Website — Vercel, in the cloud"]
+    subgraph WEB["🌐 Website — Vercel, in the cloud"]
         W["Pages, forms, leaderboard, admin<br/>Reads and writes database rows<br/><b>Never runs submitted code<br/>Never sees the blinded data</b>"]
     end
-    subgraph WORKER["Worker — the lab's cloud VM"]
+    subgraph WORKER["⚙️ Worker — the lab's cloud VM"]
         K["Watches the database for queued jobs<br/>Downloads the package<br/><b>Holds the blinded data</b><br/>Starts one sandbox per evaluation"]
     end
-    subgraph SANDBOX["Sandbox — a throw-away Docker container"]
+    subgraph SANDBOX["🐳 Sandbox — a throw-away Docker container"]
         S["Runs the submitted model<br/>No network · read-only files · no secrets<br/>Destroyed afterwards"]
     end
-    DB[("PostgreSQL + file bucket<br/>Supabase")]
+    DB[("🗄️ PostgreSQL + 🪣 file bucket<br/>Supabase")]
     W <--> DB
     K <--> DB
     K --> S
@@ -78,7 +78,7 @@ flowchart TB
 
 The website and the worker share **nothing but the database**. They never talk to each other. That one fact explains a great deal of what follows: why adding a second worker machine needs zero configuration (it simply starts claiming jobs), why the website stayed up during a ten-hour network outage that cut the worker off, and why the queue is a database table rather than a queue service.
 
-### What could go wrong, and what stops it
+### ⚠️ What could go wrong, and what stops it
 
 | Worry | What stops it |
 |---|---|
@@ -92,16 +92,16 @@ The website and the worker share **nothing but the database**. They never talk t
 | The worker loses its network | It retries every 2 s and resumes by itself; admins are e-mailed after 3 minutes of silence |
 | Someone guesses passwords | bcrypt hashing plus 10 attempts per 15 min per account |
 
-### Where each thing physically is
+### 📍 Where each thing physically is
 
 | What | Where | Why there |
 |---|---|---|
-| Website | Vercel, free tier | Zero-ops hosting for Next.js; scales itself |
-| Database + file bucket | Supabase, free tier | PostgreSQL and object storage in one account |
+| <img src="img/logos/vercel.svg" width="16" height="16" alt=""> Website | Vercel, free tier | Zero-ops hosting for Next.js; scales itself |
+| <img src="img/logos/supabase.svg" width="16" height="16" alt=""> Database + file bucket | Supabase, free tier | PostgreSQL and object storage in one account |
 | Worker | Arbutus VM, Ubuntu 24.04, 8 vCPU / 12 GB | The lab controls it; MATLAB can be licensed there; the only place the blinded data exists |
 | MATLAB | Inside a Docker image on that VM | So MATLAB models run in the same kind of sandbox as Python ones |
-| Source code | GitHub, `McMaster-Battery-Research-Group` organization | Read-only collaborators can read and propose; only the owner merges |
+| <img src="img/logos/github.svg" width="16" height="16" alt=""> Source code | GitHub, `McMaster-Battery-Research-Group` organization | Read-only collaborators can read and propose; only the owner merges |
 | E-mail | Gmail SMTP today; Resend once a domain exists | Configuration only — the code is provider-agnostic |
 
-**Files to open, in order:** [README.md](../../README.md) → [prisma/schema.prisma](../../prisma/schema.prisma) → [src/evaluator/worker.ts](../../src/evaluator/worker.ts).
+📌 **Files to open, in order:** [README.md](../../README.md) → [prisma/schema.prisma](../../prisma/schema.prisma) → [src/evaluator/worker.ts](../../src/evaluator/worker.ts).
 
