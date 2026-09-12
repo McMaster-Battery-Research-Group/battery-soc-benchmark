@@ -4,6 +4,8 @@ Upload a battery **state-of-charge (SOC) estimation** algorithm. We run it again
 
 **Live site:** https://battery-soc-benchmark.vercel.app
 
+**Second README — the full walkthrough:** [docs/walkthrough/](docs/walkthrough/README.md) explains every part of the system for developers and non-developers alike, with a diagram for each section, a glossary, and a list of the questions people ask. This file is the short version.
+
 Built for Dr. Phillip Kollmeyer's battery research group, McMaster University. Based on *"A Blind Modeling Tool for Standardized Evaluation of Battery State of Charge Estimation Algorithms"* (IEEE ITEC+EATS 2022, [doi:10.1109/ITEC53557.2022.9813996](https://doi.org/10.1109/ITEC53557.2022.9813996)).
 
 ---
