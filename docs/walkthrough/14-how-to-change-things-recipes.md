@@ -1,4 +1,4 @@
-## 14. How to change things — recipes
+## 14. 🛠️ How to change things — recipes
 
 > 💡 **Plain English.** The most common changes, each as a short checklist. If a change is not here, the *Files to open* lists at the end of each part say where to look.
 

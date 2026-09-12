@@ -1,4 +1,4 @@
-## 8. Authentication and accounts
+## 8. 🪪 Authentication and accounts
 
 > 💡 **Plain English.** Register with e-mail and password, prove you own the e-mail address by clicking a confirmation, then sign in. Passwords are stored scrambled, never in the clear. Administrators are either promoted on the admin page or listed in a configuration variable. Every sensitive action is limited to a few attempts per hour so nobody can guess passwords by brute force.
 

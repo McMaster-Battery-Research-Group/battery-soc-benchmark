@@ -1,4 +1,4 @@
-## 9. The web tier: submitting, results, leaderboard
+## 9. 🖥️ The web tier: submitting, results, leaderboard
 
 > 💡 **Plain English.** The submit page lets you test a package for free before spending one of your three daily submissions. The results page explains the score in plain language first, then shows the numbers, then the charts. The leaderboard ranks public models; your private ones show a "ghost" rank so you can see where you would stand without displacing anyone.
 
