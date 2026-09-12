@@ -126,8 +126,21 @@ export async function getOpenContest() {
 
 /** 1-based public rank (lower weighted error is better) among current-benchmark, public, visible, completed submissions; null when the submission itself is not ranked. */
 export async function publicRankOf(submissionId: string): Promise<number | null> {
-  const me = await db.submission.findUnique({ where: { id: submissionId }, select: { isPrivate: true, isHidden: true, status: true, result: { select: { weightedError: true, evaluatorVersion: true } } } });
+  const me = await db.submission.findUnique({ where: { id: submissionId }, select: { isPrivate: true, isHidden: true, status: true, submittedAt: true, result: { select: { weightedError: true, allCells: true, evaluatorVersion: true } } } });
   if (!me?.result || me.isPrivate || me.isHidden || me.status !== "COMPLETED" || !isCurrentBenchmark(me.result.evaluatorVersion)) return null;
-  const better = await db.submission.count({ where: { isPrivate: false, isHidden: false, status: "COMPLETED", result: { weightedError: { lt: me.result.weightedError }, evaluatorVersion: { startsWith: BENCHMARK_VERSION } } } }); // stamp is "<benchmark>/<runtime>"
+  // Strictly better = lower weighted error; ties break on all-cells RMSE, then earlier submission (same order as the
+  // leaderboard table's rankById). The stamp is "<benchmark>/<runtime>".
+  const { weightedError: w, allCells: ac } = me.result;
+  const better = await db.submission.count({
+    where: {
+      isPrivate: false, isHidden: false, status: "COMPLETED",
+      result: { evaluatorVersion: { startsWith: BENCHMARK_VERSION } },
+      OR: [
+        { result: { weightedError: { lt: w } } },
+        { result: { weightedError: w, allCells: { lt: ac } } },
+        { result: { weightedError: w, allCells: ac }, submittedAt: { lt: me.submittedAt } },
+      ],
+    },
+  });
   return better + 1;
 }
