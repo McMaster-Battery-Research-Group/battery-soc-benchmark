@@ -1,4 +1,5 @@
-## 12. 🛡️ Security: threats and what stops them
+<a id="part-11"></a>
+## 11. 🛡️ Security: threats and what stops them
 
 > 💡 **Plain English.** The system runs code written by strangers, on a machine that holds a secret dataset, and it does so in public. This part lists what could go wrong and, for each, the specific thing that prevents it. Most defences are layers: a model would have to break out of several boxes in a row to do any harm.
 

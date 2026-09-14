@@ -1,4 +1,5 @@
-## 3. 🧰 The tools and libraries, and why each one
+<a id="part-2"></a>
+## 2. 🧰 The tools and libraries, and why each one
 
 > 💡 **Plain English.** Software is assembled from existing building blocks. This part names each block, says what it is in one sentence, why we chose it over the alternatives, and — for non-developers — what it is analogous to. The short version: everything runs on free tiers, the website and the worker are written in the same language, and MATLAB is used for exactly one job.
 

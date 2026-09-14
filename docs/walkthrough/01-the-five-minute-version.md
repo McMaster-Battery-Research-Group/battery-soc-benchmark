@@ -1,4 +1,5 @@
-## 2. ⚡ The five-minute version
+<a id="part-1"></a>
+## 1. ⚡ The five-minute version
 
 > 💡 **Plain English.** Researchers upload a small program that guesses how full a battery is. We run that program against battery data that has never been published, score it with a fixed public formula, and put the score on a public leaderboard. Everyone is scored on the same hidden data with the same code, so for the first time the numbers are comparable. The uploaded program is deleted the moment it has been scored, and it never touches the website.
 
@@ -87,7 +88,7 @@ The website and the worker share **nothing but the database**. They never talk t
 | A model runs forever | Hard timeout (360 min), enforced both inside and outside the container |
 | A researcher's code is kept and misused | The package is deleted the moment it is scored; only scores and traces remain |
 | Someone floods the queue | 3 submissions per person per day; uploads and dry runs rate-limited |
-| Two workers evaluate the same model | Atomic claim (Part 4) |
+| Two workers evaluate the same model | Atomic claim (Part 3) |
 | A worker crashes mid-run | Lock goes stale after 30 min; another worker picks the job up; two attempts per job |
 | The worker loses its network | It retries every 2 s and resumes by itself; admins are e-mailed after 3 minutes of silence |
 | Someone guesses passwords | bcrypt hashing plus 10 attempts per 15 min per account |

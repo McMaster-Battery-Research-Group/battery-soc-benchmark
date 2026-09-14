@@ -1,4 +1,5 @@
-## 9. 🖥️ The web tier: submitting, results, leaderboard
+<a id="part-8"></a>
+## 8. 🖥️ The web tier: submitting, results, leaderboard
 
 > 💡 **Plain English.** The submit page lets you test a package for free before spending one of your three daily submissions. The results page explains the score in plain language first, then shows the numbers, then the charts. The leaderboard ranks public models; your private ones show a "ghost" rank so you can see where you would stand without displacing anyone.
 
@@ -39,7 +40,7 @@ flowchart TB
     B -- submit --> F["form: name, description, type,<br/>private?, contest?, collaborators, terms"]
     E --> F
     F --> G["upload with progress bar (Supabase)<br/>then 'checking the package structure'"]
-    G --> H["createSubmissionAction (Part 4, step 2)"]
+    G --> H["createSubmissionAction (Part 3, step 2)"]
     classDef person fill:#EFE6F5,stroke:#6B3FA0,color:#1d2428
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef good fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428

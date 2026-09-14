@@ -1,4 +1,5 @@
-## 1. 🏷️ Glossary
+<a id="part-15"></a>
+## 15. 🏷️ Glossary
 
 > 💡 **Plain English.** Two vocabularies meet in this project: battery science and web software. Nobody is expected to know both. This part defines every word the rest of the document uses, in one line each, and shows how the concepts hang together.
 
