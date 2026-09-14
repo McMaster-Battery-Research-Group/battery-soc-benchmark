@@ -27,13 +27,13 @@ Python models are imported and looped in-process; MATLAB models run through one 
 | Drive cycles | UDDS, HWFET, LA92, US06, plus two custom ones (HWCUST, HWGRADE) |
 | Total | **144 test cycles** plus charging cycles |
 | Robustness | 9 runs started at the wrong initial SOC (90 / 60 / 30 %), 18 runs with a current-sensor offset (±0.05 / 0.1 / 0.3 A) |
-| Padding | One hour of the first sample repeated before every cycle so filters and RNNs settle; excluded from the metrics |
+| Padding | One hour of the first sample repeated before every cycle so that filters and recurrent neural networks — models that carry memory from one sample to the next — have settled; excluded from the metrics |
 
 A short **validation run** goes first so a broken model fails in seconds instead of after 45 minutes.
 
 ### From errors to one number
 
-The scoring pipeline, in four steps:
+The error number for a cycle is its RMSE — root-mean-square error, explained just below the diagram. The scoring pipeline, in four steps:
 
 ```mermaid
 flowchart TB
@@ -65,7 +65,7 @@ pie showData title Share of the score
     "Six temperatures" : 10
 ```
 
-Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter measured on the same machine in the same language, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
+Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter — the simplest possible estimator, which just adds up the current over time — measured on the same machine in the same language, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
 
 ### What goes back to the website
 
