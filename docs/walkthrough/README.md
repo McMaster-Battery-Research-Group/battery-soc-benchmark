@@ -59,4 +59,4 @@ flowchart LR
 
 Read in order the first time; each part opens with a plain-English summary and stands on its own afterwards.
 
-**Read it as one piece:** [ALL-IN-ONE.md](ALL-IN-ONE.md) is the whole walkthrough in a single file (best in an editor or offline), and [codebase-walkthrough.pdf](codebase-walkthrough.pdf?raw=true) is the same content with every diagram rendered and a clickable contents page, for reading anywhere.
+**Read it as one piece:** [ALL-IN-ONE.md](ALL-IN-ONE.md) is the whole walkthrough in a single file (best in an editor or offline), and [codebase-walkthrough.pdf](https://github.com/McMaster-Battery-Research-Group/battery-soc-benchmark/raw/main/docs/walkthrough/codebase-walkthrough.pdf) is the same content with every diagram rendered and a clickable contents page, for reading anywhere.
