@@ -5,7 +5,7 @@
 >
 > The trouble is that every research group tests its own algorithm on its own battery, its own driving data and its own definition of error, and then reports a number. Nobody can tell whether a claimed 1.5 % is better than someone else's 2 %, because they were measured on different things.
 >
-> This benchmark gives everyone the same test. A researcher uploads their algorithm as a small program. We run it against real battery data that has never been published, score it with one fixed and public formula, and put the score on a public leaderboard next to everyone else's. Same hidden data, same code, so the numbers finally mean the same thing. The uploaded program is deleted the moment it has been scored, and it never touches the website.
+> This benchmark gives everyone the same test. A researcher uploads their algorithm as a small program — one Python or MATLAB file, zipped together with any parameters it needs. We run it against real battery data that has never been published, score it with one fixed and public formula, and put the score on a public leaderboard next to everyone else's. Same hidden data, same code, so the numbers finally mean the same thing. The uploaded program is deleted the moment it has been scored, and it never touches the website.
 
 ### The idea in five steps
 
@@ -14,7 +14,7 @@ Read the diagram top to bottom. The first step is public, the fourth is secret, 
 ```mermaid
 flowchart TB
     A["Open dataset, published"] --> B["Researcher builds an SOC model"]
-    B --> C["Uploads a .zip"]
+    B --> C["Uploads a .zip: a Python or MATLAB model file<br/>plus its parameters"]
     C --> D["Scored on hidden data"]
     D --> E["Public leaderboard and PDF report"]
     classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
@@ -34,6 +34,12 @@ A drive cycle is a recording of a real kind of trip: how fast a car goes, second
 For this benchmark the lab took real Tesla battery cells and put each one through those trips in a thermal chamber, drawing exactly the current a Tesla Model 3 would draw from that cell at each moment — high current when the car accelerates, current flowing back in when it brakes, nothing when it idles — while recording voltage, temperature and the true state of charge the whole time. Every cycle was repeated at six temperatures from −20 °C to 40 °C, because a cold battery behaves very differently from a warm one.
 
 That is what makes the data useful. A model is judged on the messy, realistic loads a battery sees in a car, not on a tidy laboratory discharge; it is judged at the cold temperatures where estimators usually fail; and because the recordings include the true state of charge, every guess the model makes can be checked exactly. Some of the trips, and one whole cell, were never published, so no model can have memorised them.
+
+### What is measured: error
+
+For every second of every drive cycle the lab knows the true state of charge, because it was measured directly during the test. The model, seeing only current, voltage and temperature, produces its guess for the same second. The difference between the two is the **error**, and it is the one thing the benchmark measures. Everything on the leaderboard is some average of it.
+
+It matters because the estimate *is* the fuel gauge. A model that reads 2 % high on a large car battery is promising roughly ten kilometres of range that are not there; one that reads low is hiding capacity the driver paid for. And errors are not all alike: a model that is always 2 % off is more useful than one that is usually perfect but occasionally 20 % off, and a model that works at room temperature but drifts badly at −20 °C is not much use in Canada. So the score does not just average the error — it looks at where the error happens (which temperature, which cell, which kind of trip) and at what happens when the model is deliberately given a bad start or a faulty sensor. Part 3 shows exactly how.
 
 ### Three programs, and what each may touch
 
