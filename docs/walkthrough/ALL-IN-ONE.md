@@ -2,11 +2,30 @@
 
 # Battery SOC Benchmark — codebase walkthrough
 
-This is the whole system explained in one place: what it does, how each part works, why it was built that way, and where to look in the code.
+This document is for anyone who needs to understand how the benchmark works, whether you are going to change the code or just want to know what happens to a model after it is uploaded.
 
-You don't need to be a developer to follow it. Every part starts with a short plain-English summary, and the diagrams are meant to make sense on their own, so you can read those and skip anything in `monospace`. If the codebase is new to you, read it in order once; each part ends with the files to open. Terms are defined in the glossary at the end, and the reference tables (settings, limits, tools) are in the appendix after it, so the main text stays short.
+Each part opens with a short summary in plain language. Read those and look at the pictures and you will have the whole story; the file names and code paths are there for when you want to go deeper. If you are picking up the codebase, go through it once in order. The files worth opening are listed at the end of each part, definitions are in the glossary, and the settings, limits and tools are tabulated in the appendix so they do not clutter the explanation.
 
-Every diagram uses the same colours: **maroon** for the website, **gold** for the worker machine, **green** for the sandbox, **blue** for data, **grey** for outside services, **purple** for a person, **red** for the hidden data or a risk.
+The diagrams share one colour scheme:
+
+```mermaid
+flowchart LR
+    W["Website"] ~~~ K["Worker"] ~~~ S["Sandbox"] ~~~ D[("Data")] ~~~ E["Outside service"] ~~~ P["Person"] ~~~ X["Hidden data or risk"]
+    classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
+    classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
+    classDef sandbox fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428
+    classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
+    classDef ext fill:#F0F0F0,stroke:#495965,color:#1d2428
+    classDef person fill:#EFE6F5,stroke:#6B3FA0,color:#1d2428
+    classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
+    class W web
+    class K worker
+    class S sandbox
+    class D data
+    class E ext
+    class P person
+    class X danger
+```
 
 ---
 
