@@ -141,7 +141,7 @@ flowchart TB
 
 Every progress line the model prints refreshes the lock, so a live job is never mistaken for a dead one; a job whose worker died becomes claimable again after 30 quiet minutes, with two attempts in total.
 
-**5. Run.** The worker starts one Docker container with three mounts and nothing else: the package (read-only), the hidden data (read-only), and an output folder. No network, read-only filesystem, no privileges, memory and CPU caps, none of the worker's secrets. Everything the container prints streams into the job log, which is what the website shows as the live console. A timer (default 6 h) and the owner's Cancel button both kill the container and any MATLAB inside it. Two things go in, one thing comes out:
+**5. Run.** The worker starts one Docker container with three mounts and nothing else: the package (read-only), the hidden data (read-only), and an output folder. Everything the container prints streams into the job log, which is what the website shows as the live console. A timer (default 6 h) and the owner's Cancel button both kill the container and any MATLAB inside it. What the container is *not* allowed to do is the subject of Part 5. Two things go in, one thing comes out:
 
 ```mermaid
 flowchart TB
@@ -248,7 +248,7 @@ pie showData title Share of the score
     "Six temperatures" : 10
 ```
 
-Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
+Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter measured on the same machine in the same language, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
 
 ### What goes back to the website
 
@@ -358,11 +358,11 @@ flowchart TB
 
 ### Submitting
 
-A **dry run** executes the package against two hours of *open* data in about twelve seconds, shows the live console and its error, and costs nothing; that is where format mistakes get caught. Submitting proper asks for a name, description, model type, whether it is private, an optional contest, and co-authors; the form checks itself with the same rules the server uses, so a rejection appears before the upload.
+A **dry run** executes the package against two hours of *open* data in about twelve seconds, shows the live console and its error, and costs nothing; that is where format mistakes get caught. (It is separate from the validation run in Part 3, which is the first thing a *full* evaluation does on hidden data.) Submitting proper asks for a name, description, model type, whether it is private, an optional contest, and co-authors; the form checks itself with the same rules the server uses, so a rejection appears before the upload.
 
 ### Reading results
 
-The results page is ordered *why*, then *what*, then *detail*: plain-English insights first (what drove the score, whether the model over-fits the open data, how it copes with cold and with bad sensors), then the 18-row scorecard that sums to the score, then the key traces, then everything else behind folds — all 144 cycles, the score history, the downloads (PDF, JSON, traces).
+The results page is ordered *why*, then *what*, then *detail*: plain-English insights first (what drove the score, whether the model over-fits the open data, how it copes with cold and with bad sensors), then the 18-row scorecard that sums to the score, then the key traces, then everything else behind folds — all 144 cycles, the score history, the downloads (PDF, JSON, traces). The PDF is the same content arranged for printing: the scorecard, an explanation of how the score was computed, the traces and every per-cycle error, with the citation and funding acknowledgement on each page; it is generated on the worker and attached to the results e-mail.
 
 ### The leaderboard
 
@@ -473,6 +473,8 @@ flowchart TB
     class X,D worker
     class C sandbox
 ```
+
+**Before code reaches production**, a push that touches the website runs a browser test pass over the main pages (Playwright) and is refused if any page errors; the site then deploys itself, and the VM picks the change up within ten minutes.
 
 **Running it on a laptop** is the same code with different settings: a local Postgres in Docker, files on disk, e-mail to a test inbox. There is no fake scorer; a developer's worker runs the real evaluator, which needs the hidden data and the sandbox image. The seed creates an admin account and one test user, nothing else.
 
@@ -634,3 +636,4 @@ Every line is annotated in `.env.example`. Production values live only on Vercel
 | `EvaluationResult` | `weightedError`, `complexity`, the 18 metric columns, `maxError`, `perCycle`, `timeSeries`, `robustness`, `tracesKey`, `evaluatorVersion` |
 | `ScoreRevision` | `kind` (evaluation, failure, rescore, resubmission, edit, cancelled, legacy), the score and metrics at that moment, `note`, `by` |
 | `WorkerHeartbeat` | `hostname`, `lastSeenAt`, `runtimes`, `busyWith`, `paused`, `command`, machine diagnostics, `log` |
+| `DryRun` | its own `status`, lock and `log`; `result` JSON — never touches hidden data, never on the leaderboard |

@@ -41,6 +41,8 @@ flowchart TB
     class C sandbox
 ```
 
+**Before code reaches production**, a push that touches the website runs a browser test pass over the main pages (Playwright) and is refused if any page errors; the site then deploys itself, and the VM picks the change up within ten minutes.
+
 **Running it on a laptop** is the same code with different settings: a local Postgres in Docker, files on disk, e-mail to a test inbox. There is no fake scorer; a developer's worker runs the real evaluator, which needs the hidden data and the sandbox image. The seed creates an admin account and one test user, nothing else.
 
 **Files to open:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [.env.example](../../.env.example).

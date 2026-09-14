@@ -71,3 +71,4 @@ Every line is annotated in `.env.example`. Production values live only on Vercel
 | `EvaluationResult` | `weightedError`, `complexity`, the 18 metric columns, `maxError`, `perCycle`, `timeSeries`, `robustness`, `tracesKey`, `evaluatorVersion` |
 | `ScoreRevision` | `kind` (evaluation, failure, rescore, resubmission, edit, cancelled, legacy), the score and metrics at that moment, `note`, `by` |
 | `WorkerHeartbeat` | `hostname`, `lastSeenAt`, `runtimes`, `busyWith`, `paused`, `command`, machine diagnostics, `log` |
+| `DryRun` | its own `status`, lock and `log`; `result` JSON — never touches hidden data, never on the leaderboard |
