@@ -7,7 +7,7 @@ With the pieces in place, this part is about what a visitor actually sees and ho
 
 ### How pages get their data
 
-There is no separate API. A page reads the database on the server and arrives as finished HTML; a form calls a server function directly, which validates, checks the session, writes, and re-renders what changed. The few URLs that exist under `/api/` are for things that genuinely need one: status polling, the PDF download, upload links, the health check. The two paths from a browser:
+There is no separate API — no machine-facing interface that programs call instead of people. A page reads the database on the server and arrives as finished HTML; a form calls a server action directly, which validates, checks the session, writes, and re-renders what changed. The few URLs that exist under `/api/` are for things that genuinely need one: status polling, the PDF download, upload links, the health check. The two paths from a browser:
 
 ```mermaid
 flowchart TB

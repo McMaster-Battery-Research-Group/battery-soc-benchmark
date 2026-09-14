@@ -1,7 +1,7 @@
 <a id="part-1"></a>
 ## 1. The five-minute version
 
-> **Plain English.** An electric car has no way to measure how much charge is left in its battery. There is no float in the tank; the only things it can measure are the current flowing in and out, the voltage, and the temperature, and from those it has to *estimate* the state of charge. Get it wrong and a driver is stranded with a gauge that said 20 %, or a carmaker has to hide part of the battery as a safety margin. So a lot of research goes into the algorithm that makes that estimate.
+> **Plain English.** An electric car has no way to measure how much charge is left in its battery. There is no float in the tank; the only things it can measure are the current flowing in and out, the voltage, and the temperature, and from those it has to *estimate* the state of charge — the SOC, the percentage of the battery that is still full. Get it wrong and a driver is stranded with a gauge that said 20 %, or a carmaker has to hide part of the battery as a safety margin. So a lot of research goes into the algorithm that makes that estimate.
 >
 > The trouble is that every research group tests its own algorithm on its own battery, its own driving data and its own definition of error, and then reports a number. Nobody can tell whether a claimed 1.5 % is better than someone else's 2 %, because they were measured on different things.
 >
@@ -37,7 +37,7 @@ That is what makes the data useful. A model is judged on the messy, realistic lo
 
 ### Three programs, and what each may touch
 
-The design comes down to one rule: **the website never runs anyone's code and never sees the hidden data.** A separate worker machine does that, and even the worker hands the model to a throw-away container. Three words will come up on every page from here on — *website*, *worker*, *sandbox* — and this is what each one is. The arrows show who is allowed to talk to whom:
+The design comes down to one rule: **the website never runs anyone's code and never sees the hidden data.** A separate computer, the worker, does that, and even the worker hands the model to a container: a sealed, temporary environment inside the machine that is thrown away afterwards. A container with everything the model does not need switched off is called a sandbox. Those three words — *website*, *worker*, *sandbox* — come up on every page from here on. The arrows show who is allowed to talk to whom:
 
 ```mermaid
 flowchart TB
@@ -64,9 +64,9 @@ The website and the worker share nothing but the database; they never talk to ea
 
 | What | Where | Why |
 |---|---|---|
-| Website | Vercel (free tier) | Hosts Next.js with no servers to manage |
-| Database and file bucket | Supabase (free tier) | PostgreSQL and file storage in one account |
-| Worker, hidden data, MATLAB | A VM on Arbutus, the Alliance research cloud | The lab controls it; it is the only place the hidden data exists |
+| Website | Vercel, a hosting service (free tier) | Runs the site with no servers of our own to manage |
+| Database and file bucket | Supabase, a hosted database service (free tier) | The database (PostgreSQL) and file storage in one account |
+| Worker, hidden data, MATLAB | A virtual machine — a rented computer in the cloud — on Arbutus, the Digital Research Alliance of Canada's cloud | The lab controls it; it is the only place the hidden data exists |
 | Source code | GitHub, `McMaster-Battery-Research-Group` | Collaborators can read and propose; only the owner merges |
 
 **Files to open:** [README.md](../../README.md) → [prisma/schema.prisma](../../prisma/schema.prisma) → [src/evaluator/worker.ts](../../src/evaluator/worker.ts).

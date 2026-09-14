@@ -24,7 +24,7 @@ sequenceDiagram
 
 ### Signing in
 
-Ten attempts per 15 minutes per account (forty per address), then the password is checked against its bcrypt hash — a deliberately slow scramble, so guessing a million passwords is ruinous while one login is instant. A verified user gets a signed cookie good for 14 days; the site never looks the session up in the database. Pages under `/submit`, `/profile` and `/admin` redirect signed-out visitors at the edge, but that is a convenience: the real check runs again inside every action.
+Ten attempts per 15 minutes per account (forty per address), then the password is checked against its bcrypt hash — a deliberately slow scramble, so guessing a million passwords is ruinous while one login is instant. A verified user gets a signed cookie — a small token the browser keeps and sends with every request, signed so it cannot be forged — good for 14 days; the site never looks the session up in the database. Pages under `/submit`, `/profile` and `/admin` redirect signed-out visitors before the page is even built, but that is a convenience: the real check runs again inside every action.
 
 ### What stops a bad submission
 
@@ -33,7 +33,7 @@ Ten attempts per 15 minutes per account (forty per address), then the password i
 | The model steals the hidden data | It can read it (it must) but has no network and is destroyed afterwards |
 | The model attacks the machine | Read-only filesystem, no privileges, memory and CPU caps, runs as an unprivileged user |
 | The model reads our secrets | The container never receives the worker's environment; MATLAB gets only a 24-hour licence token |
-| A zip bomb or path trick | Entry, size and ratio limits, no folders, no `..` — checked on the website *and* again in the evaluator |
+| A zip bomb (a tiny file that expands to fill the disk) or a path trick (a file name that tries to write outside its folder) | Entry, size and ratio limits, no folders, no `..` — checked on the website *and* again in the evaluator |
 | A model runs forever | Hard timeout inside and outside the container |
 | Someone floods the queue | 3 submissions per day, 5 dry runs per hour |
 | Password guessing | bcrypt plus the attempt limits above |

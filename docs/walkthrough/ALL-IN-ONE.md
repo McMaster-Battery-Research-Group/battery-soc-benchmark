@@ -49,7 +49,7 @@ flowchart LR
 <a id="part-1"></a>
 ## 1. The five-minute version
 
-> **Plain English.** An electric car has no way to measure how much charge is left in its battery. There is no float in the tank; the only things it can measure are the current flowing in and out, the voltage, and the temperature, and from those it has to *estimate* the state of charge. Get it wrong and a driver is stranded with a gauge that said 20 %, or a carmaker has to hide part of the battery as a safety margin. So a lot of research goes into the algorithm that makes that estimate.
+> **Plain English.** An electric car has no way to measure how much charge is left in its battery. There is no float in the tank; the only things it can measure are the current flowing in and out, the voltage, and the temperature, and from those it has to *estimate* the state of charge — the SOC, the percentage of the battery that is still full. Get it wrong and a driver is stranded with a gauge that said 20 %, or a carmaker has to hide part of the battery as a safety margin. So a lot of research goes into the algorithm that makes that estimate.
 >
 > The trouble is that every research group tests its own algorithm on its own battery, its own driving data and its own definition of error, and then reports a number. Nobody can tell whether a claimed 1.5 % is better than someone else's 2 %, because they were measured on different things.
 >
@@ -85,7 +85,7 @@ That is what makes the data useful. A model is judged on the messy, realistic lo
 
 ### Three programs, and what each may touch
 
-The design comes down to one rule: **the website never runs anyone's code and never sees the hidden data.** A separate worker machine does that, and even the worker hands the model to a throw-away container. Three words will come up on every page from here on — *website*, *worker*, *sandbox* — and this is what each one is. The arrows show who is allowed to talk to whom:
+The design comes down to one rule: **the website never runs anyone's code and never sees the hidden data.** A separate computer, the worker, does that, and even the worker hands the model to a container: a sealed, temporary environment inside the machine that is thrown away afterwards. A container with everything the model does not need switched off is called a sandbox. Those three words — *website*, *worker*, *sandbox* — come up on every page from here on. The arrows show who is allowed to talk to whom:
 
 ```mermaid
 flowchart TB
@@ -112,9 +112,9 @@ The website and the worker share nothing but the database; they never talk to ea
 
 | What | Where | Why |
 |---|---|---|
-| Website | Vercel (free tier) | Hosts Next.js with no servers to manage |
-| Database and file bucket | Supabase (free tier) | PostgreSQL and file storage in one account |
-| Worker, hidden data, MATLAB | A VM on Arbutus, the Alliance research cloud | The lab controls it; it is the only place the hidden data exists |
+| Website | Vercel, a hosting service (free tier) | Runs the site with no servers of our own to manage |
+| Database and file bucket | Supabase, a hosted database service (free tier) | The database (PostgreSQL) and file storage in one account |
+| Worker, hidden data, MATLAB | A virtual machine — a rented computer in the cloud — on Arbutus, the Digital Research Alliance of Canada's cloud | The lab controls it; it is the only place the hidden data exists |
 | Source code | GitHub, `McMaster-Battery-Research-Group` | Collaborators can read and propose; only the owner merges |
 
 **Files to open:** [README.md](../../README.md) → [prisma/schema.prisma](../../prisma/schema.prisma) → [src/evaluator/worker.ts](../../src/evaluator/worker.ts).
@@ -149,11 +149,11 @@ sequenceDiagram
 
 ### Step by step
 
-**1. Upload.** The browser sends the zip straight to the file bucket using a short-lived signed link, because the website's host only accepts requests under 4.5 MB and packages can be 50 MB. The form then carries only the file's key.
+**1. Upload.** The browser sends the zip straight to the file bucket using a signed link — a one-off web address that permits a single upload and then expires — because the website's host only accepts requests under 4.5 MB and packages can be 50 MB. The form then carries only the file's key.
 
-**2. Check.** One server action does everything, cheapest check first: signed in? under the daily cap of 3? name and description valid? Then it fetches the zip back and inspects it — size and entry limits, no folders, no path tricks, exactly one `Model.py` or `Model.m`/`Model.p` at the top level. Any failure deletes the upload and shows the exact reason. Passing creates the `Submission` and its `EvaluationJob` (the queue ticket) in one insert, and records whether it is a Python or MATLAB package.
+**2. Check.** One server action — a function that runs on the website's server when a form is submitted — does everything, cheapest check first: signed in? under the daily cap of 3? name and description valid? Then it fetches the zip back and inspects it — size and entry limits, no folders, no path tricks, exactly one `Model.py` (a Python file) or `Model.m`/`Model.p` (a MATLAB file — MATLAB being the maths language much of the lab works in) at the top level. Any failure deletes the upload and shows the exact reason. Passing creates the `Submission` and its `EvaluationJob` (the queue ticket) in one insert, and records whether it is a Python or MATLAB package.
 
-**3. Wait.** The submission page polls every 2.5 s and shows the queue position, an estimated start time, and whether a worker for this package's language is online. All of it is derived from two tables: the workers' heartbeats and the job queue.
+**3. Wait.** The submission page polls — asks the server for an update — every 2.5 s and shows the queue position, an estimated start time, and whether a worker for this package's language is online. All of it is derived from two tables: the workers' heartbeats (a note each worker writes every 15 seconds to say it is alive and what it is doing) and the job queue.
 
 **4. Claim.** Workers poll every 2 s. Taking a job is a single conditional update — lock this row *only if it is still unlocked* — so two workers can never take the same job. The diagram is one attempt; the two branches are the only outcomes:
 
@@ -172,7 +172,7 @@ flowchart TB
 
 Every progress line the model prints refreshes the lock, so a live job is never mistaken for a dead one; a job whose worker died becomes claimable again after 30 quiet minutes, with two attempts in total.
 
-**5. Run.** The worker starts one Docker container with three mounts and nothing else: the package (read-only), the hidden data (read-only), and an output folder. Everything the container prints streams into the job log, which is what the website shows as the live console. A timer (default 6 h) and the owner's Cancel button both kill the container and any MATLAB inside it. What the container is *not* allowed to do is the subject of Part 5. Two things go in, one thing comes out:
+**5. Run.** The worker starts one Docker container (Docker is the tool that creates containers) with three mounts — folders made visible inside it — and nothing else: the package (read-only), the hidden data (read-only), and an output folder. Everything the container prints streams into the job log, which is what the website shows as the live console. A timer (default 6 h) and the owner's Cancel button both kill the container and any MATLAB inside it. What the container is *not* allowed to do is the subject of Part 5. Two things go in, one thing comes out:
 
 ```mermaid
 flowchart TB
@@ -189,7 +189,7 @@ flowchart TB
     class O data
 ```
 
-**6. Store.** The worker checks that all 18 metrics are finite numbers, re-derives the headline score with the active weights as a cross-check, writes the result and marks the submission complete in one transaction, uploads the full-resolution traces file, appends a line to the submission's score history, and **deletes the package**. Only then does it build the PDF and e-mail the owner and any confirmed co-authors.
+**6. Store.** The worker checks that all 18 metrics are finite numbers, re-derives the headline score with the active weights as a cross-check, writes the result and marks the submission complete in one transaction — a group of database writes that either all happen or none do — uploads the full-resolution traces file, appends a line to the submission's score history, and **deletes the package**. Only then does it build the PDF and e-mail the owner and any confirmed co-authors.
 
 **7. The other endings.** Every state a submission can be in, and what moves it between them:
 
@@ -206,7 +206,7 @@ stateDiagram-v2
     Completed --> Queued : owner submits a new version
 ```
 
-A failure caused by the package (it crashed, returned NaN, ran out of time) is final and the message is stored verbatim; a failure caused by us (Docker down, a bug) is retried once. Stopping the worker hands its job back to the queue without using up an attempt.
+A failure caused by the package (it crashed, returned an invalid number, ran out of time) is final and the message is stored verbatim; a failure caused by us (Docker down, a bug) is retried once. Stopping the worker hands its job back to the queue without using up an attempt.
 
 **Files to open:** [submit/actions.ts](../../src/app/(app)/submit/actions.ts) → [package-check.ts](../../src/lib/package-check.ts) → [run-job.ts](../../src/evaluator/run-job.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts).
 
@@ -241,13 +241,13 @@ Python models are imported and looped in-process; MATLAB models run through one 
 | Drive cycles | UDDS, HWFET, LA92, US06, plus two custom ones (HWCUST, HWGRADE) |
 | Total | **144 test cycles** plus charging cycles |
 | Robustness | 9 runs started at the wrong initial SOC (90 / 60 / 30 %), 18 runs with a current-sensor offset (±0.05 / 0.1 / 0.3 A) |
-| Padding | One hour of the first sample repeated before every cycle so filters and RNNs settle; excluded from the metrics |
+| Padding | One hour of the first sample repeated before every cycle so that filters and recurrent neural networks — models that carry memory from one sample to the next — have settled; excluded from the metrics |
 
 A short **validation run** goes first so a broken model fails in seconds instead of after 45 minutes.
 
 ### From errors to one number
 
-The scoring pipeline, in four steps:
+The error number for a cycle is its RMSE — root-mean-square error, explained just below the diagram. The scoring pipeline, in four steps:
 
 ```mermaid
 flowchart TB
@@ -279,7 +279,7 @@ pie showData title Share of the score
     "Six temperatures" : 10
 ```
 
-Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter measured on the same machine in the same language, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
+Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter — the simplest possible estimator, which just adds up the current over time — measured on the same machine in the same language, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
 
 ### What goes back to the website
 
@@ -340,7 +340,7 @@ sequenceDiagram
 
 ### Signing in
 
-Ten attempts per 15 minutes per account (forty per address), then the password is checked against its bcrypt hash — a deliberately slow scramble, so guessing a million passwords is ruinous while one login is instant. A verified user gets a signed cookie good for 14 days; the site never looks the session up in the database. Pages under `/submit`, `/profile` and `/admin` redirect signed-out visitors at the edge, but that is a convenience: the real check runs again inside every action.
+Ten attempts per 15 minutes per account (forty per address), then the password is checked against its bcrypt hash — a deliberately slow scramble, so guessing a million passwords is ruinous while one login is instant. A verified user gets a signed cookie — a small token the browser keeps and sends with every request, signed so it cannot be forged — good for 14 days; the site never looks the session up in the database. Pages under `/submit`, `/profile` and `/admin` redirect signed-out visitors before the page is even built, but that is a convenience: the real check runs again inside every action.
 
 ### What stops a bad submission
 
@@ -349,7 +349,7 @@ Ten attempts per 15 minutes per account (forty per address), then the password i
 | The model steals the hidden data | It can read it (it must) but has no network and is destroyed afterwards |
 | The model attacks the machine | Read-only filesystem, no privileges, memory and CPU caps, runs as an unprivileged user |
 | The model reads our secrets | The container never receives the worker's environment; MATLAB gets only a 24-hour licence token |
-| A zip bomb or path trick | Entry, size and ratio limits, no folders, no `..` — checked on the website *and* again in the evaluator |
+| A zip bomb (a tiny file that expands to fill the disk) or a path trick (a file name that tries to write outside its folder) | Entry, size and ratio limits, no folders, no `..` — checked on the website *and* again in the evaluator |
 | A model runs forever | Hard timeout inside and outside the container |
 | Someone floods the queue | 3 submissions per day, 5 dry runs per hour |
 | Password guessing | bcrypt plus the attempt limits above |
@@ -371,7 +371,7 @@ With the pieces in place, this part is about what a visitor actually sees and ho
 
 ### How pages get their data
 
-There is no separate API. A page reads the database on the server and arrives as finished HTML; a form calls a server function directly, which validates, checks the session, writes, and re-renders what changed. The few URLs that exist under `/api/` are for things that genuinely need one: status polling, the PDF download, upload links, the health check. The two paths from a browser:
+There is no separate API — no machine-facing interface that programs call instead of people. A page reads the database on the server and arrives as finished HTML; a form calls a server action directly, which validates, checks the session, writes, and re-renders what changed. The few URLs that exist under `/api/` are for things that genuinely need one: status polling, the PDF download, upload links, the health check. The two paths from a browser:
 
 ```mermaid
 flowchart TB
@@ -486,11 +486,11 @@ flowchart TB
     class S data
 ```
 
-**The VM** is set up by one script: Docker, Node, a no-login service account, the repo checked out with a read-only key, a hardened background service, a firewall that allows only SSH. Secrets and the hidden data are placed by hand afterwards, owned by the service account, readable by nobody else.
+**The VM** is set up by one script: Docker; Node.js, which runs the website's language outside a browser; a service account with no login, which exists only to run the worker; the code checked out with a key that can download but never change it; a hardened background service, a firewall that allows only SSH. Secrets and the hidden data are placed by hand afterwards, owned by the service account, readable by nobody else.
 
 **Self-update** runs every ten minutes: fetch the code; if anything changed, rebuild only what it touched (packages, the database client, the sandbox images); then restart the worker — but only if no evaluation is running, otherwise wait for the next tick.
 
-**MATLAB** runs inside MathWorks' own container image, licensed through the lab's account rather than a licence server. A one-time browser sign-in produced a year-long identity token that lives on the VM; for each evaluation the worker exchanges it for a 24-hour token, and only that short-lived token enters the container. The chain, from the long-lived secret to the container:
+**MATLAB** runs inside MathWorks' own container image (the template a container is started from), licensed through the lab's account rather than a licence server. A one-time browser sign-in produced a year-long identity token that lives on the VM; for each evaluation the worker exchanges it for a 24-hour token, and only that short-lived token enters the container. The chain, from the long-lived secret to the container:
 
 ```mermaid
 flowchart TB
@@ -507,7 +507,7 @@ flowchart TB
 
 **Before code reaches production**, a push that touches the website runs a browser test pass over the main pages (Playwright) and is refused if any page errors; the site then deploys itself, and the VM picks the change up within ten minutes.
 
-**Running it on a laptop** is the same code with different settings: a local Postgres in Docker, files on disk, e-mail to a test inbox. There is no fake scorer; a developer's worker runs the real evaluator, which needs the hidden data and the sandbox image. The seed creates an admin account and one test user, nothing else.
+**Running it on a laptop** is the same code with different settings: a local PostgreSQL database in Docker, files on disk, e-mail to a test inbox. There is no fake scorer; a developer's worker runs the real evaluator, which needs the hidden data and the sandbox image. The seed — the script that fills an empty database with starter rows — creates an admin account and one test user, nothing else.
 
 **Files to open:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [.env.example](../../.env.example).
 
