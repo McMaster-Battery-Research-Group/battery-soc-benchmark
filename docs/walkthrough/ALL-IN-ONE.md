@@ -49,11 +49,15 @@ flowchart LR
 <a id="part-1"></a>
 ## 1. The five-minute version
 
-> **Plain English.** Researchers upload a small program that guesses how full a battery is. We run it against battery data that has never been published, score it with a fixed public formula, and put the score on a public leaderboard. Everyone is scored on the same hidden data with the same code, so the numbers are comparable. The uploaded program is deleted the moment it is scored, and it never touches the website.
+> **Plain English.** An electric car has no way to measure how much charge is left in its battery. There is no float in the tank; the only things it can measure are the current flowing in and out, the voltage, and the temperature, and from those it has to *estimate* the state of charge. Get it wrong and a driver is stranded with a gauge that said 20 %, or a carmaker has to hide part of the battery as a safety margin. So a lot of research goes into the algorithm that makes that estimate.
+>
+> The trouble is that every research group tests its own algorithm on its own battery, its own driving data and its own definition of error, and then reports a number. Nobody can tell whether a claimed 1.5 % is better than someone else's 2 %, because they were measured on different things.
+>
+> This benchmark gives everyone the same test. A researcher uploads their algorithm as a small program. We run it against real battery data that has never been published, score it with one fixed and public formula, and put the score on a public leaderboard next to everyone else's. Same hidden data, same code, so the numbers finally mean the same thing. The uploaded program is deleted the moment it has been scored, and it never touches the website.
 
-### The problem
+### The idea in five steps
 
-Every battery paper reports its own accuracy on its own data, so nobody can tell whose method is actually better. The benchmark fixes the data and the test: same hidden cycles, same scoring code, every model. Read the diagram top to bottom — it is the whole idea in five steps:
+Read the diagram top to bottom. The first step is public, the fourth is secret, and everything the benchmark promises rests on that difference:
 
 ```mermaid
 flowchart TB
