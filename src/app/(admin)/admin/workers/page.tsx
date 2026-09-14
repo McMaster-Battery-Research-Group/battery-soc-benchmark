@@ -87,7 +87,7 @@ export default async function WorkersPage() {
                   <Diag icon={GitCommit} label="Code" value={w.gitSha || "unknown"} />
                   <Diag label="Python" value={w.pythonInfo || "—"} warn={/not found/.test(w.pythonInfo)} />
                   <Diag label="MATLAB" value={w.matlabInfo || "—"} warn={/not found/.test(w.matlabInfo)} />
-                  <Diag label="Blinded data" value={w.blindData ? "present" : w.evaluator === "real" ? "MISSING — real evaluations will fail" : "not needed (mock)"} warn={!w.blindData && w.evaluator === "real"} />
+                  <Diag label="Blinded data" value={w.blindData ? "present" : "MISSING — evaluations will fail"} warn={!w.blindData} />
                   {w.busyWith.length ? (
                     <Diag
                       label="Working on"

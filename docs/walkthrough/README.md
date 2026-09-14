@@ -74,4 +74,4 @@ flowchart LR
 
 Read in order the first time; each part opens with a plain-English summary and stands on its own afterwards.
 
-**Read it as one piece:** [ALL-IN-ONE.md](ALL-IN-ONE.md) is the whole walkthrough in a single file (best in an editor or offline — GitHub's page view cannot render this many diagrams at once), and [codebase-walkthrough.pdf](codebase-walkthrough.pdf) is the same content with every diagram rendered, for reading anywhere.
+**Read it as one piece:** [ALL-IN-ONE.md](ALL-IN-ONE.md) is the whole walkthrough in a single file (best in an editor or offline), and [codebase-walkthrough.pdf](codebase-walkthrough.pdf?raw=true) is the same content with every diagram rendered, for reading anywhere.

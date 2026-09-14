@@ -31,7 +31,7 @@ flowchart LR
 
 **Add a metric column**: `EvaluationResult` in [schema.prisma](../../prisma/schema.prisma) → `npm run db:push` → the entry in [test-cases.ts](../../src/lib/test-cases.ts) (key, label, weight, group) → compute it in `score()` → it flows through `METRIC_KEYS` to results.ts, the scorecard, the PDF and the CSV automatically. Re-check the weights still sum to 1.
 
-**Add a model type**: the `ModelType` enum in [schema.prisma](../../prisma/schema.prisma) → `db:push` → `MODEL_TYPES` in [validation.ts](../../src/lib/validation.ts) → a baseline in [mock-evaluator.ts](../../src/evaluator/mock-evaluator.ts) so seeded data covers it.
+**Add a model type**: the `ModelType` enum in [schema.prisma](../../prisma/schema.prisma) → `db:push` → `MODEL_TYPES` in [validation.ts](../../src/lib/validation.ts).
 
 **Add a worker machine**: a machine with Docker (or MATLAB), the blinded data at mode 600, and a copy of `worker.env` → `WORKER_RUNTIMES` set to what it can run → `npm run worker:prod`. It registers a heartbeat and starts claiming jobs; nothing else changes. On Linux, use the provisioning script.
 

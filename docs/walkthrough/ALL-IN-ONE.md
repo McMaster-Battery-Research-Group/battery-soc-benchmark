@@ -324,14 +324,14 @@ flowchart TB
     subgraph DEV["On a developer's laptop"]
         D1["Next.js dev server<br/>localhost:3000"]
         D2[("Postgres in Docker<br/>port 5433")]
-        D3["worker with<br/>EVALUATOR=mock<br/>invents scores in seconds"]
+        D3["worker with the same real evaluator<br/>(needs the blinded data + Docker)"]
         D4["files on local disk<br/>STORAGE=local"]
         D5["e-mail to a throw-away<br/>Ethereal inbox"]
     end
     subgraph PROD["Production"]
         P1["Vercel"]
         P2[("Supabase Postgres<br/>through the pooler")]
-        P3["worker on the VM with<br/>EVALUATOR=real<br/>Docker sandbox + blinded data"]
+        P3["worker on the VM<br/>Docker sandbox + blinded data"]
         P4["Supabase bucket<br/>STORAGE=supabase"]
         P5["real SMTP"]
     end
@@ -349,7 +349,7 @@ flowchart TB
     class P5 ext
 ```
 
-Switching between them is entirely `.env` configuration — `EVALUATOR`, `STORAGE`, `DATABASE_URL`, `SMTP_HOST` — never a code change.
+Switching between them is entirely `.env` configuration — `STORAGE`, `DATABASE_URL`, `SMTP_HOST`, `SOCBENCH_BLIND_DATA` — never a code change. There is no fake scorer: a developer's worker runs the same evaluator as production, so local results are real results.
 
 ### 🌐 Web application
 
@@ -866,11 +866,11 @@ def Model(X, z=None):
 
 `Run_Model.m` prints `[Run_Model] k/n done` after every matrix; the Python side turns that into the same `NN.N% | key` progress lines the Python backend emits, so the website's progress bar is identical for both. Progress is weighted by *samples*, not matrix count, so long cycles move the bar proportionally.
 
-### 🧪 Dry run and mock
+### 🧪 Dry run
 
 `--dry-run` uses **open** data shipped with the repo (`dryrun_data.mat`, 2 h of public m80 data): the +0.3 A validation, then one padded cycle. No blinded data is mounted, no leaderboard row. This replaced the lab's downloadable "Model Submission Test Tool".
 
-`EVALUATOR=mock` ([mock-evaluator.ts](../../src/evaluator/mock-evaluator.ts)) fabricates plausible numbers from a seeded random generator — per-family baselines (LSTM ≈ 2.6 %, EKF ≈ 9 %, Coulomb counter ≈ 30 %) with temperature, cycle and cell factors — deterministically, so the same submission always "evaluates" identically. It exists so the entire website can be developed with no blinded data and no Docker.
+There is deliberately **no mock evaluator**: every number the site has ever shown — dry run or full evaluation, on a laptop or on the VM — came from this pipeline. Developing without the blinded data means developing without evaluations, which keeps a fabricated score from ever being mistaken for a real one.
 
 📌 **Files to open, in order:** [__main__.py](../../evaluator/python/socbench_eval/__main__.py) → [data.py](../../evaluator/python/socbench_eval/data.py) → [runner.py](../../evaluator/python/socbench_eval/runner.py) → [Run_Model.m](../../matlab/Run_Model.m) → [Export_Blind_Data.m](../../matlab/Export_Blind_Data.m).
 
@@ -1682,7 +1682,7 @@ flowchart TB
 | Web / auth | `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `ADMIN_EMAILS`, `CRON_SECRET` |
 | Mail | `SMTP_HOST/PORT/USER/PASS`, `MAIL_FROM`, `ADMIN_NOTIFY_EMAIL` |
 | Storage | `STORAGE` (local / supabase), `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET` |
-| Evaluator | `EVALUATOR` (mock / real), `SOCBENCH_BLIND_DATA`, `SOCBENCH_PYTHON`, `MATLAB_BIN`, `WORKER_CONCURRENCY`, `WORKER_RUNTIMES` |
+| Evaluator | `SOCBENCH_BLIND_DATA`, `SOCBENCH_PYTHON`, `MATLAB_BIN`, `WORKER_CONCURRENCY`, `WORKER_RUNTIMES` |
 | Sandbox | `EVAL_SANDBOX`, `EVAL_SANDBOX_IMAGE`, `EVAL_SANDBOX_MATLAB_IMAGE`, `EVAL_MATLAB_MHLM_FILE`, `EVAL_MATLAB_NETWORK`, `EVAL_CPUS`, `EVAL_MEMORY`, `EVAL_PIDS` |
 | Calibration | `SOCBENCH_CAL_PYTHON`, `SOCBENCH_CAL_MATLAB` |
 
@@ -1737,12 +1737,12 @@ gantt
 git clone …
 cp .env.example .env
 npm install
-npm run setup     # Postgres in Docker on port 5433 + schema + seed
+npm run setup     # Postgres in Docker on port 5433 + schema + seed accounts
 npm run dev       # website
-npm run worker    # in a second terminal, mock evaluator by default
+npm run worker    # in a second terminal — needs the blinded data and the sandbox image
 ```
 
-The seed wipes and creates 7 users, one open contest with 4 entries, 15 completed submissions scored by the deterministic mock evaluator, and one failed one — so every page has something to show. Two things that bite on Windows: stop the dev server and the worker before `prisma generate` (a running process locks the generated client), and PowerShell 5.1 has no `&&` — run commands on separate lines.
+The seed wipes and creates an admin, six fictional researchers and one open contest with four registrations — and **no submissions or results**, because there is no fake scorer; the leaderboard fills as real evaluations run. Two things that bite on Windows: stop the dev server and the worker before `prisma generate` (a running process locks the generated client), and PowerShell 5.1 has no `&&` — run commands on separate lines.
 
 📌 **Files to open, in order:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile](../../evaluator/Dockerfile) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [matlab-mhlm-setup.sh](../../scripts/matlab-mhlm-setup.sh) → [storage.ts](../../src/lib/storage.ts) → [playwright.smoke.config.ts](../../playwright.smoke.config.ts).
 
@@ -1922,7 +1922,7 @@ flowchart LR
 
 **Add a metric column**: `EvaluationResult` in [schema.prisma](../../prisma/schema.prisma) → `npm run db:push` → the entry in [test-cases.ts](../../src/lib/test-cases.ts) (key, label, weight, group) → compute it in `score()` → it flows through `METRIC_KEYS` to results.ts, the scorecard, the PDF and the CSV automatically. Re-check the weights still sum to 1.
 
-**Add a model type**: the `ModelType` enum in [schema.prisma](../../prisma/schema.prisma) → `db:push` → `MODEL_TYPES` in [validation.ts](../../src/lib/validation.ts) → a baseline in [mock-evaluator.ts](../../src/evaluator/mock-evaluator.ts) so seeded data covers it.
+**Add a model type**: the `ModelType` enum in [schema.prisma](../../prisma/schema.prisma) → `db:push` → `MODEL_TYPES` in [validation.ts](../../src/lib/validation.ts).
 
 **Add a worker machine**: a machine with Docker (or MATLAB), the blinded data at mode 600, and a copy of `worker.env` → `WORKER_RUNTIMES` set to what it can run → `npm run worker:prod`. It registers a heartbeat and starts claiming jobs; nothing else changes. On Linux, use the provisioning script.
 

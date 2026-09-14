@@ -190,7 +190,7 @@ async function main() {
     console.log(`[worker] python: ${d.pythonInfo}`);
     console.log(`[worker] matlab: ${d.matlabInfo}`);
     console.log(`[worker] blinded data: ${d.blindData ? `present (${process.env.SOCBENCH_BLIND_DATA})` : "MISSING — real evaluations will fail"}`);
-    if (getEvaluator().name === "real") {
+    {
       if (sandboxMode() === "docker") {
         const up = dockerUp();
         console.log(`[worker] sandbox: docker — daemon ${up ? "running" : "NOT running (will try to start Docker Desktop)"} · image ${process.env.EVAL_SANDBOX_IMAGE ?? "socbench-eval"} · ${process.env.EVAL_CPUS ?? 2} cpu / ${process.env.EVAL_MEMORY ?? "4g"} · MATLAB image ${process.env.EVAL_SANDBOX_MATLAB_IMAGE || "none (MATLAB packages run on the host)"}`);
@@ -233,7 +233,7 @@ async function main() {
   // If it is down, try to start Docker Desktop, otherwise hold the queue and say so.
   let sandboxOk = true;
   let lastDockerAttempt = 0;
-  const needSandbox = getEvaluator().name === "real" && sandboxMode() === "docker";
+  const needSandbox = sandboxMode() === "docker";
   if (needSandbox) {
     if (await ensureDocker(90_000, (l) => console.log(`[worker] ${l}`))) console.log("[worker] sandbox ready — Docker daemon reachable");
     else console.error("[worker] Docker is not available — evaluations are ON HOLD until it is (set EVAL_SANDBOX=none to run unsandboxed on a dedicated machine)");
