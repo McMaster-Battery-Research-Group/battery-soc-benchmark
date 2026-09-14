@@ -34,14 +34,14 @@ flowchart TB
     subgraph DEV["On a developer's laptop"]
         D1["Next.js dev server<br/>localhost:3000"]
         D2[("Postgres in Docker<br/>port 5433")]
-        D3["worker with<br/>EVALUATOR=mock<br/>invents scores in seconds"]
+        D3["worker with the same real evaluator<br/>(needs the blinded data + Docker)"]
         D4["files on local disk<br/>STORAGE=local"]
         D5["e-mail to a throw-away<br/>Ethereal inbox"]
     end
     subgraph PROD["Production"]
         P1["Vercel"]
         P2[("Supabase Postgres<br/>through the pooler")]
-        P3["worker on the VM with<br/>EVALUATOR=real<br/>Docker sandbox + blinded data"]
+        P3["worker on the VM<br/>Docker sandbox + blinded data"]
         P4["Supabase bucket<br/>STORAGE=supabase"]
         P5["real SMTP"]
     end
@@ -59,7 +59,7 @@ flowchart TB
     class P5 ext
 ```
 
-Switching between them is entirely `.env` configuration — `EVALUATOR`, `STORAGE`, `DATABASE_URL`, `SMTP_HOST` — never a code change.
+Switching between them is entirely `.env` configuration — `STORAGE`, `DATABASE_URL`, `SMTP_HOST`, `SOCBENCH_BLIND_DATA` — never a code change. There is no fake scorer: a developer's worker runs the same evaluator as production, so local results are real results.
 
 ### 🌐 Web application
 

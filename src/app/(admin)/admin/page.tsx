@@ -55,7 +55,7 @@ export default async function AdminHome() {
       )}
       <div className="card mt-8 p-5 text-sm text-grey-800">
         <p className="font-heading font-semibold text-ink">Evaluation worker</p>
-        <p className="mt-1">Jobs are processed by the worker process (<code className="rounded bg-grey-100 px-1">npm run worker</code>). Evaluator: <strong>{process.env.EVALUATOR ?? "mock"}</strong>. {queued + running > 0 ? `${queued + running} job(s) pending.` : "Queue is empty."}</p>
+        <p className="mt-1">Jobs are processed by the worker process (<code className="rounded bg-grey-100 px-1">npm run worker</code>). {queued + running > 0 ? `${queued + running} job(s) pending.` : "Queue is empty."}</p>
       </div>
     </div>
   );

@@ -6,10 +6,10 @@ export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 /**
- * On-demand queue drain — lets a free external cron (cron-job.org, GitHub
- * Actions, Vercel Cron) process queued evaluations without a resident worker.
- * Only sensible with the mock evaluator (seconds per job); the MATLAB
- * evaluator needs the real worker on a MATLAB host.
+ * On-demand queue drain — lets an external cron process queued evaluations
+ * without a resident worker. Only useful where the caller has the blinded data
+ * and a sandbox (i.e. it is itself an evaluation host); a 60 s function limit
+ * makes it unsuitable for anything but the shortest models.
  *
  *   GET/POST /api/jobs/run
  *   Authorization: Bearer <CRON_SECRET>   (header only — never in the URL)

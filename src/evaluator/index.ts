@@ -1,15 +1,12 @@
-import { MockEvaluator } from "./mock-evaluator";
 import { PythonEvaluator } from "./python-evaluator";
 import type { Evaluator } from "./types";
 
 /**
- *   EVALUATOR=mock   deterministic fake numbers (dev/demo)
- *   EVALUATOR=real   socbench_eval — Python owns the benchmark; a Model.m/.p
- *                    package is executed by MATLAB through matlab/Run_Model.m
+ * The one evaluator: socbench_eval — Python owns the benchmark; a Model.m/.p
+ * package is executed by MATLAB through matlab/Run_Model.m. There is no mock:
+ * every evaluation, including dry runs, is the real pipeline.
  */
+let instance: Evaluator | undefined;
 export function getEvaluator(): Evaluator {
-  const mode = (process.env.EVALUATOR ?? "mock").toLowerCase();
-  return mode === "real" || mode === "auto" || mode === "python" || mode === "matlab" ? new PythonEvaluator() : new MockEvaluator();
+  return (instance ??= new PythonEvaluator());
 }
-
-export * from "./types";
