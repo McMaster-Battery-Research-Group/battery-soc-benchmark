@@ -2,13 +2,11 @@
 
 # Battery SOC Benchmark — the complete codebase walkthrough
 
-This is the full explanation of the system: what it does, how every part works, why it was built the way it was, and where to look in the code. It is written for three readers at once.
+This is the whole system explained in one place: what it does, how each part works, why it was built the way it was, and where to look in the code when you want to check something.
 
-- **Non-developers** (lab members, supervisors, collaborators from other fields): each part opens with a *Plain English* box, and the diagrams are drawn so the picture makes sense without the prose. Skip anything in `monospace`.
-- **Developers new to this project**: read in order once. Every term, library and tool is defined the first time it appears, and Part 1 is a glossary to come back to. Each part ends with *Files to open, in order*.
-- **Developers who know the stack**: Parts 4, 6, 8 and 14 contain the decisions you would not guess from the code alone; Part 13 is the list of questions people ask.
+You don't need to be a developer to follow it. Every part starts with a short plain-English summary, and the diagrams are drawn to make sense on their own, so you can read the summaries and the pictures and skip anything in `monospace` without losing the thread. If you are a developer and the codebase is new to you, read it in order once; each part ends with a list of the files to open, and the glossary at the end covers any term you haven't met. If you already know this stack, the parts most worth your time are the submission journey, the scoring, authentication and the recipes, because those hold the decisions you couldn't guess from the code — and the questions section near the end is the list people actually ask.
 
-Every claim is anchored to a file path so it can be checked. Diagrams are Mermaid and render on GitHub.
+Every claim points at a file so it can be checked. The diagrams are Mermaid and render on GitHub.
 
 **Colour key used in every diagram**
 
@@ -38,148 +36,31 @@ flowchart LR
 ```
 
 
-**Icon key** — the same symbol always means the same thing, in prose and in diagrams
-
-| | Meaning | | Meaning | | Meaning |
-|---|---|---|---|---|---|
-| 🌐 | Website / web tier | ⚙️ | Worker | 🐳 | Sandbox (Docker container) |
-| 🗄️ | Database | 🪣 | File bucket / storage | 👤 | A person (researcher, admin) |
-| 🔐 | Blinded data — the answer key | 🔑 | A secret or token | ⚠️ | Danger / a risk |
-| 📦 | A submitted package (.zip) | 🧪 | Dry run / validation | 📊 | Scores, leaderboard, charts |
-| 🔋 | Battery / SOC | 🌡️ | Temperature | 🚗 | Drive cycle |
-| ⏱️ | Timer / timeout | 💓 | Heartbeat | 🔁 | Retry / polling |
-| 🏁 | Completed | ❌ | Failed | ✉️ | E-mail |
-| 📄 | PDF report | 🔒 | Locked / protected | 🛡️ | Security |
-| 💡 | Plain-English summary | 📌 | Files to open | 🧭 | Navigation |
 
 ---
 
 ## Contents
 
-1. 🏷️ Glossary
-2. ⚡ The five-minute version
-3. 🧰 The tools and libraries, and why each one
-4. 📦 Life of a submission, end to end
-5. ▶️ The evaluation engine — running the model
-6. 🧮 The evaluation engine — scoring, complexity and outputs
-7. 🗄️ The data model
-8. 🪪 Authentication and accounts
-9. 🖥️ The web tier: submitting, results, leaderboard
-10. 🛎️ Administration, notifications, reports, monitoring
-11. 🏗️ Infrastructure and operations
-12. 🛡️ Security: threats and what stops them
-13. ❓ Questions you will probably get
-14. 🛠️ How to change things — recipes
-15. 🎬 A demo order that tells the story
+1. [⚡ The five-minute version](#part-1)
+2. [🧰 The tools and libraries, and why each one](#part-2)
+3. [📦 Life of a submission, end to end](#part-3)
+4. [▶️ The evaluation engine — running the model](#part-4)
+5. [🧮 The evaluation engine — scoring, complexity and outputs](#part-5)
+6. [🗄️ The data model](#part-6)
+7. [🪪 Authentication and accounts](#part-7)
+8. [🖥️ The web tier: submitting, results, leaderboard](#part-8)
+9. [🛎️ Administration, notifications, reports, monitoring](#part-9)
+10. [🏗️ Infrastructure and operations](#part-10)
+11. [🛡️ Security: threats and what stops them](#part-11)
+12. [❓ Questions you will probably get](#part-12)
+13. [🛠️ How to change things — recipes](#part-13)
+14. [🎬 A demo order that tells the story](#part-14)
+15. [🏷️ Glossary](#part-15)
 
 ---
 
-## 1. 🏷️ Glossary
-
-> 💡 **Plain English.** Two vocabularies meet in this project: battery science and web software. Nobody is expected to know both. This part defines every word the rest of the document uses, in one line each, and shows how the concepts hang together.
-
-### 🔋 How the battery concepts fit together
-
-```mermaid
-flowchart TB
-    BMS["A battery management system (BMS)<br/>cannot measure how full the battery is"]
-    MEAS["It can measure current, voltage, temperature<br/>once per second"]
-    EST["An <b>SOC estimator</b> turns those into a<br/>guess of state of charge, 0–100 %"]
-    KINDS["Kinds of estimator:<br/>Coulomb counting · Kalman filters (EKF, UKF)<br/>neural networks (FNN, LSTM, GRU, Transformer)"]
-    DATA["Estimators are built and tested on <b>drive-cycle data</b>:<br/>cells driven through standard speed profiles<br/>at several temperatures"]
-    OPEN["<b>Open data</b> — published, use it to build your model"]
-    BLIND["<b>Blinded data</b> — secret, used only to score"]
-    SCORE["Errors on the blinded data → 18 test cases<br/>→ one <b>weighted error</b> → the leaderboard"]
-    BMS --> MEAS --> EST --> KINDS
-    EST --> DATA
-    DATA --> OPEN
-    DATA --> BLIND
-    BLIND --> SCORE
-    classDef person fill:#EFE6F5,stroke:#6B3FA0,color:#1d2428
-    classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
-    classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
-    classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
-    class BMS,MEAS,EST,KINDS person
-    class DATA,OPEN data
-    class BLIND danger
-    class SCORE web
-```
-
-### 🔋 Battery and benchmark terms
-
-| Term | Meaning |
-|---|---|
-| **SOC — state of charge** | How full a battery is, 0–100 %. The fuel gauge. It cannot be measured directly; it must be *estimated* from what can be measured: current, voltage and temperature. Every model in the benchmark is an SOC estimator. |
-| **BMS — battery management system** | The electronics in an electric vehicle or phone that watch the battery. The SOC estimator runs inside it, one measurement at a time. Our evaluator calls models the same way, which is why a model cannot "look ahead". |
-| **Cell** | One physical battery. The dataset has four Tesla 2170 cells, named after the vehicle-mass profile each was driven with: `m80`, `m448`, `m448N`, `m1000` (80 kg, 448 kg, a second 448 kg variant, 1000 kg — heavier means larger currents). `m448` is the *fully blinded* cell: no data about it was ever published, so it is the purest test of whether a model generalises. |
-| **Drive cycle** | A standard speed-vs-time profile a car is tested against, converted into the current a cell would see. Standard ones: **UDDS** (urban stop-and-go), **HWFET** (steady highway), **LA92** (aggressive urban), **US06** (aggressive highway). Custom ones the model has never seen in the open data: **HWCUST**, **HWGRADE** (highway with road grade — long high-current stretches and regeneration). |
-| **Temperature** | Each cycle was run at −20, −10, 0, 10, 25 and 40 °C. Cold is hard: internal resistance rises and the voltage response becomes strongly non-linear. |
-| **Open data / blinded data** | *Open* = published on Borealis; researchers use it to build and train models. *Blinded* = kept secret and used only to score. The file `blind_data.mat` is the answer key; it exists only on the evaluation machine. |
-| **Coulomb counting** | The simplest estimator: integrate the current over time. Cheap and it drifts badly. Used as the *reference point* for the complexity scale. |
-| **EKF / UKF** | Extended / Unscented Kalman Filter — classical estimators that fuse a physics model of the cell with the measurements. |
-| **FNN / LSTM / GRU / Transformer** | Neural-network estimators: a plain feed-forward network and three kinds of sequence model that keep memory of past samples. |
-| **RMSE / MAE / max error** | Root-mean-square error, mean absolute error, and the worst single-sample error between estimated and true SOC, in % SOC. RMSE is the per-cycle headline; max error tells you the worst moment. |
-| **Test case** | One of the 18 published scoring categories (blinded cell, charging, each temperature, sensor offset, …). Each has a weight. |
-| **Weighted error** | The single leaderboard score: the sum of weight × test-case RMSE. Lower is better. |
-| **Robustness sweep** | Deliberately breaking the model's assumptions: starting it at the wrong initial SOC (test 10) or feeding it current with a constant sensor offset (test 11). The cases that separate good estimators from lucky ones. |
-| **Padding** | One hour of the first measurement repeated before every cycle, so models with internal memory settle before scoring starts. |
-| **Complexity** | A 1–10 bin of how much computation the model needs per sample, relative to a Coulomb counter. Informational; never part of the score. |
-| **Dry run** | A free pre-submission test on *open* data: does the package run, what error does it make, how expensive is it. No leaderboard entry. |
-| **Package** | The `.zip` a researcher uploads: `Model.py` (Python) or `Model.m`/`Model.p` (MATLAB) at the top level plus any parameter files. |
-| **Legacy result** | A score produced by an older version of the evaluator's maths. Still shown, but unranked; the author is asked to resubmit. |
-
-### 💻 Software terms
-
-| Term | Meaning |
-|---|---|
-| **Repository (repo)** | The folder of source code, tracked by **git** so every change is recorded and reversible. Hosted on **GitHub**. |
-| **Front end / back end** | Front end = what runs in your browser. Back end = what runs on a server. In this project the line runs *inside* Next.js. |
-| **Server** | A computer that answers requests. **Serverless** = the hosting provider starts a tiny short-lived server *per request* and freezes it the instant it answers. Cheap, scales itself, and has quirks this document points out. |
-| **Container / Docker / image** | A container is a lightweight isolated box a program runs in, with its own filesystem and no view of the host. Docker runs them. An **image** is the frozen template a container starts from. |
-| **Sandbox** | A container configured to be as harmless as possible: no network, read-only files, no privileges. Where submitted models run. |
-| **Database / table / row** | PostgreSQL stores everything as tables of rows, like spreadsheets with strict columns. |
-| **ORM (Prisma)** | A library that lets TypeScript talk to the database with typed function calls instead of hand-written SQL, and keeps one schema file as the description of every table. |
-| **Migration / `db push`** | Applying a schema change to a real database. |
-| **API / endpoint / route** | A URL a *program* calls to get or send data, as opposed to a page a human reads. **REST** is one common style of API; this project mostly does not use one. |
-| **JSON** | The text format programs use to exchange structured data: `{"rmse": 3.2}`. |
-| **Environment variable / `.env`** | Configuration and secrets handed to a program from outside its code, so the same code runs in development and production with different settings. |
-| **Secret / token / key** | Any string that grants access: a database password, an API key, a licence token. Never in the repo; always in environment variables or files with restricted permissions. |
-| **Session / JWT / cookie** | After login the browser holds a signed cookie — a JSON Web Token — proving who you are; the server verifies the signature on every request instead of looking you up. |
-| **Hash (bcrypt)** | A one-way scramble of a password. We store the scramble, never the password; bcrypt is deliberately slow so guessing is expensive. |
-| **Rate limit** | "At most N attempts per time window" — the defence against brute force and abuse. |
-| **Queue / job / worker** | A queue is a list of work waiting to be done; a job is one item; a worker is the program that takes jobs off the queue and does them. |
-| **Lock / atomic / compare-and-swap** | Ways to make sure two workers never take the same job. *Atomic* = happens in one indivisible step. Compare-and-swap = "update this row only if it still looks the way I last saw it". |
-| **Heartbeat** | A periodic "I am alive" signal a worker writes so everyone else can tell if it died. |
-| **Polling** | Asking "anything new?" every few seconds, rather than being pushed a notification. |
-| **Cron / scheduled job** | Something that runs on a timer. |
-| **CI — continuous integration** | Automated checks that run on the code-hosting platform (GitHub Actions here). |
-| **SMTP** | The protocol for sending e-mail. |
-| **Object storage / bucket / signed URL** | A cloud service for storing *files* (not tables). A bucket is a named store; a signed URL is a temporary pre-authorised link that lets a browser upload directly without our server in the middle. |
-| **VM — virtual machine** | A rented computer in the cloud. Ours is on **Arbutus**, the Digital Research Alliance of Canada's cloud at the University of Victoria, built on **OpenStack**. |
-| **systemd / service** | Linux's way of running a program as a background service that starts on boot and restarts on crash. |
-| **SSH** | Secure remote terminal access to a machine. |
-| **uid / gid / mode 600** | Linux file ownership (user id, group id) and permissions. `600` = only the owner can read or write. |
-| **tmpfs** | A folder that lives in RAM and vanishes when the container stops. |
-| **TypeScript / Node.js / npm / tsx** | TypeScript is JavaScript with types. Node.js runs JavaScript outside a browser. npm installs libraries and runs scripts. tsx runs TypeScript files directly with no build step. |
-| **Zod schema** | A declaration of what a form input must look like, checked at runtime, reused in the browser and on the server. |
-
-### 🔢 Numbers worth remembering
-
-| | |
-|---|---|
-| 4 cells × 6 temperatures × 6 cycles | **144** blinded test cycles, plus charging cycles |
-| Robustness runs | 9 initial-SOC + 18 sensor-offset |
-| Scoring | **18** test cases; weights sum to exactly **1** |
-| Daily cap | **3** submissions per person per rolling 24 h (dry runs free, 5 per hour) |
-| Evaluation limit | **360 min**; dry run **10 min** |
-| Worker rhythm | polls every **2 s**, heartbeat every **15 s** |
-| Job safety | lock goes stale after **30 min** of silence; **2** attempts per job |
-| Website "online" window | **60 s**; outage alert after **3 min** |
-| Upload cap | **50 MB**; browser uploads straight to the bucket because Vercel accepts only 4.5 MB |
-
----
-
-## 2. ⚡ The five-minute version
+<a id="part-1"></a>
+## 1. ⚡ The five-minute version
 
 > 💡 **Plain English.** Researchers upload a small program that guesses how full a battery is. We run that program against battery data that has never been published, score it with a fixed public formula, and put the score on a public leaderboard. Everyone is scored on the same hidden data with the same code, so for the first time the numbers are comparable. The uploaded program is deleted the moment it has been scored, and it never touches the website.
 
@@ -268,7 +149,7 @@ The website and the worker share **nothing but the database**. They never talk t
 | A model runs forever | Hard timeout (360 min), enforced both inside and outside the container |
 | A researcher's code is kept and misused | The package is deleted the moment it is scored; only scores and traces remain |
 | Someone floods the queue | 3 submissions per person per day; uploads and dry runs rate-limited |
-| Two workers evaluate the same model | Atomic claim (Part 4) |
+| Two workers evaluate the same model | Atomic claim (Part 3) |
 | A worker crashes mid-run | Lock goes stale after 30 min; another worker picks the job up; two attempts per job |
 | The worker loses its network | It retries every 2 s and resumes by itself; admins are e-mailed after 3 minutes of silence |
 | Someone guesses passwords | bcrypt hashing plus 10 attempts per 15 min per account |
@@ -288,7 +169,8 @@ The website and the worker share **nothing but the database**. They never talk t
 
 ---
 
-## 3. 🧰 The tools and libraries, and why each one
+<a id="part-2"></a>
+## 2. 🧰 The tools and libraries, and why each one
 
 > 💡 **Plain English.** Software is assembled from existing building blocks. This part names each block, says what it is in one sentence, why we chose it over the alternatives, and — for non-developers — what it is analogous to. The short version: everything runs on free tiers, the website and the worker are written in the same language, and MATLAB is used for exactly one job.
 
@@ -410,7 +292,8 @@ Switching between them is entirely `.env` configuration — `STORAGE`, `DATABASE
 
 ---
 
-## 4. 📦 Life of a submission, end to end
+<a id="part-3"></a>
+## 3. 📦 Life of a submission, end to end
 
 > 💡 **Plain English.** A researcher uploads a zip. The website checks that it is well-formed and puts a ticket in a queue. A worker machine takes the ticket, downloads the zip, runs the model inside a sealed box against the secret data, saves the scores, deletes the zip, and e-mails a PDF. If anything goes wrong the researcher is told exactly what. Follow this part once with the files open and you can answer almost any question about the system.
 
@@ -719,7 +602,8 @@ stateDiagram-v2
 
 ---
 
-## 5. ▶️ The evaluation engine — running the model
+<a id="part-4"></a>
+## 4. ▶️ The evaluation engine — running the model
 
 > 💡 **Plain English.** This and the next part describe the ~800 lines of Python that *are* the benchmark. They reproduce the lab's original MATLAB scoring tool exactly — checked against the real hidden data: the four reference models match every column of the old leaderboard to three decimal places, and the Python and MATLAB paths agree with each other. This part is about *running* the model: what data it is fed, in what order, and how. The next part is about turning the errors into a score.
 
@@ -876,7 +760,8 @@ There is deliberately **no mock evaluator**: every number the site has ever show
 
 ---
 
-## 6. 🧮 The evaluation engine — scoring, complexity and outputs
+<a id="part-5"></a>
+## 5. 🧮 The evaluation engine — scoring, complexity and outputs
 
 > 💡 **Plain English.** After the model has run on every cycle, the evaluator has one error number per cycle. This part shows how those become the 18 numbers on the scorecard, how the 18 become one leaderboard score, what "complexity" means, and what gets sent back to the website for the charts.
 
@@ -989,7 +874,8 @@ flowchart TB
 
 ---
 
-## 7. 🗄️ The data model
+<a id="part-6"></a>
+## 6. 🗄️ The data model
 
 > 💡 **Plain English.** The database is a set of tables. A person has submissions; each submission has one queue ticket, one current result, and a history of everything that ever happened to it. Separate tables track contests, worker machines, settings and the admin activity feed. One file — `prisma/schema.prisma` — describes all of it, and both the website and the worker read that same description.
 
@@ -1073,7 +959,8 @@ flowchart TB
 
 ---
 
-## 8. 🪪 Authentication and accounts
+<a id="part-7"></a>
+## 7. 🪪 Authentication and accounts
 
 > 💡 **Plain English.** Register with e-mail and password, prove you own the e-mail address by clicking a confirmation, then sign in. Passwords are stored scrambled, never in the clear. Administrators are either promoted on the admin page or listed in a configuration variable. Every sensitive action is limited to a few attempts per hour so nobody can guess passwords by brute force.
 
@@ -1200,7 +1087,8 @@ The 2 % probabilistic prune means there is no clean-up cron to run or forget. Co
 
 ---
 
-## 9. 🖥️ The web tier: submitting, results, leaderboard
+<a id="part-8"></a>
+## 8. 🖥️ The web tier: submitting, results, leaderboard
 
 > 💡 **Plain English.** The submit page lets you test a package for free before spending one of your three daily submissions. The results page explains the score in plain language first, then shows the numbers, then the charts. The leaderboard ranks public models; your private ones show a "ghost" rank so you can see where you would stand without displacing anyone.
 
@@ -1241,7 +1129,7 @@ flowchart TB
     B -- submit --> F["form: name, description, type,<br/>private?, contest?, collaborators, terms"]
     E --> F
     F --> G["upload with progress bar (Supabase)<br/>then 'checking the package structure'"]
-    G --> H["createSubmissionAction (Part 4, step 2)"]
+    G --> H["createSubmissionAction (Part 3, step 2)"]
     classDef person fill:#EFE6F5,stroke:#6B3FA0,color:#1d2428
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef good fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428
@@ -1394,7 +1282,8 @@ While OPEN and within its dates: register (`ContestEntry`), then submit; up to `
 
 ---
 
-## 10. 🛎️ Administration, notifications, reports, monitoring
+<a id="part-9"></a>
+## 9. 🛎️ Administration, notifications, reports, monitoring
 
 > 💡 **Plain English.** Administrators can moderate submissions, manage users and contests, tune the evaluation limits, change the scoring weights, and watch the worker machines. Every admin action is recorded in an activity feed on the site; e-mail is only a copy of that feed, and each admin chooses which kinds of e-mail they want. A robot checks every ten minutes that a worker is alive and e-mails the admins once if it isn't, and once when it comes back.
 
@@ -1536,7 +1425,8 @@ Three minutes = twelve missed 15-second heartbeats — long enough that the rout
 
 ---
 
-## 11. 🏗️ Infrastructure and operations
+<a id="part-10"></a>
+## 10. 🏗️ Infrastructure and operations
 
 > 💡 **Plain English.** The website is hosted by Vercel and deploys itself whenever code is pushed. The database and file storage are hosted by Supabase. The worker is a rented Linux computer in the Alliance research cloud that updates itself every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through Dr. Kollmeyer's MathWorks account. Secrets live in files only the worker's own account can read.
 
@@ -1748,7 +1638,8 @@ The seed wipes and creates an admin, six fictional researchers and one open cont
 
 ---
 
-## 12. 🛡️ Security: threats and what stops them
+<a id="part-11"></a>
+## 11. 🛡️ Security: threats and what stops them
 
 > 💡 **Plain English.** The system runs code written by strangers, on a machine that holds a secret dataset, and it does so in public. This part lists what could go wrong and, for each, the specific thing that prevents it. Most defences are layers: a model would have to break out of several boxes in a row to do any harm.
 
@@ -1837,7 +1728,8 @@ flowchart TB
 
 ---
 
-## 13. ❓ Questions you will probably get
+<a id="part-12"></a>
+## 12. ❓ Questions you will probably get
 
 ### 👤 From researchers and non-developers
 
@@ -1889,7 +1781,8 @@ flowchart TB
 
 ---
 
-## 14. 🛠️ How to change things — recipes
+<a id="part-13"></a>
+## 13. 🛠️ How to change things — recipes
 
 > 💡 **Plain English.** The most common changes, each as a short checklist. If a change is not here, the *Files to open* lists at the end of each part say where to look.
 
@@ -1938,7 +1831,8 @@ flowchart LR
 
 ---
 
-## 15. 🎬 A demo order that tells the story
+<a id="part-14"></a>
+## 14. 🎬 A demo order that tells the story
 
 About ten minutes.
 
@@ -1967,3 +1861,111 @@ flowchart TB
 4. **Admin → Workers** — the machine that just picked it up. Mention the outage alerting.
 5. **Code, in this order**: `schema.prisma` (the tables you just saw) → `run-job.ts` `claimJob` (the compare-and-swap) → `python-evaluator.ts` (the `docker run` line) → `pipeline.py` `score()` (the matrix R and the weights) → `Run_Model.m` (all 40 lines of MATLAB).
 6. **Close on the design rule.**
+
+---
+
+<a id="part-15"></a>
+## 15. 🏷️ Glossary
+
+> 💡 **Plain English.** Two vocabularies meet in this project: battery science and web software. Nobody is expected to know both. This part defines every word the rest of the document uses, in one line each, and shows how the concepts hang together.
+
+### 🔋 How the battery concepts fit together
+
+```mermaid
+flowchart TB
+    BMS["A battery management system (BMS)<br/>cannot measure how full the battery is"]
+    MEAS["It can measure current, voltage, temperature<br/>once per second"]
+    EST["An <b>SOC estimator</b> turns those into a<br/>guess of state of charge, 0–100 %"]
+    KINDS["Kinds of estimator:<br/>Coulomb counting · Kalman filters (EKF, UKF)<br/>neural networks (FNN, LSTM, GRU, Transformer)"]
+    DATA["Estimators are built and tested on <b>drive-cycle data</b>:<br/>cells driven through standard speed profiles<br/>at several temperatures"]
+    OPEN["<b>Open data</b> — published, use it to build your model"]
+    BLIND["<b>Blinded data</b> — secret, used only to score"]
+    SCORE["Errors on the blinded data → 18 test cases<br/>→ one <b>weighted error</b> → the leaderboard"]
+    BMS --> MEAS --> EST --> KINDS
+    EST --> DATA
+    DATA --> OPEN
+    DATA --> BLIND
+    BLIND --> SCORE
+    classDef person fill:#EFE6F5,stroke:#6B3FA0,color:#1d2428
+    classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
+    classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
+    classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
+    class BMS,MEAS,EST,KINDS person
+    class DATA,OPEN data
+    class BLIND danger
+    class SCORE web
+```
+
+### 🔋 Battery and benchmark terms
+
+| Term | Meaning |
+|---|---|
+| **SOC — state of charge** | How full a battery is, 0–100 %. The fuel gauge. It cannot be measured directly; it must be *estimated* from what can be measured: current, voltage and temperature. Every model in the benchmark is an SOC estimator. |
+| **BMS — battery management system** | The electronics in an electric vehicle or phone that watch the battery. The SOC estimator runs inside it, one measurement at a time. Our evaluator calls models the same way, which is why a model cannot "look ahead". |
+| **Cell** | One physical battery. The dataset has four Tesla 2170 cells, named after the vehicle-mass profile each was driven with: `m80`, `m448`, `m448N`, `m1000` (80 kg, 448 kg, a second 448 kg variant, 1000 kg — heavier means larger currents). `m448` is the *fully blinded* cell: no data about it was ever published, so it is the purest test of whether a model generalises. |
+| **Drive cycle** | A standard speed-vs-time profile a car is tested against, converted into the current a cell would see. Standard ones: **UDDS** (urban stop-and-go), **HWFET** (steady highway), **LA92** (aggressive urban), **US06** (aggressive highway). Custom ones the model has never seen in the open data: **HWCUST**, **HWGRADE** (highway with road grade — long high-current stretches and regeneration). |
+| **Temperature** | Each cycle was run at −20, −10, 0, 10, 25 and 40 °C. Cold is hard: internal resistance rises and the voltage response becomes strongly non-linear. |
+| **Open data / blinded data** | *Open* = published on Borealis; researchers use it to build and train models. *Blinded* = kept secret and used only to score. The file `blind_data.mat` is the answer key; it exists only on the evaluation machine. |
+| **Coulomb counting** | The simplest estimator: integrate the current over time. Cheap and it drifts badly. Used as the *reference point* for the complexity scale. |
+| **EKF / UKF** | Extended / Unscented Kalman Filter — classical estimators that fuse a physics model of the cell with the measurements. |
+| **FNN / LSTM / GRU / Transformer** | Neural-network estimators: a plain feed-forward network and three kinds of sequence model that keep memory of past samples. |
+| **RMSE / MAE / max error** | Root-mean-square error, mean absolute error, and the worst single-sample error between estimated and true SOC, in % SOC. RMSE is the per-cycle headline; max error tells you the worst moment. |
+| **Test case** | One of the 18 published scoring categories (blinded cell, charging, each temperature, sensor offset, …). Each has a weight. |
+| **Weighted error** | The single leaderboard score: the sum of weight × test-case RMSE. Lower is better. |
+| **Robustness sweep** | Deliberately breaking the model's assumptions: starting it at the wrong initial SOC (test 10) or feeding it current with a constant sensor offset (test 11). The cases that separate good estimators from lucky ones. |
+| **Padding** | One hour of the first measurement repeated before every cycle, so models with internal memory settle before scoring starts. |
+| **Complexity** | A 1–10 bin of how much computation the model needs per sample, relative to a Coulomb counter. Informational; never part of the score. |
+| **Dry run** | A free pre-submission test on *open* data: does the package run, what error does it make, how expensive is it. No leaderboard entry. |
+| **Package** | The `.zip` a researcher uploads: `Model.py` (Python) or `Model.m`/`Model.p` (MATLAB) at the top level plus any parameter files. |
+| **Legacy result** | A score produced by an older version of the evaluator's maths. Still shown, but unranked; the author is asked to resubmit. |
+
+### 💻 Software terms
+
+| Term | Meaning |
+|---|---|
+| **Repository (repo)** | The folder of source code, tracked by **git** so every change is recorded and reversible. Hosted on **GitHub**. |
+| **Front end / back end** | Front end = what runs in your browser. Back end = what runs on a server. In this project the line runs *inside* Next.js. |
+| **Server** | A computer that answers requests. **Serverless** = the hosting provider starts a tiny short-lived server *per request* and freezes it the instant it answers. Cheap, scales itself, and has quirks this document points out. |
+| **Container / Docker / image** | A container is a lightweight isolated box a program runs in, with its own filesystem and no view of the host. Docker runs them. An **image** is the frozen template a container starts from. |
+| **Sandbox** | A container configured to be as harmless as possible: no network, read-only files, no privileges. Where submitted models run. |
+| **Database / table / row** | PostgreSQL stores everything as tables of rows, like spreadsheets with strict columns. |
+| **ORM (Prisma)** | A library that lets TypeScript talk to the database with typed function calls instead of hand-written SQL, and keeps one schema file as the description of every table. |
+| **Migration / `db push`** | Applying a schema change to a real database. |
+| **API / endpoint / route** | A URL a *program* calls to get or send data, as opposed to a page a human reads. **REST** is one common style of API; this project mostly does not use one. |
+| **JSON** | The text format programs use to exchange structured data: `{"rmse": 3.2}`. |
+| **Environment variable / `.env`** | Configuration and secrets handed to a program from outside its code, so the same code runs in development and production with different settings. |
+| **Secret / token / key** | Any string that grants access: a database password, an API key, a licence token. Never in the repo; always in environment variables or files with restricted permissions. |
+| **Session / JWT / cookie** | After login the browser holds a signed cookie — a JSON Web Token — proving who you are; the server verifies the signature on every request instead of looking you up. |
+| **Hash (bcrypt)** | A one-way scramble of a password. We store the scramble, never the password; bcrypt is deliberately slow so guessing is expensive. |
+| **Rate limit** | "At most N attempts per time window" — the defence against brute force and abuse. |
+| **Queue / job / worker** | A queue is a list of work waiting to be done; a job is one item; a worker is the program that takes jobs off the queue and does them. |
+| **Lock / atomic / compare-and-swap** | Ways to make sure two workers never take the same job. *Atomic* = happens in one indivisible step. Compare-and-swap = "update this row only if it still looks the way I last saw it". |
+| **Heartbeat** | A periodic "I am alive" signal a worker writes so everyone else can tell if it died. |
+| **Polling** | Asking "anything new?" every few seconds, rather than being pushed a notification. |
+| **Cron / scheduled job** | Something that runs on a timer. |
+| **CI — continuous integration** | Automated checks that run on the code-hosting platform (GitHub Actions here). |
+| **SMTP** | The protocol for sending e-mail. |
+| **Object storage / bucket / signed URL** | A cloud service for storing *files* (not tables). A bucket is a named store; a signed URL is a temporary pre-authorised link that lets a browser upload directly without our server in the middle. |
+| **VM — virtual machine** | A rented computer in the cloud. Ours is on **Arbutus**, the Digital Research Alliance of Canada's cloud at the University of Victoria, built on **OpenStack**. |
+| **systemd / service** | Linux's way of running a program as a background service that starts on boot and restarts on crash. |
+| **SSH** | Secure remote terminal access to a machine. |
+| **uid / gid / mode 600** | Linux file ownership (user id, group id) and permissions. `600` = only the owner can read or write. |
+| **tmpfs** | A folder that lives in RAM and vanishes when the container stops. |
+| **TypeScript / Node.js / npm / tsx** | TypeScript is JavaScript with types. Node.js runs JavaScript outside a browser. npm installs libraries and runs scripts. tsx runs TypeScript files directly with no build step. |
+| **Zod schema** | A declaration of what a form input must look like, checked at runtime, reused in the browser and on the server. |
+
+### 🔢 Numbers worth remembering
+
+| | |
+|---|---|
+| 4 cells × 6 temperatures × 6 cycles | **144** blinded test cycles, plus charging cycles |
+| Robustness runs | 9 initial-SOC + 18 sensor-offset |
+| Scoring | **18** test cases; weights sum to exactly **1** |
+| Daily cap | **3** submissions per person per rolling 24 h (dry runs free, 5 per hour) |
+| Evaluation limit | **360 min**; dry run **10 min** |
+| Worker rhythm | polls every **2 s**, heartbeat every **15 s** |
+| Job safety | lock goes stale after **30 min** of silence; **2** attempts per job |
+| Website "online" window | **60 s**; outage alert after **3 min** |
+| Upload cap | **50 MB**; browser uploads straight to the bucket because Vercel accepts only 4.5 MB |
+
+---

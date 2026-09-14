@@ -1,4 +1,5 @@
-## 5. ▶️ The evaluation engine — running the model
+<a id="part-4"></a>
+## 4. ▶️ The evaluation engine — running the model
 
 > 💡 **Plain English.** This and the next part describe the ~800 lines of Python that *are* the benchmark. They reproduce the lab's original MATLAB scoring tool exactly — checked against the real hidden data: the four reference models match every column of the old leaderboard to three decimal places, and the Python and MATLAB paths agree with each other. This part is about *running* the model: what data it is fed, in what order, and how. The next part is about turning the errors into a score.
 

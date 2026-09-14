@@ -1,12 +1,10 @@
 # Battery SOC Benchmark — the complete codebase walkthrough
 
-This is the full explanation of the system: what it does, how every part works, why it was built the way it was, and where to look in the code. It is written for three readers at once.
+This is the whole system explained in one place: what it does, how each part works, why it was built the way it was, and where to look in the code when you want to check something.
 
-- **Non-developers** (lab members, supervisors, collaborators from other fields): each part opens with a *Plain English* box, and the diagrams are drawn so the picture makes sense without the prose. Skip anything in `monospace`.
-- **Developers new to this project**: read in order once. Every term, library and tool is defined the first time it appears, and Part 1 is a glossary to come back to. Each part ends with *Files to open, in order*.
-- **Developers who know the stack**: Parts 4, 6, 8 and 14 contain the decisions you would not guess from the code alone; Part 13 is the list of questions people ask.
+You don't need to be a developer to follow it. Every part starts with a short plain-English summary, and the diagrams are drawn to make sense on their own, so you can read the summaries and the pictures and skip anything in `monospace` without losing the thread. If you are a developer and the codebase is new to you, read it in order once; each part ends with a list of the files to open, and the glossary at the end covers any term you haven't met. If you already know this stack, the parts most worth your time are the submission journey, the scoring, authentication and the recipes, because those hold the decisions you couldn't guess from the code — and the questions section near the end is the list people actually ask.
 
-Every claim is anchored to a file path so it can be checked. Diagrams are Mermaid and render on GitHub.
+Every claim points at a file so it can be checked. The diagrams are Mermaid and render on GitHub.
 
 **Colour key used in every diagram**
 
@@ -36,19 +34,6 @@ flowchart LR
 ```
 
 
-**Icon key** — the same symbol always means the same thing, in prose and in diagrams
-
-| | Meaning | | Meaning | | Meaning |
-|---|---|---|---|---|---|
-| 🌐 | Website / web tier | ⚙️ | Worker | 🐳 | Sandbox (Docker container) |
-| 🗄️ | Database | 🪣 | File bucket / storage | 👤 | A person (researcher, admin) |
-| 🔐 | Blinded data — the answer key | 🔑 | A secret or token | ⚠️ | Danger / a risk |
-| 📦 | A submitted package (.zip) | 🧪 | Dry run / validation | 📊 | Scores, leaderboard, charts |
-| 🔋 | Battery / SOC | 🌡️ | Temperature | 🚗 | Drive cycle |
-| ⏱️ | Timer / timeout | 💓 | Heartbeat | 🔁 | Retry / polling |
-| 🏁 | Completed | ❌ | Failed | ✉️ | E-mail |
-| 📄 | PDF report | 🔒 | Locked / protected | 🛡️ | Security |
-| 💡 | Plain-English summary | 📌 | Files to open | 🧭 | Navigation |
 
 ---
 
@@ -56,22 +41,22 @@ flowchart LR
 
 ## Contents
 
-1. [🏷️ Glossary](01-glossary.md) — 1 diagram
-2. [⚡ The five-minute version](02-the-five-minute-version.md) — 3 diagrams
-3. [🧰 The tools and libraries, and why each one](03-the-tools-and-libraries-and-why-each-one.md) — 2 diagrams
-4. [📦 Life of a submission, end to end](04-life-of-a-submission-end-to-end.md) — 11 diagrams
-5. [▶️ The evaluation engine — running the model](05-the-evaluation-engine-running-the-model.md) — 6 diagrams
-6. [🧮 The evaluation engine — scoring, complexity and outputs](06-the-evaluation-engine-scoring-complexity-and-outputs.md) — 5 diagrams
-7. [🗄️ The data model](07-the-data-model.md) — 3 diagrams
-8. [🪪 Authentication and accounts](08-authentication-and-accounts.md) — 4 diagrams
-9. [🖥️ The web tier: submitting, results, leaderboard](09-the-web-tier-submitting-results-leaderboard.md) — 8 diagrams
-10. [🛎️ Administration, notifications, reports, monitoring](10-administration-notifications-reports-monitoring.md) — 5 diagrams
-11. [🏗️ Infrastructure and operations](11-infrastructure-and-operations.md) — 7 diagrams
-12. [🛡️ Security: threats and what stops them](12-security-threats-and-what-stops-them.md) — 2 diagrams
-13. [❓ Questions you will probably get](13-questions-you-will-probably-get.md) — 0 diagrams
-14. [🛠️ How to change things — recipes](14-how-to-change-things-recipes.md) — 1 diagram
-15. [🎬 A demo order that tells the story](15-a-demo-order-that-tells-the-story.md) — 1 diagram
+1. [⚡ The five-minute version](01-the-five-minute-version.md) — 3 diagrams
+2. [🧰 The tools and libraries, and why each one](02-the-tools-and-libraries-and-why-each-one.md) — 2 diagrams
+3. [📦 Life of a submission, end to end](03-life-of-a-submission-end-to-end.md) — 11 diagrams
+4. [▶️ The evaluation engine — running the model](04-the-evaluation-engine-running-the-model.md) — 6 diagrams
+5. [🧮 The evaluation engine — scoring, complexity and outputs](05-the-evaluation-engine-scoring-complexity-and-outputs.md) — 5 diagrams
+6. [🗄️ The data model](06-the-data-model.md) — 3 diagrams
+7. [🪪 Authentication and accounts](07-authentication-and-accounts.md) — 4 diagrams
+8. [🖥️ The web tier: submitting, results, leaderboard](08-the-web-tier-submitting-results-leaderboard.md) — 8 diagrams
+9. [🛎️ Administration, notifications, reports, monitoring](09-administration-notifications-reports-monitoring.md) — 5 diagrams
+10. [🏗️ Infrastructure and operations](10-infrastructure-and-operations.md) — 7 diagrams
+11. [🛡️ Security: threats and what stops them](11-security-threats-and-what-stops-them.md) — 2 diagrams
+12. [❓ Questions you will probably get](12-questions-you-will-probably-get.md) — 0 diagrams
+13. [🛠️ How to change things — recipes](13-how-to-change-things-recipes.md) — 1 diagram
+14. [🎬 A demo order that tells the story](14-a-demo-order-that-tells-the-story.md) — 1 diagram
+15. [🏷️ Glossary](15-glossary.md) — 1 diagram
 
 Read in order the first time; each part opens with a plain-English summary and stands on its own afterwards.
 
-**Read it as one piece:** [ALL-IN-ONE.md](ALL-IN-ONE.md) is the whole walkthrough in a single file (best in an editor or offline), and [codebase-walkthrough.pdf](codebase-walkthrough.pdf?raw=true) is the same content with every diagram rendered, for reading anywhere.
+**Read it as one piece:** [ALL-IN-ONE.md](ALL-IN-ONE.md) is the whole walkthrough in a single file (best in an editor or offline), and [codebase-walkthrough.pdf](codebase-walkthrough.pdf?raw=true) is the same content with every diagram rendered and a clickable contents page, for reading anywhere.

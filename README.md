@@ -61,7 +61,7 @@ Then, in a second terminal:
 npm run worker
 ```
 
-The worker registers on **Admin → Evaluation workers** and starts claiming queued jobs. How it all fits together — the sandbox, MATLAB, the queue, the VM that runs production — is in the walkthrough, Parts 4, 5 and 11.
+The worker registers on **Admin → Evaluation workers** and starts claiming queued jobs. How it all fits together — the sandbox, MATLAB, the queue, the VM that runs production — is in the walkthrough, Parts 3, 4 and 10.
 
 ---
 
