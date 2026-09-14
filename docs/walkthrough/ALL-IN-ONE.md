@@ -71,6 +71,14 @@ flowchart TB
     class E web
 ```
 
+### The data: drive cycles
+
+A drive cycle is a recording of a real kind of trip: how fast a car goes, second by second, through a standard pattern of driving. Some are stop-and-go city traffic, some are steady highway, some are aggressive with hard acceleration and braking. The industry has used the same handful of these for decades to test fuel economy, so they are well known and repeatable.
+
+For this benchmark the lab took real Tesla battery cells and put each one through those trips in a thermal chamber, drawing exactly the current a Tesla Model 3 would draw from that cell at each moment — high current when the car accelerates, current flowing back in when it brakes, nothing when it idles — while recording voltage, temperature and the true state of charge the whole time. Every cycle was repeated at six temperatures from −20 °C to 40 °C, because a cold battery behaves very differently from a warm one.
+
+That is what makes the data useful. A model is judged on the messy, realistic loads a battery sees in a car, not on a tidy laboratory discharge; it is judged at the cold temperatures where estimators usually fail; and because the recordings include the true state of charge, every guess the model makes can be checked exactly. Some of the trips, and one whole cell, were never published, so no model can have memorised them.
+
 ### Three programs, and what each may touch
 
 The design comes down to one rule: **the website never runs anyone's code and never sees the hidden data.** A separate worker machine does that, and even the worker hands the model to a throw-away container. Three words will come up on every page from here on — *website*, *worker*, *sandbox* — and this is what each one is. The arrows show who is allowed to talk to whom:
