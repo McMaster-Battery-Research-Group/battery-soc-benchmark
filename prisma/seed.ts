@@ -1,5 +1,5 @@
 /**
- * Seeds an admin, a handful of fictional researchers, and one open contest.
+ * Seeds an admin account, one test user, and one open contest.
  * No submissions or results are fabricated: every score on the site comes from
  * a real evaluation.
  *   npm run seed
@@ -11,13 +11,8 @@ import bcrypt from "bcryptjs";
 const db = new PrismaClient();
 
 const USERS = [
-  { email: process.env.SEED_ADMIN_EMAIL ?? "admin@batterysocbenchmark.ca", name: "Benchmark Admin", affiliation: "McMaster University", role: "ADMIN" as const, password: process.env.SEED_ADMIN_PASSWORD ?? "Admin123!" },
-  { email: "r.singh@example.edu", name: "Riya Singh", affiliation: "McMaster University", role: "USER" as const, password: "Password1" },
-  { email: "t.nguyen@example.edu", name: "Thanh Nguyen", affiliation: "McMaster University", role: "USER" as const, password: "Password1" },
-  { email: "l.fischer@example.edu", name: "Lena Fischer", affiliation: "McMaster University", role: "USER" as const, password: "Password1" },
-  { email: "j.chen@example.edu", name: "Jia Chen", affiliation: "University of Waterloo", role: "USER" as const, password: "Password1" },
-  { email: "m.okafor@example.edu", name: "Maya Okafor", affiliation: "TU Munich", role: "USER" as const, password: "Password1" },
-  { email: "s.park@example.com", name: "Seo-yeon Park", affiliation: "LG Energy Solution", role: "USER" as const, password: "Password1" },
+  { email: process.env.SEED_ADMIN_EMAIL ?? "admin@batterysocbenchmark.ca", name: "Admin", affiliation: "McMaster University", role: "ADMIN" as const, password: process.env.SEED_ADMIN_PASSWORD ?? "Admin123!" },
+  { email: "user@example.com", name: "Test User", affiliation: "Example University", role: "USER" as const, password: "Password1" },
 ];
 
 
@@ -90,9 +85,7 @@ Winning teams will be invited to present their approach at a McMaster battery re
     },
   });
 
-  for (const email of ["t.nguyen@example.edu", "j.chen@example.edu", "m.okafor@example.edu", "s.park@example.com"]) {
-    await db.contestEntry.create({ data: { contestId: contest.id, userId: users.get(email)!.id, acceptedTerms: new Date(now - 10 * 86400e3) } });
-  }
+  await db.contestEntry.create({ data: { contestId: contest.id, userId: users.get("user@example.com")!.id, acceptedTerms: new Date(now - 10 * 86400e3) } });
 
   console.log("Done.");
 }

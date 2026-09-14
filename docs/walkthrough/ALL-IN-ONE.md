@@ -1632,7 +1632,7 @@ npm run dev       # website
 npm run worker    # in a second terminal — needs the blinded data and the sandbox image
 ```
 
-The seed wipes and creates an admin, six fictional researchers and one open contest with four registrations — and **no submissions or results**, because there is no fake scorer; the leaderboard fills as real evaluations run. Two things that bite on Windows: stop the dev server and the worker before `prisma generate` (a running process locks the generated client), and PowerShell 5.1 has no `&&` — run commands on separate lines.
+The seed wipes and creates an admin account, one test user (`user@example.com` / `Password1`) and one open contest — and **no submissions or results**, because there is no fake scorer; the leaderboard fills as real evaluations run. Two things that bite on Windows: stop the dev server and the worker before `prisma generate` (a running process locks the generated client), and PowerShell 5.1 has no `&&` — run commands on separate lines.
 
 📌 **Files to open, in order:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile](../../evaluator/Dockerfile) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [matlab-mhlm-setup.sh](../../scripts/matlab-mhlm-setup.sh) → [storage.ts](../../src/lib/storage.ts) → [playwright.smoke.config.ts](../../playwright.smoke.config.ts).
 

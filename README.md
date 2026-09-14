@@ -36,7 +36,7 @@ Sign in with a seeded account:
 | Role | E-mail | Password |
 | --- | --- | --- |
 | Admin | `admin@batterysocbenchmark.ca` | `Admin123!` |
-| User | `t.nguyen@example.edu` | `Password1` |
+| User | `user@example.com` | `Password1` |
 
 E-mail goes to a throw-away Ethereal inbox when `SMTP_HOST` is unset; the preview link is printed in the terminal.
 
