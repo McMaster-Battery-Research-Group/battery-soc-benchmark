@@ -65,7 +65,7 @@ pie showData title Share of the score
     "Six temperatures" : 10
 ```
 
-Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
+Two more things come out. A **complexity** bin from 1 to 10 — time per sample relative to a plain Coulomb counter measured on the same machine in the same language, answering "would this fit on a real battery controller?"; it never affects rank. And a **suspicious** flag when the mean error exceeds 25 %, which is logged for an administrator rather than hidden as the old tool did.
 
 ### What goes back to the website
 

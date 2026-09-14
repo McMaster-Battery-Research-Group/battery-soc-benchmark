@@ -49,7 +49,7 @@ flowchart TB
 
 Every progress line the model prints refreshes the lock, so a live job is never mistaken for a dead one; a job whose worker died becomes claimable again after 30 quiet minutes, with two attempts in total.
 
-**5. Run.** The worker starts one Docker container with three mounts and nothing else: the package (read-only), the hidden data (read-only), and an output folder. No network, read-only filesystem, no privileges, memory and CPU caps, none of the worker's secrets. Everything the container prints streams into the job log, which is what the website shows as the live console. A timer (default 6 h) and the owner's Cancel button both kill the container and any MATLAB inside it. Two things go in, one thing comes out:
+**5. Run.** The worker starts one Docker container with three mounts and nothing else: the package (read-only), the hidden data (read-only), and an output folder. Everything the container prints streams into the job log, which is what the website shows as the live console. A timer (default 6 h) and the owner's Cancel button both kill the container and any MATLAB inside it. What the container is *not* allowed to do is the subject of Part 5. Two things go in, one thing comes out:
 
 ```mermaid
 flowchart TB
