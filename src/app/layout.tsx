@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ToastProvider } from "@/components/ui/toast";
 import { auth } from "@/lib/auth";
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -29,6 +30,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={poppins.variable}>
       <body className="flex min-h-screen flex-col">
+        
+        <GoogleAnalytics gaId="G-20KVDGW116" />
         <ToastProvider>
           <a
             href="#main"
