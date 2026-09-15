@@ -6,15 +6,15 @@ Researchers upload a battery **state-of-charge estimation** algorithm; we run it
 
 <p align="center">
   <a href="https://github.com/McMaster-Battery-Research-Group/battery-soc-benchmark/raw/main/docs/walkthrough/codebase-walkthrough.pdf">
-    <img src="https://img.shields.io/badge/%F0%9F%93%98%20Codebase%20walkthrough-Read%20the%20PDF-7A003C?style=for-the-badge&labelColor=1D2428" alt="Read the codebase walkthrough (PDF)" height="44">
+    <img src="https://img.shields.io/badge/%F0%9F%93%98%20Codebase%20manual-Read%20the%20PDF-7A003C?style=for-the-badge&labelColor=1D2428" alt="Read the codebase manual (PDF)" height="44">
   </a>
 </p>
 
-## 📘 [Read the codebase walkthrough (PDF)](https://github.com/McMaster-Battery-Research-Group/battery-soc-benchmark/raw/main/docs/walkthrough/codebase-walkthrough.pdf)
+## 📘 [Read the codebase manual (PDF)](https://github.com/McMaster-Battery-Research-Group/battery-soc-benchmark/raw/main/docs/walkthrough/codebase-walkthrough.pdf)
 
-Everything about the system on one document — what it does, how each part works, why it was built that way, and where to look in the code — with a diagram for every section, a glossary, and a plain-English summary at the top of every part. Written for developers and non-developers alike. (The link opens the PDF in your browser or downloads it — about 40 pages.)
+The whole system in one book: the battery problem it solves, how to use the site, what happens to a submission, how the score is computed, the database, security, administration and infrastructure. Every chapter opens with a plain-language summary and uses real screenshots and figures; the glossary and reference tables are at the back. Written for developers and non-developers alike. (The link opens the PDF in your browser or downloads it — about 40 pages.)
 
-Prefer it in pieces? The same content is [one page per part](docs/walkthrough/README.md), or [a single Markdown file](docs/walkthrough/ALL-IN-ONE.md).
+Prefer it in pieces? The same content is [one page per chapter](docs/walkthrough/README.md), or [a single Markdown file](docs/walkthrough/ALL-IN-ONE.md).
 
 ---
 
@@ -61,7 +61,7 @@ Then, in a second terminal:
 npm run worker
 ```
 
-The worker registers on **Admin → Evaluation workers** and starts claiming queued jobs. How it all fits together — the sandbox, MATLAB, the queue, the VM that runs production — is in the walkthrough, Parts 3, 4 and 10.
+The worker registers on **Admin → Evaluation workers** and starts claiming queued jobs. How it all fits together — the sandbox, MATLAB, the queue, the VM that runs production — is in the manual, Chapters 4, 5 and 9.
 
 ---
 

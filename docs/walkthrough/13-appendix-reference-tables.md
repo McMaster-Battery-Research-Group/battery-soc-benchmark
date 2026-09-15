@@ -1,5 +1,5 @@
-<a id="part-12"></a>
-## 12. Appendix: reference tables
+<a id="part-13"></a>
+## 13. Appendix: reference tables
 
 ### Tools
 
@@ -42,9 +42,9 @@ Every line is annotated in `.env.example`. Production values live only on Vercel
 | Password reset / resend verification | 3 per hour per e-mail |
 | Contact form | 5 per hour per IP |
 | Upload links | 30 per hour per user |
-| Dry runs | 5 per hour (admins unlimited) |
-| Submissions | 3 per rolling 24 h (admins exempt) |
-| Evaluation / dry run | 360 min / 10 min |
+| Test runs | 5 per hour (administrators unlimited) |
+| Submissions | 3 per rolling 24 h (administrators exempt) |
+| Evaluation / test run | 360 min / 10 min |
 | Zip | ≤ 500 entries, ≤ 512 MB unpacked, ≤ 256 MB per entry, ≤ 200 : 1 compression, no folders, no symlinks |
 
 ### Admin actions and their rails
@@ -53,11 +53,11 @@ Every line is annotated in `.env.example`. Production values live only on Vercel
 |---|---|
 | Moderate a submission | Reason ≥ 10 characters; not while RUNNING; contest entries cannot be made private (hide instead) |
 | Bulk delete | Up to 100; RUNNING skipped; one activity line; authors optionally e-mailed |
-| Delete a user | Not yourself; not an admin (demote first); not while their work is RUNNING |
+| Delete a user | Not yourself; not an administrator (demote first); not while their work is RUNNING |
 | Change a role | Not your own |
 | Worker pause / resume / stop | Picked up at the next heartbeat |
-| Release a job lock | Behind a confirm — a live worker would double-evaluate |
-| Evaluation settings | Timeout 10–1440 min, dry run 2–60 min, per day 1–100 |
+| Release a job lock | Behind a confirm; a live worker would double-evaluate |
+| Evaluation settings | Timeout 10–1440 min, test run 2–60 min, per day 1–100 |
 | Scoring weights | Preview first; must sum to 1 |
 | Contests | Only one open at a time |
 
@@ -71,4 +71,4 @@ Every line is annotated in `.env.example`. Production values live only on Vercel
 | `EvaluationResult` | `weightedError`, `complexity`, the 18 metric columns, `maxError`, `perCycle`, `timeSeries`, `robustness`, `tracesKey`, `evaluatorVersion` |
 | `ScoreRevision` | `kind` (evaluation, failure, rescore, resubmission, edit, cancelled, legacy), the score and metrics at that moment, `note`, `by` |
 | `WorkerHeartbeat` | `hostname`, `lastSeenAt`, `runtimes`, `busyWith`, `paused`, `command`, machine diagnostics, `log` |
-| `DryRun` | its own `status`, lock and `log`; `result` JSON — never touches hidden data, never on the leaderboard |
+| `DryRun` | its own `status`, lock and `log`; `result` JSON; never touches hidden data, never on the leaderboard |
