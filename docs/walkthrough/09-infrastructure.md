@@ -47,7 +47,7 @@ Secrets and the withheld data are placed manually after provisioning. They are o
 
 ### 9.3 MATLAB in a container
 
-MATLAB runs inside MathWorks' own container image and is licensed through the laboratory's MathWorks account rather than a licence server. A one-time interactive sign-in produced an identity token valid for one year, which is stored on the virtual machine. Before each evaluation the worker exchanges it for a 24-hour access token, and only that short-lived token is passed into the container.
+MATLAB runs inside MathWorks' own container image and is licensed through the laboratory's MathWorks account rather than a licence server. A one-time interactive sign-in produced an identity token valid for one year, which is stored on the virtual machine. Before each evaluation the worker exchanges it for a 24-hour access token, and only that short-lived token is passed into the container, as Figure 9.2 shows:
 
 ```mermaid
 flowchart TB
@@ -70,13 +70,12 @@ A push that modifies the web tier triggers a browser test pass over the principa
 
 ### 9.5 Running the system locally
 
-The same code runs on a development machine with different configuration:
+The same code runs on a development machine with different configuration. There is no simulated evaluator: a developer's worker runs the real evaluation pipeline, which requires the withheld data and the sandbox image. The repository README lists the five commands required, and the configuration differs from production in four respects:
 
 - a local PostgreSQL instance in Docker,
 - uploaded files stored on the local disk,
-- e-mail delivered to a test inbox rather than to real addresses.
-
-There is no simulated evaluator. A developer's worker runs the real evaluation pipeline, which requires the withheld data and the sandbox image. The **seed** script, which populates an empty database, creates one administrator account and one test user and nothing else. The repository README lists the five commands required.
+- e-mail delivered to a test inbox rather than to real addresses,
+- a **seed** script that populates the empty database with one administrator account and one test user, and nothing else.
 
 **Files to open:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [.env.example](../../.env.example).
 

@@ -28,6 +28,8 @@ An account may attempt sign-in ten times per fifteen minutes, and a network addr
 
 ### 7.3 Containing a hostile submission
 
+Secrets are held in exactly three locations: Vercel's environment configuration, a file on the virtual machine readable only by the worker's service account, and a GitHub repository secret. They appear in no repository file, container image, log or e-mail. The remaining threats, and the control that addresses each, are set out in the table below.
+
 | Threat | Control |
 |---|---|
 | The model exfiltrates the withheld data | The container has read access (it must) but no network interface, and is destroyed after the run |
@@ -39,8 +41,6 @@ An account may attempt sign-in ten times per fifteen minutes, and a network addr
 | Password guessing | bcrypt hashing and the attempt limits above |
 | Account enumeration | Password-reset and resend-verification requests respond identically whether or not the address exists |
 | A compromised administrator removes the others | Administrators cannot be deleted until demoted, and no user can change their own role |
-
-Secrets are held in exactly three locations: Vercel's environment configuration, a file on the virtual machine readable only by the worker's service account, and a GitHub repository secret. They appear in no repository file, container image, log or e-mail.
 
 **Files to open:** [auth.ts](../../src/lib/auth.ts) → [middleware.ts](../../src/middleware.ts) → [(auth)/actions.ts](../../src/app/(auth)/actions.ts) → [rate-limit.ts](../../src/lib/rate-limit.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts).
 

@@ -468,6 +468,8 @@ An account may attempt sign-in ten times per fifteen minutes, and a network addr
 
 ### 7.3 Containing a hostile submission
 
+Secrets are held in exactly three locations: Vercel's environment configuration, a file on the virtual machine readable only by the worker's service account, and a GitHub repository secret. They appear in no repository file, container image, log or e-mail. The remaining threats, and the control that addresses each, are set out in the table below.
+
 | Threat | Control |
 |---|---|
 | The model exfiltrates the withheld data | The container has read access (it must) but no network interface, and is destroyed after the run |
@@ -479,8 +481,6 @@ An account may attempt sign-in ten times per fifteen minutes, and a network addr
 | Password guessing | bcrypt hashing and the attempt limits above |
 | Account enumeration | Password-reset and resend-verification requests respond identically whether or not the address exists |
 | A compromised administrator removes the others | Administrators cannot be deleted until demoted, and no user can change their own role |
-
-Secrets are held in exactly three locations: Vercel's environment configuration, a file on the virtual machine readable only by the worker's service account, and a GitHub repository secret. They appear in no repository file, container image, log or e-mail.
 
 **Files to open:** [auth.ts](../../src/lib/auth.ts) → [middleware.ts](../../src/middleware.ts) → [(auth)/actions.ts](../../src/app/(auth)/actions.ts) → [rate-limit.ts](../../src/lib/rate-limit.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts).
 
@@ -607,7 +607,7 @@ Secrets and the withheld data are placed manually after provisioning. They are o
 
 ### 9.3 MATLAB in a container
 
-MATLAB runs inside MathWorks' own container image and is licensed through the laboratory's MathWorks account rather than a licence server. A one-time interactive sign-in produced an identity token valid for one year, which is stored on the virtual machine. Before each evaluation the worker exchanges it for a 24-hour access token, and only that short-lived token is passed into the container.
+MATLAB runs inside MathWorks' own container image and is licensed through the laboratory's MathWorks account rather than a licence server. A one-time interactive sign-in produced an identity token valid for one year, which is stored on the virtual machine. Before each evaluation the worker exchanges it for a 24-hour access token, and only that short-lived token is passed into the container, as Figure 9.2 shows:
 
 ```mermaid
 flowchart TB
@@ -630,13 +630,12 @@ A push that modifies the web tier triggers a browser test pass over the principa
 
 ### 9.5 Running the system locally
 
-The same code runs on a development machine with different configuration:
+The same code runs on a development machine with different configuration. There is no simulated evaluator: a developer's worker runs the real evaluation pipeline, which requires the withheld data and the sandbox image. The repository README lists the five commands required, and the configuration differs from production in four respects:
 
 - a local PostgreSQL instance in Docker,
 - uploaded files stored on the local disk,
-- e-mail delivered to a test inbox rather than to real addresses.
-
-There is no simulated evaluator. A developer's worker runs the real evaluation pipeline, which requires the withheld data and the sandbox image. The **seed** script, which populates an empty database, creates one administrator account and one test user and nothing else. The repository README lists the five commands required.
+- e-mail delivered to a test inbox rather than to real addresses,
+- a **seed** script that populates the empty database with one administrator account and one test user, and nothing else.
 
 **Files to open:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [.env.example](../../.env.example).
 
