@@ -1,31 +1,42 @@
 <a id="part-8"></a>
 ## 8. Administration and monitoring
 
-> **In this chapter.** The administrators' pages, how the scoring weights are changed without re-running anything, how notifications work, and the robot that notices when the worker goes quiet.
+> **In this chapter.** The administrative interface, the procedure for revising scoring weights without re-evaluating any model, the notification model, and the automated check that detects an unreachable worker.
 
-### 8.1 The admin pages
+### 8.1 The administrative pages
 
-![Figure 8.1. The administration overview: counts, recent submissions, the activity feed, and the worker's status.](figures/admin-overview.png)
+![Figure 8.1. The administrative overview: summary counts, recent submissions, the activity log, and the worker's status.](figures/admin-overview.png)
 
-The left-hand menu is the whole of it. **Overview** shows counts and the activity feed. **Submissions** moderates, retries and bulk-deletes. **Users** verifies, changes roles and deletes. **Contests** creates and closes them. **Messages** is the feedback inbox. **Evaluation workers** shows every machine, the queue and the evaluation limits. **Scoring weights** is Section 8.2. **My notifications** is where each administrator chooses which e-mails they want. Every action begins by re-checking that the caller is an administrator, and each has a safety rail; the list is in the appendix.
+The left-hand navigation enumerates the interface:
 
-![Figure 8.2. The workers page. Each machine reports its languages, load, code version, MATLAB toolboxes and whether the hidden data is present.](figures/admin-workers.png)
+- **Overview**: summary counts, recent submissions and the activity log.
+- **Submissions**: moderation, retry and bulk deletion.
+- **Users**: verification, role assignment and deletion.
+- **Contests**: creation and closure.
+- **Messages**: the contact-form inbox.
+- **Evaluation workers**: every registered machine, the queue, and the evaluation limits.
+- **Scoring weights**: the subject of Section 8.2.
+- **My notifications**: each administrator's own e-mail preferences.
 
-### 8.2 Changing the weights
+Every administrative action re-verifies the caller's role before proceeding, and each is subject to a safeguard. The safeguards are tabulated in the appendix.
 
-An administrator edits the eighteen weights (they must sum to one), previews how many stored scores would move, and saves with a reason. Every result is then re-scored from its stored metrics; no model is re-run, because the metrics were saved and the packages were deleted. Authors can be e-mailed the old and new score with a fresh PDF, and the previous weights stay in the history.
+![Figure 8.2. The workers page. Each machine reports its supported languages, load, code revision, MATLAB toolboxes, and whether the withheld data is present.](figures/admin-workers.png)
+
+### 8.2 Revising the weights
+
+An administrator edits the eighteen weights, which must sum to one, previews how many stored scores would change, and saves with a written justification. Every stored result is then re-scored from its persisted per-test metrics; no model is re-executed, since the metrics were retained and the packages were deleted. Authors may optionally be notified of the previous and revised scores with a regenerated PDF. The superseded weights remain in the history.
 
 ![Figure 8.3. The scoring-weights page. Each row is one of the eighteen test cases with its default and current weight.](figures/admin-scoring.png)
 
 ### 8.3 Notifications
 
-Every notable event takes two routes, one always and one optional:
+Every administrative event follows two paths, one unconditional and one configurable:
 
 ```mermaid
 flowchart TB
-    E["Something happens<br/>registration · deletion · role change · outage"] --> F[("Activity feed — always recorded")]
-    E --> T["Each admin's own toggles"]
-    T --> M[/"One e-mail per admin, never CC"/]
+    E["Event<br/>registration · deletion · role change · outage"] --> F[("Activity log — always recorded")]
+    E --> T["Each administrator's preferences"]
+    T --> M[/"One e-mail per administrator, never CC"/]
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
     classDef ext fill:#F0F0F0,stroke:#495965,color:#1d2428
@@ -34,26 +45,26 @@ flowchart TB
     class M ext
 ```
 
-Figure 8.4. The feed is the record; e-mail is a copy of it that each administrator can switch on or off by kind.
+Figure 8.4. The activity log is the record; e-mail is a copy that each administrator enables per category.
 
-One rule that is easy to get wrong: the website's host freezes a request the instant it has answered, so an e-mail sent "in the background" without being waited for is silently dropped. Every such send is wrapped in `after()`, which keeps the request alive until it finishes. This was learned the hard way.
+One property of the hosting platform deserves emphasis. A serverless request is frozen the instant a response is returned, so any e-mail dispatched asynchronously without being awaited is silently lost. Every such dispatch is therefore wrapped in `after()`, which keeps the request alive until the send completes. This behaviour was discovered in production.
 
 ### 8.4 The outage monitor
 
-This was born from a real outage: the worker was healthy but could not reach the database for ten hours, and nobody knew. The website is the one place that can always see both the database and e-mail, so it does the watching. A GitHub Action pings a health-check address every ten minutes; the check asks two questions, and e-mails once when the answer changes.
+The monitor was introduced after an incident in which the worker remained healthy but was unable to reach the database for ten hours, with no indication to anyone. The web tier is the one component that can always observe both the database and the mail service, so it performs the check. A GitHub Actions workflow calls a health endpoint every ten minutes; the endpoint evaluates two conditions and sends an e-mail only when the answer changes.
 
 ```mermaid
 sequenceDiagram
-    participant G as GitHub, every 10 min
-    participant W as Health check
-    actor A as Admins
-    G->>W: ping
-    W->>W: heartbeat in the last 3 min?<br/>queued work with no worker?
-    W-->>A: e-mail once when it breaks
-    W-->>A: e-mail once when it recovers
+    participant G as GitHub Actions, every 10 min
+    participant W as Health endpoint
+    actor A as Administrators
+    G->>W: request
+    W->>W: heartbeat within the last 3 min?<br/>queued work with no eligible worker?
+    W-->>A: one e-mail when the condition begins
+    W-->>A: one e-mail when it clears
 ```
 
-Figure 8.5. One alert per outage, one all-clear. The state lives in the activity feed, so it is visible on the site too.
+Figure 8.5. One alert per outage and one all-clear. The state is recorded in the activity log, so it is also visible on the site.
 
 **Files to open:** [admin/actions.ts](../../src/app/(admin)/admin/actions.ts) → [admin-notify.ts](../../src/lib/admin-notify.ts) → [worker-health/route.ts](../../src/app/api/ops/worker-health/route.ts).
 

@@ -1,10 +1,10 @@
 <a id="part-11"></a>
 ## 11. A ten-minute demonstration
 
-1. **Leaderboard.** Rank, weighted error, complexity. Point out that the numbers are errors and lower is better.
-2. **One result.** The plain-language summary, the scorecard summing to the score, the worst-case trace, the PDF download.
-3. **Submit.** Run a test on the reference package live (seconds), then submit it; watch the queue position and the progress bar.
-4. **Admin → Evaluation workers.** The machine that just took it: languages, load, console, licence expiry.
-5. **Code, in this order.** `schema.prisma` → `claimJob` in `run-job.ts` → the `docker run` line in `python-evaluator.ts` → `score()` in `pipeline.py` → `Run_Model.m`.
-6. **Close on the rule.** The website never runs anyone's code and never sees the hidden data.
+1. **Leaderboard.** Rank, weighted error and complexity. Note that every figure is an error and that lower is better.
+2. **One result.** The generated interpretation, the scorecard summing to the score, the worst-case trace, and the PDF report.
+3. **Submission.** Run a test on the reference package (seconds), then submit it; observe the queue position and the progress indicator.
+4. **Admin → Evaluation workers.** The machine that claimed the job: languages, load, console and licence expiry.
+5. **Source, in this order.** `schema.prisma` → `claimJob` in `run-job.ts` → the `docker run` invocation in `python-evaluator.ts` → `score()` in `pipeline.py` → `Run_Model.m`.
+6. **Conclude with the rule.** The web tier never executes submitted code and never has access to the withheld data.
 

@@ -1,25 +1,31 @@
 # Battery SOC Benchmark — the codebase manual
 
-This book explains how the Battery SOC Benchmark works, from the battery problem it was built for down to the files that make it run. It is written for two readers at once: someone who wants to understand what the system does without touching code, and a developer who is about to change it. The first kind of reader can stop at the end of each chapter's opening section and the figures; the second should keep going, and will find the files to open listed at the end of every chapter.
+This manual describes the Battery SOC Benchmark as a complete system: the estimation problem it addresses, the evaluation methodology, the web platform through which models are submitted and ranked, and the software and infrastructure that carry out the evaluation. It is written for two audiences. Researchers, students and collaborators who need to understand what the platform does and why it is designed as it is will find each chapter self-contained at the level of its summary and figures. Developers who intend to maintain or extend the platform should read the chapters in full and open the source files listed in each chapter's summary.
 
-Chapters 1 to 3 need no programming background at all. Chapters 4 to 9 go inside the machine, one layer at a time, and each one builds on the last. Chapter 10 is a lookup table for common changes, Chapter 11 is a script for demonstrating the system in ten minutes, and the glossary and appendix at the back collect every term, setting and limit so that the chapters themselves can stay readable.
+The chapters build on one another and are best read in order on a first pass:
 
-Every diagram in the book uses the same colours and shapes for the same kinds of thing, so once you have read Chapter 2 you can read any figure without a key. Screenshots are of the live site as it was in September 2026.
+- **Chapters 1 to 3** require no programming background. They cover the state-of-charge estimation problem, the architecture of the platform in outline, and the workflow of a researcher who submits a model.
+- **Chapters 4 to 9** describe the system one layer at a time: the evaluation pipeline, the scoring methodology, the data model, security, administration and infrastructure.
+- **Chapter 10** is a reference for common maintenance tasks and where each is performed.
+- **Chapter 11** is a suggested sequence for demonstrating the platform in ten minutes.
+- **The glossary and appendix** collect terminology, configuration, limits and schema details so that the chapters remain readable.
+
+All diagrams share one visual vocabulary, introduced in Section 2.4, so that a given kind of component looks the same on every page. Screenshots show the production site as of September 2026.
 
 ---
 
 ## Contents
 
-1. [The problem this benchmark solves](#part-1)
-2. [The benchmark in one picture](#part-2)
-3. [Using the site](#part-3)
-4. [What happens to a submission](#part-4)
-5. [How the score is computed](#part-5)
-6. [The database](#part-6)
+1. [The estimation problem](#part-1)
+2. [The platform in outline](#part-2)
+3. [Using the platform](#part-3)
+4. [The life of a submission](#part-4)
+5. [Scoring methodology](#part-5)
+6. [The data model](#part-6)
 7. [Accounts and security](#part-7)
 8. [Administration and monitoring](#part-8)
 9. [Infrastructure](#part-9)
-10. [Changing things](#part-10)
+10. [Maintenance reference](#part-10)
 11. [A ten-minute demonstration](#part-11)
 12. [Glossary](#part-12)
 13. [Appendix: reference tables](#part-13)
@@ -27,68 +33,73 @@ Every diagram in the book uses the same colours and shapes for the same kinds of
 ---
 
 <a id="part-1"></a>
-## 1. The problem this benchmark solves
+## 1. The estimation problem
 
-> **In this chapter.** Why a car cannot measure how full its battery is, what a drive cycle is and why the lab recorded so many of them, what "error" means when we score a model, and why some of the data is kept secret.
+> **In this chapter.** Why the state of charge of a lithium-ion cell must be estimated rather than measured, what drive-cycle data is and why the benchmark is built on it, how estimation error is defined, and why part of the dataset is withheld.
 
-### 1.1 A gauge that cannot be read
+### 1.1 A quantity that cannot be measured
 
-A petrol car has a float in the tank. An electric car has nothing like it. The amount of charge left in a battery, which engineers call the **state of charge** or **SOC** and express as a percentage from empty to full, is not something any sensor can read directly. What the car *can* measure, many times a second, is the current flowing in and out of the battery, the voltage across it, and its temperature. From those three signals it has to work out the state of charge, and that calculation is the job of an **estimator**: an algorithm running on the car's battery computer.
+The **state of charge** (**SOC**) of a battery is the fraction of its usable capacity that remains, conventionally expressed as a percentage from 0 to 100. It is the quantity behind the range indicator of an electric vehicle, and it is an input to nearly every other decision a **battery management system** (**BMS**) makes: how much power may be drawn, how fast the pack may be charged, and when the vehicle must be protected from over-discharge. Yet no sensor measures it. What the BMS can observe, at rates of a few hertz, is the terminal current, the terminal voltage and the cell temperature. The state of charge must be inferred from these signals by an **estimator**, an algorithm executed continuously on the vehicle's battery controller.
 
-![Figure 1.1. The state of charge cannot be measured, only estimated. A car's estimator turns three measurable signals into the number on the dashboard.](figures/fig-gauge.png)
+![Figure 1.1. The state of charge cannot be measured directly. An estimator infers it from the three signals a battery management system can observe.](figures/fig-gauge.png)
 
-Getting the estimate wrong has real consequences. A gauge that reads high strands drivers with a battery that was emptier than it said; a gauge that reads low forces the carmaker to hide part of the battery as a safety margin, so the driver paid for range they can never use. Estimators also have a habit of working well in the lab at room temperature and drifting badly in a Canadian winter. A great deal of research therefore goes into making them better, and that research is what this benchmark is for.
+The consequences of estimation error are practical. An estimate that reads high exposes the driver to a battery that is emptier than indicated; one that reads low forces the manufacturer to reserve capacity as a safety margin, capacity the customer has paid for but can never use. Estimators are also notoriously sensitive to operating conditions: an approach that performs well at room temperature may drift severely at sub-zero temperatures, where the cell's internal resistance rises and the relationship between voltage and state of charge flattens. A substantial research literature is therefore devoted to improving estimation methods, ranging from Coulomb counting and Kalman filtering to recurrent and transformer neural networks. This benchmark exists to evaluate those methods on a common footing.
 
-### 1.2 Drive cycles: the data
+### 1.2 Drive-cycle data
 
-A **drive cycle** is a recording of a standard kind of trip. It says how fast a car goes, second by second, through a fixed pattern of driving. Some cycles are stop-and-go city traffic, some are steady highway, some are aggressive with hard acceleration and braking. The car industry has used the same handful of these for decades to measure fuel economy, so they are well known and repeatable. The standard ones in this benchmark are UDDS (urban), HWFET (highway), LA92 and US06 (both aggressive); the lab added two of its own, HWCUST and HWGRADE, which have never been published.
+A **drive cycle** is a standardised speed-versus-time profile representing a particular kind of driving. Regulatory bodies have used a small set of them for decades to certify fuel economy and emissions, which makes them well characterised and reproducible. The benchmark uses six:
 
-For the benchmark the lab took real Tesla 2170 cells, the cylindrical cells used in the Model 3, and put each one through those trips inside a thermal chamber. At every moment the test equipment drew exactly the current a Model 3 would draw from that cell: heavy current when the car accelerates, current flowing back in when it brakes, nothing when it idles. Voltage, temperature and the true state of charge were recorded the whole time. Figure 1.2 shows what one such recording looks like.
+- **UDDS**, the Urban Dynamometer Driving Schedule, representing stop-and-go city driving.
+- **HWFET**, the Highway Fuel Economy Test, representing steady highway driving.
+- **LA92** and **US06**, more aggressive profiles with higher speeds, harder acceleration and harder braking.
+- **HWCUST** and **HWGRADE**, two highway profiles designed by the laboratory. Neither has been published.
 
-![Figure 1.2. Two hours of one drive cycle from the open data. The current swings with every acceleration and braking event, the voltage sags and recovers with it, and the true state of charge falls slowly from full. A model sees only the top two traces and the temperature; it has to produce the third.](figures/fig-drive-cycle.png)
+To generate the dataset, the laboratory took Tesla 2170 cylindrical cells, the cell format used in the Model 3, and subjected each to these profiles in a thermal chamber. A vehicle model translated the speed profile into the current the cell would deliver in a Model 3 at each instant: large discharge currents during acceleration, regenerative charging during braking, and no current at rest. Terminal voltage, cell temperature and the true state of charge were logged throughout. Figure 1.2 shows one such recording.
 
-Every cycle was repeated at six temperatures from −20 °C to 40 °C, because a cold cell behaves very differently from a warm one, and on four cells that had each been driven with a different payload (one passenger, a full load with the air conditioning on or off, and a trailer). That is what makes the data valuable: a model is judged on the messy, realistic loads a battery sees in a car, at the cold temperatures where estimators usually fail, and, because the true state of charge was recorded, every guess it makes can be checked exactly.
+![Figure 1.2. Two hours of one drive cycle from the open dataset. Current alternates between discharge and regenerative charge with every acceleration and braking event; voltage responds to it; the true state of charge declines from full. A model receives the current, voltage and temperature and must reproduce the state-of-charge trace.](figures/fig-drive-cycle.png)
 
-### 1.3 Error: what is measured
+Each profile was repeated at six chamber temperatures from −20 °C to 40 °C, and on four cells that had each been cycled with a different simulated vehicle payload: a single occupant, a full passenger load with and without cabin climate control, and a trailer. The result is a dataset that exercises an estimator under the loads a battery actually experiences in a vehicle, across the temperature range where estimators are known to fail, with a measured ground truth against which every estimate can be compared.
 
-For every second of every drive cycle the lab knows the true state of charge. The model, seeing only current, voltage and temperature, produces its own guess for the same second. The difference between the two is the **error**, and it is the one thing the benchmark measures. Everything on the leaderboard is some average of it.
+### 1.3 Estimation error
 
-![Figure 1.3. The error is the gap between the model's estimate and the truth. Here a simple model with a faulty current sensor drifts steadily away from the real state of charge; the shaded band is what the benchmark scores.](figures/fig-error.png)
+For every sample of every drive cycle the true state of charge is known from the laboratory measurement. The model under test, given only current, voltage and temperature, produces its own estimate for the same sample. The difference between the two is the **estimation error**, and it is the sole quantity the benchmark measures. Every number on the leaderboard is an aggregate of it.
 
-To turn two hours of error into one number the benchmark uses the **root-mean-square error**, or **RMSE**: square the error at every second, average the squares, take the square root. Being 2 % off all the time gives an RMSE of 2. Being perfect except for one bad minute scores worse than that minute's share would suggest, because the squaring punishes large errors. That is deliberate: a model that is always slightly off is more useful in a car than one that is usually perfect and occasionally wildly wrong.
+![Figure 1.3. Estimation error is the difference between the model's estimate and the measured state of charge. Here a Coulomb-counting model fed a biased current measurement drifts steadily from the truth; the shaded band is what the benchmark quantifies.](figures/fig-error.png)
 
-Where the error happens matters as much as its size. A model that works at 25 °C and drifts at −20 °C is not much use in Canada, and a model that is accurate only when it is told the exact starting charge is not much use either, because a real car does not know it. So the score does not just average the error; it looks at each temperature, each cell and each kind of trip separately, and it also runs the model with a deliberately wrong starting point and a deliberately faulty current sensor. Chapter 5 shows exactly how those pieces combine.
+The error over a cycle is summarised by its **root-mean-square error** (**RMSE**): the error at each sample is squared, the squares are averaged over the cycle, and the square root is taken. RMSE penalises large excursions more heavily than a mean absolute error would. A model that is consistently 2 % high scores an RMSE of 2 %; a model that is exact for most of a cycle but wrong by 20 % for a few minutes scores considerably worse. This weighting is deliberate, since in a vehicle a bounded, predictable error is far more useful than an occasional large one.
 
-### 1.4 Open data and hidden data
+The conditions under which error occurs matter as much as its magnitude. A model that is accurate at 25 °C but drifts at −20 °C is of limited use in a cold climate, and a model that is accurate only when initialised with the exact starting state of charge is of limited use in a vehicle, which does not know it. The scoring methodology therefore does not simply average error over the dataset. It reports error separately by cell, temperature and cycle type, and it includes two deliberate perturbations: a wrong initial state of charge and a constant bias on the current measurement. Chapter 5 sets out the full methodology.
 
-The obvious way to test a model would be to publish all the data and let everyone report their own numbers. The trouble is that every group would test on its own choice of cycles with its own definition of error, and a claimed 1.5 % could not be compared with someone else's 2 %. Worse, a model trained on the published data can simply memorise it and look far better than it is.
+### 1.4 Open and withheld data
 
-![Figure 1.4. The open data is for building models; the hidden data is for scoring them. The m448 cell exists only on the evaluation machine.](figures/fig-openhidden.png)
+Publishing the entire dataset and inviting groups to report their own results would not produce comparable numbers. Each group would select its own test cycles and its own error definition, and a model trained on published data can memorise it and appear far better than it is. The benchmark addresses both problems with a held-out evaluation set.
 
-The benchmark therefore splits the data in two. The **open data**, published on the Borealis research repository, contains the characterisation tests and drive cycles for three of the four cells. Researchers build and train on it freely. The **hidden data** contains the whole fourth cell, m448, plus cycles and conditions the open set does not include. It has never been published and it never touches the website. Every submitted model is scored on the hidden data, so no model can have seen it, and the leaderboard shows the hidden-cell score next to the open-cell score. A model that does well on the open cells and badly on the hidden one has memorised rather than learned.
+![Figure 1.4. The open dataset is for developing models; the withheld dataset is reserved for scoring them. The m448 cell exists only on the evaluation machine.](figures/fig-openhidden.png)
 
-### 1.5 What the benchmark promises
+The **open dataset**, published on the Borealis research data repository, contains characterisation tests and drive cycles for three of the four cells. Researchers develop and train on it without restriction. The **withheld dataset** (referred to in the code as the *blinded* data) contains the entire fourth cell, m448, together with cycles and conditions absent from the open set. It has never been published and it never touches the web tier. Every submitted model is scored on the withheld data, and the leaderboard reports the withheld-cell error beside the open-cell error. A model that performs well on the open cells and poorly on the withheld one has fitted the published data rather than learned the underlying behaviour, and the comparison makes this visible.
 
-Put together, the promise is simple. Everyone gets the same test: the same hidden data, the same code computing the same error, the same published weights turning the errors into one score. A researcher uploads their estimator as a small program, one Python or MATLAB file zipped together with whatever parameters it needs, and a few minutes later has a score on a public leaderboard that means the same thing as everyone else's. The uploaded program is deleted the moment it has been scored.
+### 1.5 What the benchmark provides
+
+The benchmark provides a single, fixed evaluation: the same withheld data, the same evaluation code, the same error definition and the same published weights for every model. A researcher packages an estimator as a single Python or MATLAB function together with its parameter files, uploads the package, and receives within minutes a weighted score, a per-test breakdown, per-cycle traces and a PDF report. The score is placed on a public leaderboard where it is directly comparable with every other entry. The uploaded package is deleted as soon as it has been evaluated.
 
 ---
 
 <a id="part-2"></a>
-## 2. The benchmark in one picture
+## 2. The platform in outline
 
-> **In this chapter.** The five steps from open data to leaderboard, the three programs that make them happen, the one rule that keeps the hidden data safe, and where each piece physically runs.
+> **In this chapter.** The five stages from open data to leaderboard, the three programs that implement them, the architectural rule that protects the withheld data, and where each component is hosted.
 
-### 2.1 Five steps
+### 2.1 Five stages
 
-![Figure 2.1. The public face of the benchmark: the landing page with the top of the leaderboard.](figures/landing.png)
+![Figure 2.1. The public face of the platform: the landing page, with the top of the leaderboard.](figures/landing.png)
 
-The whole benchmark is five steps, and the difference between the first and the fourth is what it rests on:
+The platform reduces to five stages, and its credibility rests on the separation between the first and the fourth:
 
 ```mermaid
 flowchart TB
-    A[("1 · Open dataset, published")] --> B(["2 · Researcher builds an SOC model"])
+    A[("1 · Open dataset, published")] --> B(["2 · Researcher develops an SOC estimator"])
     B --> C(["3 · Uploads a .zip: a Python or MATLAB model file<br/>plus its parameters"])
-    C --> D>"4 · Scored on hidden data"]
+    C --> D>"4 · Evaluated on withheld data"]
     D --> E["5 · Public leaderboard and PDF report"]
     classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
     classDef person fill:#EFE6F5,stroke:#6B3FA0,color:#1d2428
@@ -100,32 +111,32 @@ flowchart TB
     class E web
 ```
 
-Figure 2.2. The five steps. Step 1 is public, step 4 is secret, and the benchmark's credibility is the gap between them.
+Figure 2.2. The five stages. Stage 1 is public and stage 4 is confidential; the benchmark's validity depends on keeping them apart.
 
 ### 2.2 Three programs and one rule
 
-Behind the website there are three separate programs, and the design comes down to one rule: **the website never runs anyone's code and never sees the hidden data.** A different computer, the **worker**, does both of those things. Even the worker does not run a model directly; it hands the model to a **sandbox**, a sealed temporary environment inside the machine with the network switched off and the files locked, which is thrown away afterwards.
+Behind the website are three separate programs, and the architecture follows from one rule: **the web tier never executes submitted code and never has access to the withheld data.** Both of those responsibilities belong to a separate machine, the **worker**. The worker in turn does not execute a model directly; it delegates execution to a **sandbox**, an isolated container with no network access and a read-only filesystem, which is discarded after each evaluation.
 
-![Figure 2.3. The three programs. The website and the worker share nothing but the database; the sandbox is the only place a submitted model ever runs.](figures/fig-tiers.png)
+![Figure 2.3. The three programs. The website and the worker share nothing but the database; the sandbox is the only place a submitted model is ever executed.](figures/fig-tiers.png)
 
-The website and the worker never talk to each other. Everything passes through the database, so a second worker machine needs no configuration (it simply starts taking jobs), the site stays up if the worker goes offline (as it did during a ten-hour network outage in September 2026), and the queue of work is an ordinary database table rather than a separate service.
+The website and the worker never communicate directly. All coordination passes through the database. This has three consequences that recur throughout the manual: an additional worker can be added with no configuration, since it simply begins claiming jobs; the website remains fully available when no worker is reachable, as it did during a ten-hour network outage in September 2026; and the job queue is an ordinary database table rather than a separate message-queue service.
 
-### 2.3 Where things run
+### 2.3 Where the components are hosted
 
-| What | Where | Why |
+| Component | Host | Rationale |
 |---|---|---|
-| Website | Vercel, a hosting service (free tier) | Runs the site with no servers of our own to look after |
-| Database and file bucket | Supabase, a hosted database service (free tier) | The PostgreSQL database and file storage in one account |
-| Worker, hidden data, MATLAB | A virtual machine (a rented computer in the cloud) on Arbutus, the Digital Research Alliance of Canada's research cloud | The lab controls it, and it is the only place the hidden data exists |
-| Source code | GitHub, in the `McMaster-Battery-Research-Group` organisation | Collaborators can read and propose changes; only the owner merges |
+| Website | Vercel, a managed hosting service (free tier) | Serverless hosting with automatic deployment from the repository; no servers to administer |
+| Database and object storage | Supabase, a managed PostgreSQL service (free tier) | Database and file storage under one account |
+| Worker, withheld data, MATLAB | A virtual machine on Arbutus, the Digital Research Alliance of Canada's research cloud | Under the laboratory's control, and the only location where the withheld data exists |
+| Source code | GitHub, `McMaster-Battery-Research-Group` organisation | Collaborators may read and propose changes; only the owner merges |
 
-### 2.4 How to read the figures
+### 2.4 Visual conventions
 
-Every diagram from here on uses one set of colours and shapes, so a kind of thing looks the same on every page and still reads in black and white:
+Every diagram in this manual uses a single set of colours and shapes, so that a given kind of component looks the same on every page and remains distinguishable in monochrome:
 
 ```mermaid
 flowchart LR
-    W["Website"] ~~~ K[["Worker"]] ~~~ S{{"Sandbox"}} ~~~ D[("Data")] ~~~ E[/"Outside service"/] ~~~ P(["Person"]) ~~~ X>"Hidden data or risk"]
+    W["Website"] ~~~ K[["Worker"]] ~~~ S{{"Sandbox"}} ~~~ D[("Data")] ~~~ E[/"External service"/] ~~~ P(["Person"]) ~~~ X>"Withheld data or risk"]
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
     classDef sandbox fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428
@@ -149,82 +160,118 @@ Figure 2.4. The shapes and colours used in every diagram.
 ---
 
 <a id="part-3"></a>
-## 3. Using the site
+## 3. Using the platform
 
-> **In this chapter.** What a researcher actually does, page by page: create an account, test a package for free, submit it, read the results, and find it on the leaderboard.
+> **In this chapter.** The workflow of a researcher, page by page: registering an account, validating a package before submission, submitting, interpreting the results, and locating the model on the leaderboard.
 
-### 3.1 Creating an account
+### 3.1 Registration
 
-Registration asks for a name, an affiliation, an e-mail address and a password. A confirmation e-mail follows; opening its link shows a page with a **Confirm** button, and pressing that button is what verifies the account (Chapter 7 explains why it is a button rather than the link itself). After that, signing in gives a session that lasts fourteen days.
+Registration requires a name, an institutional affiliation, an e-mail address and a password. A confirmation e-mail follows. Opening its link displays a page with a **Confirm** button, and pressing that button is what verifies the account; Section 7.1 explains why the link alone is not sufficient. A verified user may then sign in, and the session remains valid for fourteen days.
 
-![Figure 3.1. The registration page. Name and affiliation are what the leaderboard shows next to a model.](figures/register.png)
+![Figure 3.1. The registration page. The name and affiliation entered here are displayed beside the user's models on the leaderboard.](figures/register.png)
 
-### 3.2 Testing a package before submitting
+### 3.2 Validating a package before submission
 
-Every account gets three submissions a day, so it pays to check a package before spending one. The top of the submit page has a **Test your package first** panel. Choose a zip and press **Run test**: the package is run through the real evaluator on one *public* drive cycle (the m80 cell, REORDERED1, 25 °C, two hours), its console output streams onto the page, and a short while later the error and complexity appear. Nothing about a test run is recorded anywhere public and it never touches the hidden data. It catches the mistakes that would otherwise waste a submission: a mis-named file, a missing parameter file, a function that returns the wrong shape.
+Each account is limited to three submissions per day, so it is worth validating a package before spending one. The top of the submission page contains a **Test your package first** panel. Selecting a zip and pressing **Run test** executes the package through the real evaluator on one *public* drive cycle (cell m80, profile REORDERED1, 25 °C, two hours). The model's console output streams onto the page, and the error on that cycle is reported when it completes. A test run is not recorded anywhere public and does not involve the withheld data. Its purpose is to catch the defects that would otherwise waste a submission:
 
-![Figure 3.2. The submit page. The test panel sits above the submission form; the checklist on the right says exactly what the zip must contain.](figures/submit.png)
+- a model file that is missing or incorrectly named,
+- a parameter file the model attempts to load but the package does not contain,
+- a model function that returns a value of the wrong shape or outside the interval 0 to 1.
 
-![Figure 3.3. A finished test run. The console shows what the model printed, and the error is computed on the public cycle.](figures/dryrun-result.png)
+![Figure 3.2. The submission page. The test panel is placed above the submission form; the checklist on the right specifies the package contents.](figures/submit.png)
 
-The zip itself is simple. Its files must sit at the top level with no sub-folders. Exactly one of them must be the model: `Model.py` for Python, or `Model.m` or `Model.p` for MATLAB. Any parameter files the model loads (`.mat`, `.npz`, and so on) go alongside it. Section 5.1 shows what the model function looks like.
+![Figure 3.3. A completed test run. The panel reports RMSE, mean absolute error and maximum error on the public cycle, the model's console output, and the estimate plotted against the measured state of charge.](figures/dryrun-result.png)
 
-### 3.3 Submitting
+The package format is deliberately minimal:
 
-Below the test panel the submission form asks for a model name, a description, the model type (Coulomb counter, Kalman filter, LSTM and so on), whether the model should be private, an optional contest to enter, and any co-authors. The form checks itself with the same rules the server uses, so a mistake is shown before the upload starts. Once submitted, the page shows the queue position, an estimated start time, whether a worker for the package's language is online, and then a live progress bar as the evaluation runs.
+- All files are placed at the top level of the archive, with no sub-directories.
+- Exactly one file is the model: `Model.py` for Python, or `Model.m` or `Model.p` for MATLAB.
+- Any parameter files the model loads (`.mat`, `.npz` and similar) are placed alongside it.
 
-### 3.4 Reading results
+Section 5.1 specifies the model function's interface.
 
-The results page is arranged to answer *why* before *what*. It opens with a plain-language reading of the scorecard: which test contributes most to the score, whether the model generalises from the open cells to the hidden one, how it copes with cold, whether it recovers from a wrong starting point and a biased sensor. Every one of those sentences can be checked against the scorecard immediately below it.
+### 3.3 Submission
 
-![Figure 3.4. The top of a results page. The summary is generated from the numbers beneath it.](figures/results-top.png)
+Below the test panel is the submission form. It collects:
 
-The scorecard lists the eighteen test-case rows with their RMSE, their weight, and the product of the two; the products add up to the weighted error at the bottom, so the score is never a mystery. Below that come the key traces: the drive cycles that separate estimators (cold and hot, the hidden cell, the robustness runs), each plotted against the true state of charge with zoom and pan. Everything else sits behind folds: all 144 cycles, the score history, and the downloads (the PDF report, the results as JSON, the full-resolution traces).
+- a model name and a short description,
+- the model type (Coulomb counter, extended or unscented Kalman filter, feed-forward, LSTM or GRU network, transformer, physics-based, hybrid, or other),
+- whether the model is to be private,
+- an optional contest to enter,
+- any co-authors.
 
-![Figure 3.5. The bottom of the scorecard and the first key trace. The weighted error is the sum of the weight × RMSE column.](figures/results-keycases.png)
+The form is validated in the browser with the same rules the server applies, so an error is reported before the upload begins. Once a package has been submitted, the page shows its position in the queue, an estimated start time and whether a worker capable of running the package's language is currently online. When evaluation begins, the page switches to a live progress indicator and the model's console output.
+
+### 3.4 Interpreting results
+
+The results page is organised to present interpretation before detail. It opens with a plain-language reading of the scorecard, generated from the numbers themselves:
+
+- which test case contributes most to the weighted score,
+- whether accuracy on the withheld cell matches accuracy on the open cells, which indicates generalisation rather than memorisation,
+- how accuracy varies with temperature,
+- whether the model recovers from an incorrect initial state of charge,
+- whether the model tolerates a biased current measurement.
+
+Each statement can be verified against the scorecard immediately below it.
+
+![Figure 3.4. The head of a results page. The interpretation is generated from the scorecard beneath it.](figures/results-top.png)
+
+The scorecard lists the eighteen test cases with the RMSE, the weight and the product of the two. The products sum to the weighted error shown at the foot of the table, so the derivation of the score is fully visible. Below the scorecard are the key traces: the cycles that most differentiate estimators (the temperature extremes, the withheld cell and the robustness runs), each plotted against the measured state of charge with interactive zoom. The remaining material is available in collapsed sections:
+
+- the per-cycle table covering all 144 cycles,
+- the score history, recording every revision of the result,
+- the downloads: the PDF report, the results as JSON, and the full-resolution traces.
+
+![Figure 3.5. The foot of the scorecard and the first key trace. The weighted error is the sum of the weight × RMSE column.](figures/results-keycases.png)
 
 ### 3.5 The leaderboard
 
-The leaderboard ranks every public, completed model by weighted error, lowest first. Ties break on the all-cells error, then on which was submitted earlier. The columns can be filtered by author, affiliation and model type, more columns can be revealed with the **Columns** picker, and the table can be downloaded as CSV. Clicking a model opens its results page; the **Compare** page overlays two to four models on the same charts.
+The leaderboard ranks every public, completed model by weighted error in ascending order. Ties are broken by the all-cells error and then by submission time. The table can be filtered by author, affiliation and model type; additional columns, including the per-temperature and robustness cases, can be revealed with the **Columns** control; and the table can be exported as CSV. Selecting a model opens its results page, and the **Compare** page overlays two to four models on the same charts.
 
 ![Figure 3.6. The leaderboard, with its explanatory panel expanded.](figures/leaderboard.png)
 
-A signed-in user's private models appear in their own view with a dashed "ghost" rank, the position they *would* have, without moving anyone else. Results from an older version of the scoring maths stay listed but unranked, and their authors are asked to resubmit; packages are deleted after evaluation on purpose, so nothing can be re-run automatically.
+A signed-in user's private models are shown to that user with a dashed provisional rank, indicating the position the model would occupy, without displacing any public entry. Results produced by an earlier version of the scoring code remain listed but unranked, and their authors are invited to resubmit. Because packages are deleted after evaluation, a re-evaluation cannot be performed automatically.
 
 ### 3.6 Co-authors and contests
 
-A co-author is invited by e-mail and accepts with a button; only then do they appear publicly and receive the results. A **contest** is a time-boxed event with its own leaderboard that freezes at the deadline. Entries must stay public, and their name and type freeze once the contest closes.
+A co-author is invited by e-mail and must accept by pressing a button on the invitation page; only then is the co-author listed publicly and included in result notifications. A **contest** is a time-bounded event with its own leaderboard, frozen at the closing date. Contest entries must remain public, and their name and model type are fixed once the contest closes.
 
-![Figure 3.7. A contest page: rules, timeline and its own leaderboard.](figures/contest.png)
+![Figure 3.7. A contest page: rules, timeline and the contest leaderboard.](figures/contest.png)
 
 **Files to open:** [submit-form.tsx](../../src/app/(app)/submit/submit-form.tsx) → [dry-run-panel.tsx](../../src/app/(app)/submit/dry-run-panel.tsx) → [submissions/[id]/page.tsx](../../src/app/(app)/submissions/[id]/page.tsx) → [leaderboard-table.tsx](../../src/components/leaderboard/leaderboard-table.tsx).
 
 ---
 
 <a id="part-4"></a>
-## 4. What happens to a submission
+## 4. The life of a submission
 
-> **In this chapter.** The path of one zip file from the browser to the leaderboard: how it is checked, queued, claimed by a worker, run in a sandbox, scored, deleted and reported, and what happens when something goes wrong.
+> **In this chapter.** The path of a package from the browser to the leaderboard: validation, queueing, atomic claiming by a worker, sandboxed execution, storage and reporting, and the handling of failure.
 
-### 4.1 The journey
+### 4.1 Overview
 
-![Figure 4.1. Six stages, three programs. The colours say which program does each stage.](figures/fig-journey.png)
+![Figure 4.1. Six stages across three programs. The colour of each stage identifies the program responsible for it.](figures/fig-journey.png)
 
-### 4.2 Stage by stage
+### 4.2 The stages in detail
 
-**1. Upload.** The browser sends the zip straight to the file bucket using a **signed link**, a one-off web address that permits a single upload and then expires. It does this because the website's host only accepts requests under 4.5 MB and packages can be 50 MB. The form that follows carries only the file's key, not the file.
+**1. Upload.** The browser uploads the archive directly to object storage using a **signed URL**, a single-use address that authorises one upload and then expires. This bypasses the web host's 4.5 MB request limit, since packages may be up to 50 MB. The form that follows carries only the storage key of the uploaded object.
 
-**2. Check.** One **server action** (a function that runs on the website's server when a form is submitted) does everything, cheapest check first: is the user signed in, under the daily cap of three, with a valid name and description? Then it fetches the zip back and inspects it: size and entry limits, no folders, no path tricks, exactly one model file at the top level. Any failure deletes the upload and shows the exact reason. Passing creates the `Submission` row and its `EvaluationJob` (the queue ticket) in one write, and records whether it is a Python or a MATLAB package.
+**2. Validation.** A single **server action** (a function executed on the web server in response to a form submission) performs every check, least expensive first:
 
-**3. Wait.** The submission page asks the server for an update every 2.5 seconds and shows the queue position, an estimated start time, and whether a worker for this language is online. All of it is derived from two tables: the job queue and the workers' **heartbeats**, a note each worker writes every fifteen seconds to say it is alive and what it is doing.
+- Is the user authenticated, and below the daily limit of three submissions?
+- Are the model name and description well formed?
+- Does the archive pass inspection? It is retrieved from storage and checked against the entry and size limits, for the absence of sub-directories and path-traversal sequences, and for exactly one model file at the top level.
 
-**4. Claim.** Workers check the queue every two seconds. Taking a job is a single conditional update, "lock this row only if it is still unlocked", so two workers can never take the same job:
+Any failure deletes the upload and reports the precise reason. Success creates the `Submission` row and its `EvaluationJob` (the queue entry) in a single write, recording whether the package is Python or MATLAB.
+
+**3. Queueing.** The submission page polls the server every 2.5 seconds and displays the queue position, an estimated start time and whether a worker for the package's language is online. All of this is derived from two tables: the job queue, and the workers' **heartbeats**, records each worker refreshes every fifteen seconds to report that it is alive and what it is doing.
+
+**4. Claiming.** Workers poll the queue every two seconds. A job is claimed with a single conditional update, "lock this row only if it is still unlocked", so that two workers can never claim the same job:
 
 ```mermaid
 flowchart TB
-    A[("Oldest unclaimed job for my language")] --> B[("UPDATE … WHERE lockedAt is still what I read")]
-    B -- "1 row changed" --> C("Mine — run it")
-    B -- "0 rows changed" --> D>"Another worker got it — look again"]
+    A[("Oldest unclaimed job for this worker's language")] --> B[("UPDATE … WHERE lockedAt is unchanged since it was read")]
+    B -- "1 row updated" --> C("Claimed — execute")
+    B -- "0 rows updated" --> D>"Claimed by another worker — poll again"]
     classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
     classDef good fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428
     classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
@@ -233,16 +280,22 @@ flowchart TB
     class D danger
 ```
 
-Figure 4.2. Claiming a job. One attempt, two possible outcomes.
+Figure 4.2. Claiming a job by compare-and-swap. One attempt has exactly two outcomes.
 
-Every progress line the model prints refreshes the lock, so a live job is never mistaken for a dead one. A job whose worker died becomes claimable again after thirty quiet minutes, with two attempts in total.
+Every progress line the model emits refreshes the lock, so an active job is never mistaken for an abandoned one. A job whose worker has died becomes claimable again after thirty minutes without progress, and each job is allowed two attempts in total.
 
-**5. Run.** The worker starts one Docker container (Docker is the tool that creates containers) with three folders made visible inside it and nothing else: the package (read-only), the hidden data (read-only), and an output folder. Everything the container prints streams into the job log, which is what the website shows as the live console. A timer (six hours by default) and the owner's **Cancel** button both kill the container and any MATLAB inside it.
+**5. Execution.** The worker starts one Docker container (Docker is the runtime that creates containers) with exactly three directories mounted:
+
+- the package, read-only,
+- the withheld data, read-only,
+- an output directory for the results.
+
+Everything the container writes to its console is streamed into the job log, which the website presents as the live console. A timeout (six hours by default) and the owner's **Cancel** control both terminate the container and any MATLAB process within it.
 
 ```mermaid
 flowchart TB
     P[["package.zip, read-only"]] --> C
-    H>"blind_data.mat, read-only"] --> C{{"Container<br/>no network · read-only files · no privileges"}}
+    H>"blind_data.mat, read-only"] --> C{{"Container<br/>no network · read-only filesystem · no privileges"}}
     C --> O[("results.json and traces.mat")]
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
     classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
@@ -254,155 +307,180 @@ flowchart TB
     class O data
 ```
 
-Figure 4.3. What goes into the sandbox and what comes out. Chapter 7 covers what the container is not allowed to do.
+Figure 4.3. The sandbox's inputs and outputs. Chapter 7 covers the restrictions placed on the container.
 
-**6. Store and report.** The worker checks that all eighteen metrics are finite numbers, re-derives the headline score with the active weights as a cross-check, then writes the result and marks the submission complete in one **transaction** (a group of database writes that either all happen or none do). It uploads the full-resolution traces, appends a line to the submission's score history, and **deletes the package**. Only then does it build the PDF and e-mail the owner and any confirmed co-authors.
+**6. Storage and reporting.** When the container exits, the worker proceeds through a fixed sequence:
 
-### 4.3 How long it takes
+1. Verify that all eighteen metrics are finite, and recompute the weighted score from the active weights as a cross-check.
+2. Write the result and mark the submission complete within one **transaction** (a group of database writes that either all succeed or all fail).
+3. Upload the full-resolution traces and append an entry to the submission's score history.
+4. **Delete the package** from storage.
+5. Generate the PDF report and e-mail it to the owner and any confirmed co-authors.
 
-![Figure 4.4. Where the time goes for a typical model. The validation step exists so that a broken package fails in seconds rather than after forty minutes.](figures/fig-timeline.png)
+### 4.3 Timing
 
-### 4.4 The other endings
+![Figure 4.4. The distribution of time across the stages for a typical model. The validation step exists so that a defective package fails within seconds rather than after forty minutes.](figures/fig-timeline.png)
+
+### 4.4 States and transitions
 
 ```mermaid
 stateDiagram-v2
     [*] --> Queued
     Queued --> Running : claimed
     Running --> Completed : scored
-    Running --> Failed : the model broke
-    Running --> Queued : our fault, retry once
+    Running --> Failed : model error
+    Running --> Queued : infrastructure error, one retry
     Queued --> Cancelled : owner cancels
     Running --> Cancelled : owner cancels
     Failed --> Queued : owner re-runs
     Completed --> Queued : owner submits a new version
 ```
 
-Figure 4.5. Every state a submission can be in, and what moves it between them.
+Figure 4.5. Every state a submission can occupy, and the events that move it between them.
 
-A failure caused by the package (it crashed, returned an invalid number, ran out of time) is final, and the message is stored word for word so the author can see it. A failure caused by us (Docker down, a bug in the worker) is retried once. Stopping the worker hands its job back to the queue without using up an attempt.
+A failure attributable to the package (an exception, an invalid return value, or a timeout) is final, and the error message is stored verbatim for the author. A failure attributable to the infrastructure (the container runtime unavailable, or a defect in the worker) is retried once. Stopping a worker returns its current job to the queue without consuming an attempt.
 
 **Files to open:** [submit/actions.ts](../../src/app/(app)/submit/actions.ts) → [package-check.ts](../../src/lib/package-check.ts) → [run-job.ts](../../src/evaluator/run-job.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts).
 
 ---
 
 <a id="part-5"></a>
-## 5. How the score is computed
+## 5. Scoring methodology
 
-> **In this chapter.** Inside the sandbox: what the model is asked to do, exactly what data it is run on, how 144 errors become 18 test cases and one score, and the two extra numbers that come out alongside it.
+> **In this chapter.** The model interface, the composition of the evaluation set, the aggregation of per-cycle errors into eighteen test cases and one weighted score, and the two auxiliary quantities reported alongside it.
 
-This is the roughly 800 lines of Python that *are* the benchmark. They reproduce the lab's original MATLAB tool to three decimal places on the reference models.
+The evaluator is approximately 800 lines of Python. It reimplements the laboratory's original MATLAB blind-modelling tool and reproduces its results to three decimal places on the reference models.
 
-### 5.1 What the model is asked to do
+### 5.1 The model interface
 
-A model is one function, called once per second of data, exactly the way a car's battery computer would call it. It receives the current, voltage and temperature for that second and whatever memory it handed back last time, and it returns its estimate and the memory for the next call. It cannot look ahead. The simplest possible model, a Coulomb counter that just adds up the current, is four lines:
+A model is a single function invoked once per sample, in the same manner as an estimator running on a vehicle's battery controller. At each call it receives the current, voltage and temperature for that sample together with whatever state it returned from the previous call, and it returns its estimate and the state to carry forward. It has no access to future samples. The simplest admissible model, a Coulomb counter that integrates current over the rated capacity, is four lines:
 
 ```python
 def Model(X, z=None):          # X = [current, voltage, temperature]
     current = float(X[0])
     soc = 1.0 if z is None else float(z) + current / 3600 / 4.6
-    return soc, soc            # (estimate 0..1, memory for the next call)
+    return soc, soc            # (estimate in 0..1, state for the next call)
 ```
 
-Python models are imported and looped in-process. MATLAB models run through one `matlab -batch` session executing a forty-line script that does nothing but loop. Both produce identical scores, verified on the four reference models.
+Python models are imported and iterated in-process. MATLAB models are executed through a single `matlab -batch` session running a forty-line driver script whose only function is the same iteration. Both paths produce identical scores, verified against the four reference models.
 
-### 5.2 What it is run on
+### 5.2 The evaluation set
 
-![Figure 5.1. The test grid. Four cells, six temperatures and six drive cycles make 144 test cycles; the m448 row is the hidden cell.](figures/fig-testgrid.png)
+![Figure 5.1. The evaluation grid. Four cells, six temperatures and six drive cycles give 144 test cycles; the m448 row is the withheld cell.](figures/fig-testgrid.png)
 
-Before each cycle, one hour of its first sample is repeated as **padding**, so that filters and recurrent neural networks (models that carry memory from one sample to the next) have settled before the scored part begins; the padding is excluded from the metrics. A short **validation run** on one cycle goes first, so a broken model fails in seconds instead of after forty-five minutes.
+Before each cycle, one hour of its first sample is prepended as **padding**, so that filters and recurrent networks (models that carry state from one sample to the next) reach steady state before the scored portion begins; the padding is excluded from all metrics. A short **validation run** on one cycle precedes the full evaluation, so that a defective model fails within seconds rather than after forty-five minutes. In total an evaluation comprises 195 runs: the 144 drive cycles, the charging profiles, and 27 robustness runs.
 
-### 5.3 From errors to one number
+### 5.3 From per-cycle errors to one score
 
-![Figure 5.2. The scoring pipeline. Each drive cycle gives one RMSE; the RMSEs are grouped into eighteen test cases; the test cases are weighted and added.](figures/fig-pipeline.png)
+![Figure 5.2. The scoring pipeline. Each drive cycle yields one RMSE; the RMSEs are grouped into eighteen test cases; the test cases are weighted and summed.](figures/fig-pipeline.png)
 
-The weights are published and fixed, and they sum to one. Seven categories carry a tenth each: the hidden cell, the open cells, charging, standard cycles, non-standard cycles, the wrong-initial-SOC sweep and the sensor-offset sweep. The four payloads together carry a fifth, and the six temperatures together carry a tenth. "All cells" is shown on every scorecard but weighs nothing, because every other test is a subset of it and it would count everything twice.
+The weights are published and fixed, and they sum to one:
 
-![Figure 5.3. The eighteen test cases and their weights. Robustness and generalisation count as much as raw accuracy.](figures/fig-weights.png)
+- Seven categories carry a weight of 0.1 each: the withheld cell, the open cells, charging, standard cycles, non-standard cycles, the initial-SOC perturbation and the current-offset perturbation.
+- The four payload conditions together carry 0.2.
+- The six temperatures together carry 0.1.
+- The all-cells case is reported on every scorecard but carries a weight of zero, since every other case is a subset of it and a non-zero weight would count each cycle twice.
 
-### 5.4 Two more numbers
+![Figure 5.3. The eighteen test cases and their weights. Robustness and generalisation are weighted as heavily as raw accuracy.](figures/fig-weights.png)
 
-**Complexity** is a bin from 1 to 10 that answers "would this fit on a real battery controller?" It is the model's time per sample relative to a plain Coulomb counter measured on the same machine in the same language. It is shown on the leaderboard but never affects rank.
+### 5.4 Auxiliary quantities
 
-A **suspicious** flag is raised when the mean error exceeds 25 %. The original tool hid such results; this one logs them for an administrator to look at.
+**Complexity** is reported on a scale from 1 to 10 and addresses the question of whether a model could run on an embedded battery controller. It is the model's execution time per sample relative to a Coulomb counter measured on the same machine in the same language. It is displayed on the leaderboard but has no effect on ranking.
 
-### 5.5 What goes back to the website
+A **suspicious** flag is raised when the mean error exceeds 25 %. The original tool suppressed such results; this implementation records them for review by an administrator.
 
-The eighteen metrics and the score; one row per cycle with its RMSE, mean absolute error and maximum error; down-sampled traces of thirteen illustrative cycles, the robustness runs and the model's own worst cycle (down-sampled so that every spike survives, so the chart always agrees with the max-error number); and a 6 MB `.mat` file of every run at full resolution for anyone who wants the raw curves.
+### 5.5 Outputs
+
+Four artefacts leave the sandbox and are written to the database and object storage:
+
+- the eighteen metrics and the weighted score,
+- one record per cycle with its RMSE, mean absolute error and maximum error,
+- down-sampled traces of thirteen representative cycles, the robustness runs and the model's worst cycle, down-sampled by a method that preserves every extremum so that the plotted trace always agrees with the reported maximum error,
+- a 6 MB `.mat` file containing every run at full resolution.
 
 **Files to open:** [pipeline.py](../../evaluator/python/socbench_eval/pipeline.py) (`score`, `complexity`) → [runner.py](../../evaluator/python/socbench_eval/runner.py) → [Run_Model.m](../../matlab/Run_Model.m) → [test-cases.ts](../../src/lib/test-cases.ts).
 
 ---
 
 <a id="part-6"></a>
-## 6. The database
+## 6. The data model
 
-> **In this chapter.** The tables that everything else reads and writes, the two habits that keep them tidy, and the one file that describes all of it.
+> **In this chapter.** The tables on which every other component operates, the two conventions that keep them consistent, and the single schema file that defines them.
 
-Everything in Chapters 4 and 5 was reading or writing rows in this database. A person has submissions. Each submission has one queue ticket, one current result, and a history of everything that has ever happened to it. Separate tables hold contests, the workers' heartbeats, settings and the administrators' activity feed. One file, the Prisma schema, describes all of it, and the website and the worker both read that file.
+Every operation described in Chapters 4 and 5 reads or writes rows in this database. A user owns submissions. Each submission has exactly one queue entry, at most one current result, and an append-only history of every change made to it. Further tables hold contests, worker heartbeats, evaluation settings and the administrative activity log. One file, the Prisma schema, defines all of them, and both the website and the worker are generated from it.
 
 ```mermaid
 erDiagram
     USER ||--o{ SUBMISSION : owns
-    SUBMISSION ||--|| JOB : "queue ticket"
+    SUBMISSION ||--|| JOB : "queue entry"
     SUBMISSION ||--o| RESULT : "current scores"
     SUBMISSION ||--o{ HISTORY : "every change"
     SUBMISSION }o--o{ USER : "co-authors"
     CONTEST ||--o{ SUBMISSION : contains
 ```
 
-Figure 6.1. The core tables. Read each line as "has": a user has many submissions; a submission has exactly one job and at most one result.
+Figure 6.1. The core tables. Each line reads as "has": a user has many submissions; a submission has exactly one job and at most one result.
 
-Two habits recur everywhere. **Cascade deletes:** delete a user and their submissions, jobs, results and history go with them, so nothing is ever orphaned. **Append-only history:** score revisions, weight changes and admin events are never edited, only added to, so the past can always be reconstructed.
+Two conventions apply throughout. **Cascading deletion:** deleting a user removes that user's submissions, jobs, results and history, so no orphaned rows can exist. **Append-only history:** score revisions, weight changes and administrative events are never modified after they are written, so any past state can be reconstructed.
 
-The stand-alone tables are `WorkerHeartbeat` (one row per worker, refreshed every fifteen seconds with its load, languages and last console lines), `EvalSettings` (one row of timeouts and the daily cap, editable by administrators), `ScoringConfig` (weight overrides, newest wins), `AdminEvent` (the activity feed), `RateLimitHit` (abuse counters) and `ContactMessage` (the feedback inbox). Column-level detail is in the appendix.
+Several tables stand outside the diagram:
 
-**Files to open:** [prisma/schema.prisma](../../prisma/schema.prisma). Read it top to bottom once; it is the best map of the system.
+- `WorkerHeartbeat`: one row per worker, refreshed every fifteen seconds with its load, supported languages and most recent console lines.
+- `EvalSettings`: a single row of timeouts and the daily submission limit, editable by administrators.
+- `ScoringConfig`: weight overrides; the most recent row is authoritative.
+- `AdminEvent`: the administrative activity log.
+- `RateLimitHit`: counters supporting the rate limits of Chapter 7.
+- `ContactMessage`: messages received through the contact form.
+
+Column-level detail is given in the appendix.
+
+**Files to open:** [prisma/schema.prisma](../../prisma/schema.prisma). A single top-to-bottom reading is the most efficient introduction to the system.
 
 ---
 
 <a id="part-7"></a>
 ## 7. Accounts and security
 
-> **In this chapter.** How people get in, why the confirmation e-mail has a button, and the layers that keep a hostile submission from doing any harm.
+> **In this chapter.** Authentication and session handling, the reason e-mail verification requires an explicit action, and the layered controls that contain a hostile submission.
 
-### 7.1 Why the confirmation e-mail has a button
+### 7.1 Why verification requires a button
 
-Corporate mail scanners open every link in an e-mail before the person does, and they used to consume the one-time verification token. So opening the link now only shows a page, and pressing the button on it is what verifies the account. In Figure 7.1 the scanner's visit is the third arrow; notice that nothing changes until the person acts.
+Corporate mail-security gateways follow every link in an incoming message before the recipient opens it. When the verification link itself performed the verification, these gateways consumed the single-use token and the recipient found it already invalid. The link therefore now leads to a page, and the account is verified only when the person presses the button on that page. In Figure 7.1 the gateway's visit is the third message; the account's state does not change until the person acts.
 
 ```mermaid
 sequenceDiagram
     actor P as Person
     participant W as Website
-    participant M as Mail scanner
+    participant M as Mail gateway
     P->>W: register
     W-->>P: e-mail with a link
-    M->>W: opens the link first
-    W-->>M: just a page, nothing changes
+    M->>W: follows the link first
+    W-->>M: a page, no state change
     P->>W: presses Confirm
-    W-->>P: verified, go to login
+    W-->>P: verified, proceed to sign-in
 ```
 
-Figure 7.1. Verification survives a mail scanner because the link alone does nothing.
+Figure 7.1. Verification is robust to mail gateways because following the link has no side effect.
 
-### 7.2 Signing in
+### 7.2 Authentication and sessions
 
-An account gets ten sign-in attempts per fifteen minutes (forty per network address), after which it waits. The password is checked against its **bcrypt** hash, a deliberately slow one-way scramble: one login is instant, but guessing a million passwords is ruinously slow. A verified user receives a **signed cookie**, a small token the browser keeps and sends with every request, signed so it cannot be forged and good for fourteen days; the site never looks the session up in the database. Pages under `/submit`, `/profile` and `/admin` turn signed-out visitors away before the page is even built, but that is a convenience: the real check runs again inside every action.
+An account may attempt sign-in ten times per fifteen minutes, and a network address forty times, after which further attempts are refused for the remainder of the window. Passwords are stored as **bcrypt** hashes, a deliberately slow one-way function: a single verification is imperceptible, but an exhaustive guessing attack is impractical. A successful sign-in issues a signed **session token** held in a browser cookie and valid for fourteen days; requests are authenticated by verifying the signature, without a database lookup. Routes under `/submit`, `/profile` and `/admin` redirect unauthenticated visitors before rendering, but this is a convenience only. The authoritative check is repeated inside every server action.
 
-### 7.3 What stops a bad submission
+### 7.3 Containing a hostile submission
 
-| Worry | What stops it |
+| Threat | Control |
 |---|---|
-| The model steals the hidden data | It can read it (it must) but has no network and is destroyed afterwards |
-| The model attacks the machine | Read-only filesystem, no privileges, memory and CPU caps, runs as an unprivileged user |
-| The model reads our secrets | The container never receives the worker's environment; MATLAB gets only a 24-hour licence token |
-| A zip bomb (a tiny file that expands to fill the disk) or a path trick (a file name that tries to write outside its folder) | Entry, size and ratio limits, no folders, no `..`, checked on the website *and* again in the evaluator |
-| A model runs forever | Hard timeout inside and outside the container |
-| Someone floods the queue | Three submissions per day, five test runs per hour |
-| Password guessing | bcrypt plus the attempt limits above |
-| Someone finds out who has an account | "Forgot password" and "resend" answer identically whether or not the address exists |
-| One compromised administrator deletes the others | Administrators cannot be deleted until demoted, and nobody can change their own role |
+| The model exfiltrates the withheld data | The container has read access (it must) but no network interface, and is destroyed after the run |
+| The model attacks the host | Read-only filesystem, no capabilities, CPU and memory limits, execution as an unprivileged user |
+| The model reads the worker's secrets | The container does not inherit the worker's environment; MATLAB receives only a 24-hour licence token |
+| A decompression bomb or a path-traversal entry | Limits on entry count, unpacked size and compression ratio; no sub-directories; no `..` components; checked in the web tier and again in the evaluator |
+| The model never terminates | A timeout enforced both inside and outside the container |
+| Queue flooding | Three submissions per day and five test runs per hour per account |
+| Password guessing | bcrypt hashing and the attempt limits above |
+| Account enumeration | Password-reset and resend-verification requests respond identically whether or not the address exists |
+| A compromised administrator removes the others | Administrators cannot be deleted until demoted, and no user can change their own role |
 
-Secrets live in exactly three places (Vercel's environment, a file on the VM that only the worker's account can read, and a GitHub secret) and never in the repository, an image, a log or an e-mail.
+Secrets are held in exactly three locations: Vercel's environment configuration, a file on the virtual machine readable only by the worker's service account, and a GitHub repository secret. They appear in no repository file, container image, log or e-mail.
 
 **Files to open:** [auth.ts](../../src/lib/auth.ts) → [middleware.ts](../../src/middleware.ts) → [(auth)/actions.ts](../../src/app/(auth)/actions.ts) → [rate-limit.ts](../../src/lib/rate-limit.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts).
 
@@ -411,31 +489,42 @@ Secrets live in exactly three places (Vercel's environment, a file on the VM tha
 <a id="part-8"></a>
 ## 8. Administration and monitoring
 
-> **In this chapter.** The administrators' pages, how the scoring weights are changed without re-running anything, how notifications work, and the robot that notices when the worker goes quiet.
+> **In this chapter.** The administrative interface, the procedure for revising scoring weights without re-evaluating any model, the notification model, and the automated check that detects an unreachable worker.
 
-### 8.1 The admin pages
+### 8.1 The administrative pages
 
-![Figure 8.1. The administration overview: counts, recent submissions, the activity feed, and the worker's status.](figures/admin-overview.png)
+![Figure 8.1. The administrative overview: summary counts, recent submissions, the activity log, and the worker's status.](figures/admin-overview.png)
 
-The left-hand menu is the whole of it. **Overview** shows counts and the activity feed. **Submissions** moderates, retries and bulk-deletes. **Users** verifies, changes roles and deletes. **Contests** creates and closes them. **Messages** is the feedback inbox. **Evaluation workers** shows every machine, the queue and the evaluation limits. **Scoring weights** is Section 8.2. **My notifications** is where each administrator chooses which e-mails they want. Every action begins by re-checking that the caller is an administrator, and each has a safety rail; the list is in the appendix.
+The left-hand navigation enumerates the interface:
 
-![Figure 8.2. The workers page. Each machine reports its languages, load, code version, MATLAB toolboxes and whether the hidden data is present.](figures/admin-workers.png)
+- **Overview**: summary counts, recent submissions and the activity log.
+- **Submissions**: moderation, retry and bulk deletion.
+- **Users**: verification, role assignment and deletion.
+- **Contests**: creation and closure.
+- **Messages**: the contact-form inbox.
+- **Evaluation workers**: every registered machine, the queue, and the evaluation limits.
+- **Scoring weights**: the subject of Section 8.2.
+- **My notifications**: each administrator's own e-mail preferences.
 
-### 8.2 Changing the weights
+Every administrative action re-verifies the caller's role before proceeding, and each is subject to a safeguard. The safeguards are tabulated in the appendix.
 
-An administrator edits the eighteen weights (they must sum to one), previews how many stored scores would move, and saves with a reason. Every result is then re-scored from its stored metrics; no model is re-run, because the metrics were saved and the packages were deleted. Authors can be e-mailed the old and new score with a fresh PDF, and the previous weights stay in the history.
+![Figure 8.2. The workers page. Each machine reports its supported languages, load, code revision, MATLAB toolboxes, and whether the withheld data is present.](figures/admin-workers.png)
+
+### 8.2 Revising the weights
+
+An administrator edits the eighteen weights, which must sum to one, previews how many stored scores would change, and saves with a written justification. Every stored result is then re-scored from its persisted per-test metrics; no model is re-executed, since the metrics were retained and the packages were deleted. Authors may optionally be notified of the previous and revised scores with a regenerated PDF. The superseded weights remain in the history.
 
 ![Figure 8.3. The scoring-weights page. Each row is one of the eighteen test cases with its default and current weight.](figures/admin-scoring.png)
 
 ### 8.3 Notifications
 
-Every notable event takes two routes, one always and one optional:
+Every administrative event follows two paths, one unconditional and one configurable:
 
 ```mermaid
 flowchart TB
-    E["Something happens<br/>registration · deletion · role change · outage"] --> F[("Activity feed — always recorded")]
-    E --> T["Each admin's own toggles"]
-    T --> M[/"One e-mail per admin, never CC"/]
+    E["Event<br/>registration · deletion · role change · outage"] --> F[("Activity log — always recorded")]
+    E --> T["Each administrator's preferences"]
+    T --> M[/"One e-mail per administrator, never CC"/]
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
     classDef ext fill:#F0F0F0,stroke:#495965,color:#1d2428
@@ -444,26 +533,26 @@ flowchart TB
     class M ext
 ```
 
-Figure 8.4. The feed is the record; e-mail is a copy of it that each administrator can switch on or off by kind.
+Figure 8.4. The activity log is the record; e-mail is a copy that each administrator enables per category.
 
-One rule that is easy to get wrong: the website's host freezes a request the instant it has answered, so an e-mail sent "in the background" without being waited for is silently dropped. Every such send is wrapped in `after()`, which keeps the request alive until it finishes. This was learned the hard way.
+One property of the hosting platform deserves emphasis. A serverless request is frozen the instant a response is returned, so any e-mail dispatched asynchronously without being awaited is silently lost. Every such dispatch is therefore wrapped in `after()`, which keeps the request alive until the send completes. This behaviour was discovered in production.
 
 ### 8.4 The outage monitor
 
-This was born from a real outage: the worker was healthy but could not reach the database for ten hours, and nobody knew. The website is the one place that can always see both the database and e-mail, so it does the watching. A GitHub Action pings a health-check address every ten minutes; the check asks two questions, and e-mails once when the answer changes.
+The monitor was introduced after an incident in which the worker remained healthy but was unable to reach the database for ten hours, with no indication to anyone. The web tier is the one component that can always observe both the database and the mail service, so it performs the check. A GitHub Actions workflow calls a health endpoint every ten minutes; the endpoint evaluates two conditions and sends an e-mail only when the answer changes.
 
 ```mermaid
 sequenceDiagram
-    participant G as GitHub, every 10 min
-    participant W as Health check
-    actor A as Admins
-    G->>W: ping
-    W->>W: heartbeat in the last 3 min?<br/>queued work with no worker?
-    W-->>A: e-mail once when it breaks
-    W-->>A: e-mail once when it recovers
+    participant G as GitHub Actions, every 10 min
+    participant W as Health endpoint
+    actor A as Administrators
+    G->>W: request
+    W->>W: heartbeat within the last 3 min?<br/>queued work with no eligible worker?
+    W-->>A: one e-mail when the condition begins
+    W-->>A: one e-mail when it clears
 ```
 
-Figure 8.5. One alert per outage, one all-clear. The state lives in the activity feed, so it is visible on the site too.
+Figure 8.5. One alert per outage and one all-clear. The state is recorded in the activity log, so it is also visible on the site.
 
 **Files to open:** [admin/actions.ts](../../src/app/(admin)/admin/actions.ts) → [admin-notify.ts](../../src/lib/admin-notify.ts) → [worker-health/route.ts](../../src/app/api/ops/worker-health/route.ts).
 
@@ -472,19 +561,19 @@ Figure 8.5. One alert per outage, one all-clear. The state lives in the activity
 <a id="part-9"></a>
 ## 9. Infrastructure
 
-> **In this chapter.** Where the software physically runs, how it deploys and updates itself, how MATLAB is licensed inside a container, and how to run everything on a laptop.
+> **In this chapter.** Where the software is deployed, how the website and the worker update themselves, how MATLAB is licensed inside a container, and how the system is run on a development machine.
 
-### 9.1 The services
+### 9.1 The deployed services
 
-The website deploys itself whenever code is pushed. The worker is a rented Linux computer in the Alliance research cloud that updates itself every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the lab's MathWorks account.
+The website deploys automatically on every push to the repository. The worker is a Linux virtual machine in the Alliance research cloud that pulls the repository every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the laboratory's MathWorks account.
 
 ```mermaid
 flowchart TB
     G[/"GitHub"/] -- "push → deploy" --> V["Vercel — the website"]
-    G -- "pull every 10 min" --> M[["Arbutus VM — worker and hidden data"]]
-    V <--> S[("Supabase — database and files")]
+    G -- "pull every 10 min" --> M[["Arbutus VM — worker and withheld data"]]
+    V <--> S[("Supabase — database and object storage")]
     M <--> S
-    M --> L[/"MathWorks — licence"/]
+    M --> L[/"MathWorks — licensing"/]
     classDef ext fill:#F0F0F0,stroke:#495965,color:#1d2428
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
@@ -495,17 +584,30 @@ flowchart TB
     class S data
 ```
 
-Figure 9.1. The same three programs as Chapter 2, with the services around them.
+Figure 9.1. The three programs of Chapter 2 in their hosting context.
 
 ### 9.2 The virtual machine
 
-One script sets the machine up: Docker; Node.js, which runs the website's language outside a browser; a service account with no login that exists only to run the worker; the code checked out with a key that can download but never change it; a hardened background service; and a firewall that allows nothing but SSH. Secrets and the hidden data are placed by hand afterwards, owned by the service account and readable by nobody else.
+A single provisioning script prepares the machine. It installs and configures:
 
-**Self-update** runs every ten minutes: fetch the code; if anything changed, rebuild only what it touched (packages, the database client, the sandbox images); then restart the worker, but only if no evaluation is running, otherwise wait for the next tick.
+- Docker, which provides the sandboxes;
+- Node.js, the runtime for the worker;
+- a service account with no interactive login, whose sole purpose is to run the worker;
+- a checkout of the repository using a deploy key with read-only access;
+- a hardened systemd service that keeps the worker running;
+- a firewall that admits SSH and nothing else.
 
-### 9.3 MATLAB inside a container
+Secrets and the withheld data are placed manually after provisioning. They are owned by the service account and readable by no other user.
 
-MATLAB runs inside MathWorks' own container image (the template a container is started from) and is licensed through the lab's account rather than a licence server. A one-time browser sign-in produced a year-long identity token that lives on the VM. For each evaluation the worker exchanges it for a 24-hour token, and only that short-lived token enters the container.
+**Self-update** runs every ten minutes:
+
+1. Fetch the repository.
+2. If anything changed, rebuild only the affected components: dependencies, the database client, or the sandbox images.
+3. Restart the worker, but only if no evaluation is in progress; otherwise defer to the next interval.
+
+### 9.3 MATLAB in a container
+
+MATLAB runs inside MathWorks' own container image and is licensed through the laboratory's MathWorks account rather than a licence server. A one-time interactive sign-in produced an identity token valid for one year, which is stored on the virtual machine. Before each evaluation the worker exchanges it for a 24-hour access token, and only that short-lived token is passed into the container.
 
 ```mermaid
 flowchart TB
@@ -520,47 +622,53 @@ flowchart TB
     class C sandbox
 ```
 
-Figure 9.2. The licence chain. The long-lived secret never enters the sandbox.
+Figure 9.2. The licensing chain. The long-lived credential never enters the sandbox.
 
-### 9.4 Before code reaches production
+### 9.4 Continuous integration
 
-A push that touches the website runs a browser test pass over the main pages (using Playwright) and is refused if any page errors. The site then deploys itself, and the VM picks the change up within ten minutes.
+A push that modifies the web tier triggers a browser test pass over the principal pages using Playwright, and the push is refused if any page fails to render. On success the site deploys automatically, and the virtual machine adopts the change within ten minutes.
 
-### 9.5 Running it on a laptop
+### 9.5 Running the system locally
 
-It is the same code with different settings: a local PostgreSQL database in Docker, files on disk, e-mail to a test inbox. There is no fake scorer; a developer's worker runs the real evaluator, which needs the hidden data and the sandbox image. The **seed**, the script that fills an empty database with starter rows, creates an administrator account and one test user and nothing else. The README has the five commands.
+The same code runs on a development machine with different configuration:
+
+- a local PostgreSQL instance in Docker,
+- uploaded files stored on the local disk,
+- e-mail delivered to a test inbox rather than to real addresses.
+
+There is no simulated evaluator. A developer's worker runs the real evaluation pipeline, which requires the withheld data and the sandbox image. The **seed** script, which populates an empty database, creates one administrator account and one test user and nothing else. The repository README lists the five commands required.
 
 **Files to open:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [.env.example](../../.env.example).
 
 ---
 
 <a id="part-10"></a>
-## 10. Changing things
+## 10. Maintenance reference
 
-The most common changes, and where each one is made. Anything not listed here can be found from the *Files to open* lines in the earlier chapters.
+The most common maintenance tasks and where each is performed. Anything not listed can be located from the *Files to open* entries of the preceding chapters.
 
-| You want to… | Do this |
+| Task | Procedure |
 |---|---|
-| Change a timeout or the daily cap | Admin → Evaluation workers. No deploy; takes effect within 15 s |
-| Change the scoring weights | Admin → Scoring weights: edit, preview, save with a reason, optionally notify authors |
-| Change the scoring *maths* | Edit `pipeline.py`; re-run the reference models and confirm only the intended scores moved; bump the benchmark version in `socbench_eval/__init__.py` and `benchmark-version.ts`; old results become "legacy" and authors are e-mailed to resubmit |
-| Add a metric | A column in `schema.prisma`, an entry in `test-cases.ts`, compute it in `score()`; the scorecard, PDF and CSV pick it up; check the weights still sum to 1 |
-| Add a worker machine | Hidden data, `worker.env`, `npm run worker`; it registers itself and starts taking jobs |
+| Change a timeout or the daily submission limit | Admin → Evaluation workers. No deployment; effective within 15 s |
+| Revise the scoring weights | Admin → Scoring weights: edit, preview, save with a justification, optionally notify authors |
+| Change the scoring *computation* | Edit `pipeline.py`; re-run the reference models and confirm that only the intended scores changed; increment the benchmark version in `socbench_eval/__init__.py` and `benchmark-version.ts`; existing results become "legacy" and their authors are invited to resubmit |
+| Add a metric | Add a column in `schema.prisma`, an entry in `test-cases.ts`, and its computation in `score()`; the scorecard, PDF and CSV pick it up; confirm the weights still sum to 1 |
+| Add a worker machine | Provide the withheld data and `worker.env`, then `npm run worker`; the machine registers itself and begins claiming jobs |
 | Rotate a secret | Rotate at the source, update Vercel and `/etc/socbench/worker.env`, restart the worker |
-| Renew the MATLAB licence (yearly) | The Workers page shows the expiry; repeat the browser sign-in and `matlab-mhlm-setup.sh` |
-| Make someone an administrator | Admin → Users → Make admin, or add the address to `ADMIN_EMAILS`; effective on their next request |
+| Renew the MATLAB licence (annually) | The Workers page shows the expiry; repeat the interactive sign-in and `matlab-mhlm-setup.sh` |
+| Grant administrator rights | Admin → Users → Make admin, or add the address to `ADMIN_EMAILS`; effective on the user's next request |
 
 ---
 
 <a id="part-11"></a>
 ## 11. A ten-minute demonstration
 
-1. **Leaderboard.** Rank, weighted error, complexity. Point out that the numbers are errors and lower is better.
-2. **One result.** The plain-language summary, the scorecard summing to the score, the worst-case trace, the PDF download.
-3. **Submit.** Run a test on the reference package live (seconds), then submit it; watch the queue position and the progress bar.
-4. **Admin → Evaluation workers.** The machine that just took it: languages, load, console, licence expiry.
-5. **Code, in this order.** `schema.prisma` → `claimJob` in `run-job.ts` → the `docker run` line in `python-evaluator.ts` → `score()` in `pipeline.py` → `Run_Model.m`.
-6. **Close on the rule.** The website never runs anyone's code and never sees the hidden data.
+1. **Leaderboard.** Rank, weighted error and complexity. Note that every figure is an error and that lower is better.
+2. **One result.** The generated interpretation, the scorecard summing to the score, the worst-case trace, and the PDF report.
+3. **Submission.** Run a test on the reference package (seconds), then submit it; observe the queue position and the progress indicator.
+4. **Admin → Evaluation workers.** The machine that claimed the job: languages, load, console and licence expiry.
+5. **Source, in this order.** `schema.prisma` → `claimJob` in `run-job.ts` → the `docker run` invocation in `python-evaluator.ts` → `score()` in `pipeline.py` → `Run_Model.m`.
+6. **Conclude with the rule.** The web tier never executes submitted code and never has access to the withheld data.
 
 ---
 
@@ -571,47 +679,47 @@ The most common changes, and where each one is made. Anything not listed here ca
 
 | Term | Meaning |
 |---|---|
-| **SOC, state of charge** | How full a battery is, 0–100 %. It cannot be measured, only estimated from current, voltage and temperature. |
-| **BMS** | The battery management system: the electronics in a vehicle that run the estimator, one measurement at a time. |
-| **Cell** | One physical battery. Four Tesla 2170 cells here, named after the vehicle mass they were driven with: `m80`, `m448`, `m448N`, `m1000`. `m448` is fully hidden. |
-| **Drive cycle** | A standard speed profile converted to the current a cell sees. UDDS (urban), HWFET (highway), LA92 and US06 (aggressive), HWCUST and HWGRADE (custom, never published). |
-| **Open / hidden data** | Open is published for building models; hidden is secret and used only to score. `blind_data.mat` is the answer key. |
-| **Coulomb counting** | Integrating current over time: the simplest estimator, and the reference for the complexity scale. |
-| **EKF / UKF** | Kalman filters: classical estimators that fuse a physics model with measurements. |
-| **FNN / LSTM / GRU / Transformer** | Neural-network estimators. |
-| **RMSE / MAE / max error** | Root-mean-square, mean-absolute and worst single-sample error, in % SOC. |
-| **Test case** | One of the 18 scoring rows; each has a weight. |
-| **Weighted error** | The leaderboard score: the sum of weight × test-case RMSE. |
-| **Robustness sweep** | Starting the model at the wrong SOC, or feeding it current with a constant offset. |
-| **Padding** | An hour of the first sample repeated before each cycle so models with memory settle. |
-| **Complexity** | A 1–10 bin of compute per sample relative to a Coulomb counter. Informational only. |
-| **Test run (dry run)** | A free run on open data from the submit page; no leaderboard entry. |
-| **Package** | The uploaded zip: `Model.py` or `Model.m`/`Model.p` plus parameter files. |
+| **SOC, state of charge** | The fraction of usable capacity remaining, 0–100 %. It cannot be measured directly and is estimated from current, voltage and temperature. |
+| **BMS** | Battery management system: the vehicle electronics that execute the estimator, one sample at a time. |
+| **Cell** | One physical battery. Four Tesla 2170 cells are used, named for the simulated vehicle payload with which they were cycled: `m80`, `m448`, `m448N`, `m1000`. `m448` is withheld in its entirety. |
+| **Drive cycle** | A standard speed profile converted to the current a cell delivers. UDDS (urban), HWFET (highway), LA92 and US06 (aggressive), HWCUST and HWGRADE (laboratory-designed, unpublished). |
+| **Open / withheld data** | Open data is published for model development; withheld (blinded) data is reserved for scoring. `blind_data.mat` is the reference. |
+| **Coulomb counting** | Integration of current over time: the simplest estimator, and the reference for the complexity scale. |
+| **EKF / UKF** | Extended and unscented Kalman filters: model-based estimators that fuse a cell model with measurements. |
+| **FNN / LSTM / GRU / Transformer** | Neural-network estimator architectures. |
+| **RMSE / MAE / maximum error** | Root-mean-square, mean-absolute and worst single-sample error, in percentage points of SOC. |
+| **Test case** | One of the eighteen scoring categories, each with a published weight. |
+| **Weighted error** | The leaderboard score: the sum over test cases of weight × RMSE. |
+| **Robustness run** | A run with a deliberately incorrect initial SOC, or with a constant offset added to the current. |
+| **Padding** | One hour of the first sample prepended to each cycle so that stateful models reach steady state. |
+| **Complexity** | Execution time per sample relative to a Coulomb counter, binned 1–10. Informational only. |
+| **Test run (dry run)** | An evaluation on open data from the submission page; not recorded on the leaderboard. |
+| **Package** | The uploaded archive: `Model.py` or `Model.m`/`Model.p` together with parameter files. |
 
 ### Software terms
 
 | Term | Meaning |
 |---|---|
-| **Repository / git / GitHub** | The source code, every change recorded, hosted on GitHub. |
-| **Serverless** | The host starts a tiny server per request and freezes it the instant it answers. Cheap; quirky. |
-| **Container / Docker / image** | An isolated box a program runs in; Docker runs them; an image is the template. |
-| **Sandbox** | A container locked down as far as possible: no network, read-only files, no privileges. |
-| **Database / table / row** | PostgreSQL stores everything as tables of rows. |
-| **Prisma** | Lets TypeScript talk to the database with typed calls; one schema file describes every table. |
-| **Server Component / Server Action** | A page that reads the database on the server; a form handler that runs on the server. No API layer. |
-| **Signed URL** | A temporary pre-authorised link that lets a browser upload straight to file storage. |
-| **Session / JWT / cookie** | After login the browser holds a signed token proving who you are. |
-| **bcrypt** | A deliberately slow one-way scramble for passwords. |
-| **Rate limit** | At most N attempts per time window. |
-| **Queue / job / worker / heartbeat** | Work waiting to be done; one item of it; the program that does it; its periodic "I'm alive". |
-| **Compare-and-swap** | "Update this row only if it is still the way I last saw it": how two workers never take the same job. |
-| **Environment variable / `.env`** | Configuration and secrets handed to a program from outside its code. |
-| **VM / Arbutus / systemd** | A rented cloud computer; the Alliance's cloud at UVic; Linux's way of running a program as a service. |
-| **mode 600** | A file only its owner can read. |
+| **Repository / git / GitHub** | The source code with its full change history, hosted on GitHub. |
+| **Serverless** | A hosting model in which a short-lived server instance handles each request and is suspended once it responds. |
+| **Container / Docker / image** | An isolated execution environment; the runtime that creates it; the template from which it is created. |
+| **Sandbox** | A container with the network disabled, a read-only filesystem and no privileges. |
+| **Database / table / row** | PostgreSQL stores all persistent state as tables of rows. |
+| **Prisma** | The typed database client; one schema file defines every table. |
+| **Server Component / Server Action** | A page rendered on the server from the database; a form handler executed on the server. There is no separate API layer. |
+| **Signed URL** | A pre-authorised, time-limited address that permits a browser to upload directly to object storage. |
+| **Session token / JWT / cookie** | A signed token held by the browser after sign-in, proving identity on each request. |
+| **bcrypt** | A deliberately slow one-way hash function for passwords. |
+| **Rate limit** | A cap on the number of attempts within a time window. |
+| **Queue / job / worker / heartbeat** | Pending work; one unit of it; the process that performs it; the process's periodic liveness record. |
+| **Compare-and-swap** | An update applied only if the row is unchanged since it was read; the mechanism by which two workers never claim the same job. |
+| **Environment variable / `.env`** | Configuration and secrets supplied to a program from outside its code. |
+| **VM / Arbutus / systemd** | A cloud virtual machine; the Alliance's cloud at the University of Victoria; the Linux service manager. |
+| **mode 600** | A file readable and writable only by its owner. |
 
-### Numbers worth remembering
+### Key figures
 
-144 test cycles (4 cells × 6 temperatures × 6 cycles) · 18 test cases, weights sum to 1 · 3 submissions per day, 5 test runs per hour · 6-hour evaluation limit · worker polls every 2 s, heartbeat every 15 s · a lock goes stale after 30 min, 2 attempts per job · 50 MB upload cap.
+144 test cycles (4 cells × 6 temperatures × 6 cycles) · 195 runs per evaluation · 18 test cases with weights summing to 1 · 3 submissions per day and 5 test runs per hour · 6-hour evaluation limit · worker polls every 2 s, heartbeat every 15 s · a lock expires after 30 min, 2 attempts per job · 50 MB upload limit.
 
 ---
 
@@ -620,27 +728,27 @@ The most common changes, and where each one is made. Anything not listed here ca
 
 ### Tools
 
-| Tool | What it is | Why it was chosen |
+| Tool | Role | Rationale |
 |---|---|---|
-| TypeScript, Node.js | The language and runtime for the website and the worker | One typed language for both |
-| Next.js 15, React 19 | The web framework | Pages, forms and small APIs in one project; free hosting |
-| Tailwind CSS, Radix UI | Styling; accessible dialogs, menus, tooltips | Fast to build; McMaster colours as tokens |
-| Recharts, TanStack Table | Charts; the leaderboard's headless table | SVG charts with export; sorting and column picking |
-| zod | Form validation | One rule set, used in the browser and on the server |
-| Auth.js, bcryptjs | Sessions; password hashing | No third-party identity provider needed |
-| Prisma, PostgreSQL (Supabase) | Database access; the database | One schema file; free managed tier with file storage attached |
-| nodemailer, pdfkit | E-mail; the PDF report | Provider-agnostic mail; vector PDFs without a browser |
-| Python, numpy, scipy | The benchmark maths | Exact, fast, no licence to score; reads `.mat` files |
+| TypeScript, Node.js | Language and runtime for the website and the worker | One typed language for both |
+| Next.js 15, React 19 | Web framework | Pages, forms and small APIs in one project; managed hosting |
+| Tailwind CSS, Radix UI | Styling; accessible dialogs, menus and tooltips | Rapid development; McMaster colours as design tokens |
+| Recharts, TanStack Table | Charts; the leaderboard's headless table | SVG charts with export; sorting and column selection |
+| zod | Form validation | One rule set applied in the browser and on the server |
+| Auth.js, bcryptjs | Sessions; password hashing | No third-party identity provider required |
+| Prisma, PostgreSQL (Supabase) | Database client; the database | One schema file; managed tier with object storage |
+| nodemailer, pdfkit | E-mail; the PDF report | Provider-independent mail; vector PDFs without a browser |
+| Python, numpy, scipy | The evaluation pipeline | Exact, fast, licence-free scoring; reads `.mat` files |
 | MATLAB R2026a | Executes `.m`/`.p` models only | Inside MathWorks' container image, licensed online |
-| Docker | The sandbox | Non-negotiable isolation for untrusted code |
-| Playwright | Browser tests | Runs on every push that touches the site |
-| Vercel, Arbutus, GitHub Actions | Website hosting; the worker VM; the 10-minute health ping | All free tiers |
+| Docker | The sandbox | Isolation of untrusted code |
+| Playwright | Browser tests | Executed on every push that modifies the web tier |
+| Vercel, Arbutus, GitHub Actions | Web hosting; the worker VM; the ten-minute health check | All on free or research tiers |
 
 ### Environment variables
 
 | Group | Variables |
 |---|---|
-| Database | `DATABASE_URL` (pooler, port 6543), `DIRECT_URL` (port 5432, migrations only) |
+| Database | `DATABASE_URL` (connection pooler, port 6543), `DIRECT_URL` (port 5432, migrations only) |
 | Website | `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `ADMIN_EMAILS`, `CRON_SECRET`, `OPS_HEALTH_TOKEN` |
 | Mail | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `ADMIN_NOTIFY_EMAIL` |
 | Storage | `STORAGE` (local / supabase), `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET` |
@@ -648,44 +756,44 @@ The most common changes, and where each one is made. Anything not listed here ca
 | Sandbox | `EVAL_SANDBOX`, `EVAL_SANDBOX_IMAGE`, `EVAL_SANDBOX_MATLAB_IMAGE`, `EVAL_MATLAB_MHLM_FILE`, `EVAL_MATLAB_NETWORK`, `EVAL_CPUS`, `EVAL_MEMORY` |
 | Calibration | `SOCBENCH_CAL_PYTHON`, `SOCBENCH_CAL_MATLAB` |
 
-Every line is annotated in `.env.example`. Production values live only on Vercel and in `/etc/socbench/worker.env` on the VM.
+Every variable is annotated in `.env.example`. Production values exist only in Vercel's configuration and in `/etc/socbench/worker.env` on the virtual machine.
 
 ### Limits
 
-| What | Limit |
+| Operation | Limit |
 |---|---|
-| Register | 5 per hour per address |
-| Login | 10 per 15 min per account, 40 per 15 min per IP |
-| Password reset / resend verification | 3 per hour per e-mail |
-| Contact form | 5 per hour per IP |
-| Upload links | 30 per hour per user |
+| Registration | 5 per hour per address |
+| Sign-in | 10 per 15 min per account, 40 per 15 min per IP address |
+| Password reset / resend verification | 3 per hour per e-mail address |
+| Contact form | 5 per hour per IP address |
+| Upload URLs | 30 per hour per user |
 | Test runs | 5 per hour (administrators unlimited) |
 | Submissions | 3 per rolling 24 h (administrators exempt) |
 | Evaluation / test run | 360 min / 10 min |
-| Zip | ≤ 500 entries, ≤ 512 MB unpacked, ≤ 256 MB per entry, ≤ 200 : 1 compression, no folders, no symlinks |
+| Archive | ≤ 500 entries, ≤ 512 MB unpacked, ≤ 256 MB per entry, ≤ 200 : 1 compression ratio, no sub-directories, no symbolic links |
 
-### Admin actions and their rails
+### Administrative actions and their safeguards
 
-| Action | Rail |
+| Action | Safeguard |
 |---|---|
-| Moderate a submission | Reason ≥ 10 characters; not while RUNNING; contest entries cannot be made private (hide instead) |
-| Bulk delete | Up to 100; RUNNING skipped; one activity line; authors optionally e-mailed |
-| Delete a user | Not yourself; not an administrator (demote first); not while their work is RUNNING |
-| Change a role | Not your own |
-| Worker pause / resume / stop | Picked up at the next heartbeat |
-| Release a job lock | Behind a confirm; a live worker would double-evaluate |
-| Evaluation settings | Timeout 10–1440 min, test run 2–60 min, per day 1–100 |
-| Scoring weights | Preview first; must sum to 1 |
+| Moderate a submission | Justification of at least 10 characters; not while RUNNING; contest entries cannot be made private (hide instead) |
+| Bulk deletion | At most 100; RUNNING entries skipped; one activity-log entry; authors optionally notified |
+| Delete a user | Not oneself; not an administrator (demote first); not while the user's work is RUNNING |
+| Change a role | Not one's own |
+| Pause, resume or stop a worker | Applied at the worker's next heartbeat |
+| Release a job lock | Behind a confirmation; a live worker would evaluate the job twice |
+| Evaluation settings | Timeout 10–1440 min, test run 2–60 min, submissions per day 1–100 |
+| Scoring weights | Preview required; must sum to 1 |
 | Contests | Only one open at a time |
 
-### Key columns
+### Principal columns
 
-| Table | Columns that matter |
+| Table | Columns of note |
 |---|---|
-| `User` | `email`, `passwordHash`, `role`, `emailVerified` (a timestamp), `adminNotify` toggles, `avatar` |
+| `User` | `email`, `passwordHash`, `role`, `emailVerified` (a timestamp), `adminNotify` preferences, `avatar` |
 | `Submission` | `seq` (the visible number), `modelName`, `modelType`, `runtime` (python / matlab), `status`, `version`, `isPrivate`, `isHidden`, `fileKey`, `contestId` |
 | `EvaluationJob` | `attempts`, `lockedAt`, `lockedBy`, `log`, `cancelRequestedAt` |
 | `EvaluationResult` | `weightedError`, `complexity`, the 18 metric columns, `maxError`, `perCycle`, `timeSeries`, `robustness`, `tracesKey`, `evaluatorVersion` |
 | `ScoreRevision` | `kind` (evaluation, failure, rescore, resubmission, edit, cancelled, legacy), the score and metrics at that moment, `note`, `by` |
 | `WorkerHeartbeat` | `hostname`, `lastSeenAt`, `runtimes`, `busyWith`, `paused`, `command`, machine diagnostics, `log` |
-| `DryRun` | its own `status`, lock and `log`; `result` JSON; never touches hidden data, never on the leaderboard |
+| `DryRun` | its own `status`, lock and `log`; `result` JSON; never touches withheld data, never on the leaderboard |

@@ -1,19 +1,19 @@
 <a id="part-9"></a>
 ## 9. Infrastructure
 
-> **In this chapter.** Where the software physically runs, how it deploys and updates itself, how MATLAB is licensed inside a container, and how to run everything on a laptop.
+> **In this chapter.** Where the software is deployed, how the website and the worker update themselves, how MATLAB is licensed inside a container, and how the system is run on a development machine.
 
-### 9.1 The services
+### 9.1 The deployed services
 
-The website deploys itself whenever code is pushed. The worker is a rented Linux computer in the Alliance research cloud that updates itself every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the lab's MathWorks account.
+The website deploys automatically on every push to the repository. The worker is a Linux virtual machine in the Alliance research cloud that pulls the repository every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the laboratory's MathWorks account.
 
 ```mermaid
 flowchart TB
     G[/"GitHub"/] -- "push → deploy" --> V["Vercel — the website"]
-    G -- "pull every 10 min" --> M[["Arbutus VM — worker and hidden data"]]
-    V <--> S[("Supabase — database and files")]
+    G -- "pull every 10 min" --> M[["Arbutus VM — worker and withheld data"]]
+    V <--> S[("Supabase — database and object storage")]
     M <--> S
-    M --> L[/"MathWorks — licence"/]
+    M --> L[/"MathWorks — licensing"/]
     classDef ext fill:#F0F0F0,stroke:#495965,color:#1d2428
     classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
     classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
@@ -24,17 +24,30 @@ flowchart TB
     class S data
 ```
 
-Figure 9.1. The same three programs as Chapter 2, with the services around them.
+Figure 9.1. The three programs of Chapter 2 in their hosting context.
 
 ### 9.2 The virtual machine
 
-One script sets the machine up: Docker; Node.js, which runs the website's language outside a browser; a service account with no login that exists only to run the worker; the code checked out with a key that can download but never change it; a hardened background service; and a firewall that allows nothing but SSH. Secrets and the hidden data are placed by hand afterwards, owned by the service account and readable by nobody else.
+A single provisioning script prepares the machine. It installs and configures:
 
-**Self-update** runs every ten minutes: fetch the code; if anything changed, rebuild only what it touched (packages, the database client, the sandbox images); then restart the worker, but only if no evaluation is running, otherwise wait for the next tick.
+- Docker, which provides the sandboxes;
+- Node.js, the runtime for the worker;
+- a service account with no interactive login, whose sole purpose is to run the worker;
+- a checkout of the repository using a deploy key with read-only access;
+- a hardened systemd service that keeps the worker running;
+- a firewall that admits SSH and nothing else.
 
-### 9.3 MATLAB inside a container
+Secrets and the withheld data are placed manually after provisioning. They are owned by the service account and readable by no other user.
 
-MATLAB runs inside MathWorks' own container image (the template a container is started from) and is licensed through the lab's account rather than a licence server. A one-time browser sign-in produced a year-long identity token that lives on the VM. For each evaluation the worker exchanges it for a 24-hour token, and only that short-lived token enters the container.
+**Self-update** runs every ten minutes:
+
+1. Fetch the repository.
+2. If anything changed, rebuild only the affected components: dependencies, the database client, or the sandbox images.
+3. Restart the worker, but only if no evaluation is in progress; otherwise defer to the next interval.
+
+### 9.3 MATLAB in a container
+
+MATLAB runs inside MathWorks' own container image and is licensed through the laboratory's MathWorks account rather than a licence server. A one-time interactive sign-in produced an identity token valid for one year, which is stored on the virtual machine. Before each evaluation the worker exchanges it for a 24-hour access token, and only that short-lived token is passed into the container.
 
 ```mermaid
 flowchart TB
@@ -49,15 +62,21 @@ flowchart TB
     class C sandbox
 ```
 
-Figure 9.2. The licence chain. The long-lived secret never enters the sandbox.
+Figure 9.2. The licensing chain. The long-lived credential never enters the sandbox.
 
-### 9.4 Before code reaches production
+### 9.4 Continuous integration
 
-A push that touches the website runs a browser test pass over the main pages (using Playwright) and is refused if any page errors. The site then deploys itself, and the VM picks the change up within ten minutes.
+A push that modifies the web tier triggers a browser test pass over the principal pages using Playwright, and the push is refused if any page fails to render. On success the site deploys automatically, and the virtual machine adopts the change within ten minutes.
 
-### 9.5 Running it on a laptop
+### 9.5 Running the system locally
 
-It is the same code with different settings: a local PostgreSQL database in Docker, files on disk, e-mail to a test inbox. There is no fake scorer; a developer's worker runs the real evaluator, which needs the hidden data and the sandbox image. The **seed**, the script that fills an empty database with starter rows, creates an administrator account and one test user and nothing else. The README has the five commands.
+The same code runs on a development machine with different configuration:
+
+- a local PostgreSQL instance in Docker,
+- uploaded files stored on the local disk,
+- e-mail delivered to a test inbox rather than to real addresses.
+
+There is no simulated evaluator. A developer's worker runs the real evaluation pipeline, which requires the withheld data and the sandbox image. The **seed** script, which populates an empty database, creates one administrator account and one test user and nothing else. The repository README lists the five commands required.
 
 **Files to open:** [provision-arbutus-worker.sh](../../scripts/provision-arbutus-worker.sh) → [vm-update.sh](../../scripts/vm-update.sh) → [Dockerfile.matlab](../../evaluator/Dockerfile.matlab) → [.env.example](../../.env.example).
 

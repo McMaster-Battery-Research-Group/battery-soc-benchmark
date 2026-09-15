@@ -1,46 +1,46 @@
 <a id="part-7"></a>
 ## 7. Accounts and security
 
-> **In this chapter.** How people get in, why the confirmation e-mail has a button, and the layers that keep a hostile submission from doing any harm.
+> **In this chapter.** Authentication and session handling, the reason e-mail verification requires an explicit action, and the layered controls that contain a hostile submission.
 
-### 7.1 Why the confirmation e-mail has a button
+### 7.1 Why verification requires a button
 
-Corporate mail scanners open every link in an e-mail before the person does, and they used to consume the one-time verification token. So opening the link now only shows a page, and pressing the button on it is what verifies the account. In Figure 7.1 the scanner's visit is the third arrow; notice that nothing changes until the person acts.
+Corporate mail-security gateways follow every link in an incoming message before the recipient opens it. When the verification link itself performed the verification, these gateways consumed the single-use token and the recipient found it already invalid. The link therefore now leads to a page, and the account is verified only when the person presses the button on that page. In Figure 7.1 the gateway's visit is the third message; the account's state does not change until the person acts.
 
 ```mermaid
 sequenceDiagram
     actor P as Person
     participant W as Website
-    participant M as Mail scanner
+    participant M as Mail gateway
     P->>W: register
     W-->>P: e-mail with a link
-    M->>W: opens the link first
-    W-->>M: just a page, nothing changes
+    M->>W: follows the link first
+    W-->>M: a page, no state change
     P->>W: presses Confirm
-    W-->>P: verified, go to login
+    W-->>P: verified, proceed to sign-in
 ```
 
-Figure 7.1. Verification survives a mail scanner because the link alone does nothing.
+Figure 7.1. Verification is robust to mail gateways because following the link has no side effect.
 
-### 7.2 Signing in
+### 7.2 Authentication and sessions
 
-An account gets ten sign-in attempts per fifteen minutes (forty per network address), after which it waits. The password is checked against its **bcrypt** hash, a deliberately slow one-way scramble: one login is instant, but guessing a million passwords is ruinously slow. A verified user receives a **signed cookie**, a small token the browser keeps and sends with every request, signed so it cannot be forged and good for fourteen days; the site never looks the session up in the database. Pages under `/submit`, `/profile` and `/admin` turn signed-out visitors away before the page is even built, but that is a convenience: the real check runs again inside every action.
+An account may attempt sign-in ten times per fifteen minutes, and a network address forty times, after which further attempts are refused for the remainder of the window. Passwords are stored as **bcrypt** hashes, a deliberately slow one-way function: a single verification is imperceptible, but an exhaustive guessing attack is impractical. A successful sign-in issues a signed **session token** held in a browser cookie and valid for fourteen days; requests are authenticated by verifying the signature, without a database lookup. Routes under `/submit`, `/profile` and `/admin` redirect unauthenticated visitors before rendering, but this is a convenience only. The authoritative check is repeated inside every server action.
 
-### 7.3 What stops a bad submission
+### 7.3 Containing a hostile submission
 
-| Worry | What stops it |
+| Threat | Control |
 |---|---|
-| The model steals the hidden data | It can read it (it must) but has no network and is destroyed afterwards |
-| The model attacks the machine | Read-only filesystem, no privileges, memory and CPU caps, runs as an unprivileged user |
-| The model reads our secrets | The container never receives the worker's environment; MATLAB gets only a 24-hour licence token |
-| A zip bomb (a tiny file that expands to fill the disk) or a path trick (a file name that tries to write outside its folder) | Entry, size and ratio limits, no folders, no `..`, checked on the website *and* again in the evaluator |
-| A model runs forever | Hard timeout inside and outside the container |
-| Someone floods the queue | Three submissions per day, five test runs per hour |
-| Password guessing | bcrypt plus the attempt limits above |
-| Someone finds out who has an account | "Forgot password" and "resend" answer identically whether or not the address exists |
-| One compromised administrator deletes the others | Administrators cannot be deleted until demoted, and nobody can change their own role |
+| The model exfiltrates the withheld data | The container has read access (it must) but no network interface, and is destroyed after the run |
+| The model attacks the host | Read-only filesystem, no capabilities, CPU and memory limits, execution as an unprivileged user |
+| The model reads the worker's secrets | The container does not inherit the worker's environment; MATLAB receives only a 24-hour licence token |
+| A decompression bomb or a path-traversal entry | Limits on entry count, unpacked size and compression ratio; no sub-directories; no `..` components; checked in the web tier and again in the evaluator |
+| The model never terminates | A timeout enforced both inside and outside the container |
+| Queue flooding | Three submissions per day and five test runs per hour per account |
+| Password guessing | bcrypt hashing and the attempt limits above |
+| Account enumeration | Password-reset and resend-verification requests respond identically whether or not the address exists |
+| A compromised administrator removes the others | Administrators cannot be deleted until demoted, and no user can change their own role |
 
-Secrets live in exactly three places (Vercel's environment, a file on the VM that only the worker's account can read, and a GitHub secret) and never in the repository, an image, a log or an e-mail.
+Secrets are held in exactly three locations: Vercel's environment configuration, a file on the virtual machine readable only by the worker's service account, and a GitHub repository secret. They appear in no repository file, container image, log or e-mail.
 
 **Files to open:** [auth.ts](../../src/lib/auth.ts) → [middleware.ts](../../src/middleware.ts) → [(auth)/actions.ts](../../src/app/(auth)/actions.ts) → [rate-limit.ts](../../src/lib/rate-limit.ts) → [python-evaluator.ts](../../src/evaluator/python-evaluator.ts).
 
