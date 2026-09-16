@@ -5,7 +5,10 @@
 
 ### 9.1 The deployed services
 
-The website deploys automatically on every push to the repository. The worker is a Linux virtual machine in the Alliance research cloud that pulls the repository every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the laboratory's MathWorks account.
+The two deployed programs update themselves in different ways:
+
+- **The website** deploys automatically on every push to the repository.
+- **The worker** is a Linux virtual machine in the Alliance research cloud. It pulls the repository every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the laboratory's MathWorks account.
 
 ```mermaid
 flowchart TB

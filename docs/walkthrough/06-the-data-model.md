@@ -17,7 +17,10 @@ erDiagram
 
 Figure 6.1. The core tables. Each line reads as "has": a user has many submissions; a submission has exactly one job and at most one result.
 
-Two conventions apply throughout. **Cascading deletion:** deleting a user removes that user's submissions, jobs, results and history, so no orphaned rows can exist. **Append-only history:** score revisions, weight changes and administrative events are never modified after they are written, so any past state can be reconstructed.
+Two conventions apply throughout:
+
+- **Cascading deletion.** Deleting a user removes that user's submissions, jobs, results and history, so no orphaned rows can exist.
+- **Append-only history.** Score revisions, weight changes and administrative events are never modified after they are written, so any past state can be reconstructed.
 
 Several tables stand outside the diagram:
 

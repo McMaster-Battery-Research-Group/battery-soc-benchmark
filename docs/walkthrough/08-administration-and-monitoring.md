@@ -47,7 +47,11 @@ flowchart TB
 
 Figure 8.4. The activity log is the record; e-mail is a copy that each administrator enables per category.
 
-One property of the hosting platform deserves emphasis. A serverless request is frozen the instant a response is returned, so any e-mail dispatched asynchronously without being awaited is silently lost. Every such dispatch is therefore wrapped in `after()`, which keeps the request alive until the send completes. This behaviour was discovered in production.
+One property of the hosting platform deserves emphasis, because it was discovered in production:
+
+- A serverless request is frozen the instant a response is returned.
+- Any e-mail dispatched asynchronously without being awaited is therefore silently lost.
+- Every such dispatch is wrapped in `after()`, which keeps the request alive until the send completes.
 
 ### 8.4 The outage monitor
 

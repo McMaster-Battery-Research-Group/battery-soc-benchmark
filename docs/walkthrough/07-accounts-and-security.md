@@ -5,7 +5,12 @@
 
 ### 7.1 Why verification requires a button
 
-Corporate mail-security gateways follow every link in an incoming message before the recipient opens it. When the verification link itself performed the verification, these gateways consumed the single-use token and the recipient found it already invalid. The link therefore now leads to a page, and the account is verified only when the person presses the button on that page. In Figure 7.1 the gateway's visit is the third message; the account's state does not change until the person acts.
+Corporate mail-security gateways follow every link in an incoming message before the recipient opens it. When the verification link itself performed the verification, these gateways consumed the single-use token and the recipient found it already invalid. The current design separates the two steps:
+
+1. The link in the e-mail leads to a page and changes nothing.
+2. The account is verified only when the person presses the **Confirm** button on that page.
+
+In Figure 7.1 the gateway's visit is the third message; the account's state does not change until the person acts.
 
 ```mermaid
 sequenceDiagram
@@ -24,7 +29,12 @@ Figure 7.1. Verification is robust to mail gateways because following the link h
 
 ### 7.2 Authentication and sessions
 
-An account may attempt sign-in ten times per fifteen minutes, and a network address forty times, after which further attempts are refused for the remainder of the window. Passwords are stored as **bcrypt** hashes, a deliberately slow one-way function: a single verification is imperceptible, but an exhaustive guessing attack is impractical. A successful sign-in issues a signed **session token** held in a browser cookie and valid for fourteen days; requests are authenticated by verifying the signature, without a database lookup. Routes under `/submit`, `/profile` and `/admin` redirect unauthenticated visitors before rendering, but this is a convenience only. The authoritative check is repeated inside every server action.
+Sign-in follows four rules:
+
+1. **Attempt limits.** An account may attempt sign-in ten times per fifteen minutes, and a network address forty times, after which further attempts are refused for the remainder of the window.
+2. **Password storage.** Passwords are stored as **bcrypt** hashes, a deliberately slow one-way function: a single verification is imperceptible, but an exhaustive guessing attack is impractical.
+3. **Sessions.** A successful sign-in issues a signed **session token** held in a browser cookie and valid for fourteen days. Requests are authenticated by verifying the signature, without a database lookup.
+4. **Authorisation.** Routes under `/submit`, `/profile` and `/admin` redirect unauthenticated visitors before rendering, but this is a convenience only. The authoritative check is repeated inside every server action.
 
 ### 7.3 Containing a hostile submission
 

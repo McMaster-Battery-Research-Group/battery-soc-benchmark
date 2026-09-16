@@ -5,7 +5,12 @@
 
 ### 3.1 Registration
 
-Registration requires a name, an institutional affiliation, an e-mail address and a password. A confirmation e-mail follows. Opening its link displays a page with a **Confirm** button, and pressing that button is what verifies the account; Section 7.1 explains why the link alone is not sufficient. A verified user may then sign in, and the session remains valid for fourteen days.
+Registration is a four-step process:
+
+1. The form asks for a name, an institutional affiliation, an e-mail address and a password.
+2. A confirmation e-mail follows. Opening its link displays a page with a **Confirm** button.
+3. Pressing that button verifies the account. Section 7.1 explains why the link alone is not sufficient.
+4. The verified user signs in, and the session remains valid for fourteen days.
 
 ![Figure 3.1. The registration page. The name and affiliation entered here are displayed beside the user's models on the leaderboard.](figures/register.png)
 
@@ -65,7 +70,12 @@ The scorecard lists the eighteen test cases with the RMSE, the weight and the pr
 
 ### 3.5 The leaderboard
 
-The leaderboard ranks every public, completed model by weighted error in ascending order. Ties are broken by the all-cells error and then by submission time. The table can be filtered by author, affiliation and model type; additional columns, including the per-temperature and robustness cases, can be revealed with the **Columns** control; and the table can be exported as CSV. Selecting a model opens its results page, and the **Compare** page overlays two to four models on the same charts.
+The leaderboard ranks every public, completed model by weighted error in ascending order. Ties are broken by the all-cells error and then by submission time. The table offers:
+
+- filters by author, affiliation and model type,
+- additional columns, including the per-temperature and robustness cases, through the **Columns** control,
+- export as CSV,
+- a link from each model to its results page, and a **Compare** page that overlays two to four models on the same charts.
 
 ![Figure 3.6. The leaderboard, with its explanatory panel expanded.](figures/leaderboard.png)
 

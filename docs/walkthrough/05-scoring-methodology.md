@@ -7,7 +7,13 @@ The evaluator is approximately 800 lines of Python. It reimplements the laborato
 
 ### 5.1 The model interface
 
-A model is a single function invoked once per sample, in the same manner as an estimator running on a vehicle's battery controller. At each call it receives the current, voltage and temperature for that sample together with whatever state it returned from the previous call, and it returns its estimate and the state to carry forward. It has no access to future samples. The simplest admissible model, a Coulomb counter that integrates current over the rated capacity, is four lines:
+A model is a single function invoked once per sample, in the same manner as an estimator running on a vehicle's battery controller. At each call it receives the current, voltage and temperature for that sample together with whatever state it returned from the previous call, and it returns its estimate and the state to carry forward. It has no access to future samples. The simplest admissible model is a Coulomb counter, which integrates the measured current over the rated capacity $Q$ (here 4.6 Ah) at the one-second sample interval $\Delta t$:
+
+$$
+\widehat{\mathrm{SOC}}_k = \widehat{\mathrm{SOC}}_{k-1} + \frac{I_k\,\Delta t}{3600\,Q}, \qquad \widehat{\mathrm{SOC}}_0 = 1 \tag{5.1}
+$$
+
+In code it is four lines:
 
 ```python
 def Model(X, z=None):          # X = [current, voltage, temperature]
@@ -16,7 +22,12 @@ def Model(X, z=None):          # X = [current, voltage, temperature]
     return soc, soc            # (estimate in 0..1, state for the next call)
 ```
 
-Python models are imported and iterated in-process. MATLAB models are executed through a single `matlab -batch` session running a forty-line driver script whose only function is the same iteration. Both paths produce identical scores, verified against the four reference models.
+The two supported languages are executed differently but scored identically:
+
+- **Python** models are imported and iterated in-process.
+- **MATLAB** models are executed through a single `matlab -batch` session running a forty-line driver script whose only function is the same iteration.
+
+Both paths produce identical scores, verified against the four reference models.
 
 ### 5.2 The evaluation set
 
@@ -28,7 +39,13 @@ Before each cycle, one hour of its first sample is prepended as **padding**, so 
 
 ![Figure 5.2. The scoring pipeline. Each drive cycle yields one RMSE; the RMSEs are grouped into eighteen test cases; the test cases are weighted and summed.](figures/fig-pipeline.png)
 
-The weights are published and fixed, and they sum to one:
+The leaderboard score is the weighted sum of the eighteen test-case errors, where $\mathrm{RMSE}_i$ is the mean RMSE of the cycles in test case $i$ and $w_i$ its published weight:
+
+$$
+E = \sum_{i=1}^{18} w_i\,\mathrm{RMSE}_i, \qquad \sum_{i=1}^{18} w_i = 1 \tag{5.2}
+$$
+
+The weights are fixed and published:
 
 - Seven categories carry a weight of 0.1 each: the withheld cell, the open cells, charging, standard cycles, non-standard cycles, the initial-SOC perturbation and the current-offset perturbation.
 - The four payload conditions together carry 0.2.

@@ -21,7 +21,7 @@ All diagrams share one visual vocabulary, introduced in Section 2.4, so that a g
 ## Contents
 
 1. [The estimation problem](01-the-estimation-problem.md) — 8 figures
-2. [The platform in outline](02-the-platform-in-outline.md) — 4 figures
+2. [The platform in outline](02-the-platform-in-outline.md) — 6 figures
 3. [Using the platform](03-using-the-platform.md) — 7 figures
 4. [The life of a submission](04-the-life-of-a-submission.md) — 5 figures
 5. [Scoring methodology](05-scoring-methodology.md) — 3 figures

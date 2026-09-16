@@ -97,13 +97,20 @@ The first quantity is the **charge removed**, which the cycler measures by integ
 
 ![Figure 1.5. The capacity reference. Left: the C/20 discharge at 40 °C recorded before the 25 °C round, which defines 4.53 Ah as that round's capacity. Right: the same measurement repeated before every round, showing the cell losing about 10 % of its capacity over the eight-month campaign.](figures/fig-reference-capacity.png)
 
-The state of charge in every file is then the fraction of that reference capacity still in the cell:
+The state of charge in every file is then the fraction of that reference capacity still in the cell. With $I(\tau)$ the measured current in amperes (positive when charging) and $Q_{\mathrm{ref}}$ the reference capacity in ampere-hours,
 
-```
-SOC = 1 − (charge removed since full) / (reference capacity)
-```
+$$
+\mathrm{SOC}(t) = 1 - \frac{Q_{\mathrm{removed}}(t)}{Q_{\mathrm{ref}}}, \qquad Q_{\mathrm{removed}}(t) = -\frac{1}{3600}\int_{0}^{t} I(\tau)\,\mathrm{d}\tau \tag{1.1}
+$$
 
-Because the cell ages during a round, the reference capacity is not applied as a single number. It is interpolated linearly between the value measured at the start of the round and the value measured at the start of the next one, across the twenty-three tests that make up a round. For the 25 °C round of the m80 cell, for example, the reference runs from 4.530 Ah for the first test down to 4.453 Ah for the last. The final round at −20 °C has no successor, so its end value was extrapolated from the trend of the three preceding rounds.
+
+Because the cell ages during a round, the reference capacity is not applied as a single number. It is interpolated linearly between the value measured at the start of the round, $Q^{(n)}$, and the value measured at the start of the next one, $Q^{(n+1)}$, across the twenty-three tests that make up a round:
+
+$$
+Q_{\mathrm{ref},k} = Q^{(n)} + \frac{k}{22}\left(Q^{(n+1)} - Q^{(n)}\right), \qquad k = 0, 1, \ldots, 22 \tag{1.2}
+$$
+
+For the 25 °C round of the m80 cell, for example, the reference runs from 4.530 Ah for the first test down to 4.453 Ah for the last. The final round at −20 °C has no successor, so its end value was extrapolated from the trend of the three preceding rounds.
 
 This definition has three properties worth understanding. It is **traceable**: the raw amp-hour column is preserved in every file, so anyone can recompute the state of charge from a different capacity definition if their application calls for one. It is **consistent**: the same definition is applied to every cell, temperature and cycle, so an error of 2 % means the same thing everywhere. And it is **not something a vehicle can reproduce**: a car has no laboratory-grade current sensor, no twenty-hour capacity test and no rest periods, which is precisely why an estimator is needed, and why the benchmark's robustness tests (Chapter 5) deliberately corrupt the current signal and the starting point.
 
@@ -121,7 +128,13 @@ For every sample of every drive cycle the reference state of charge is known fro
 
 ![Figure 1.7. Estimation error is the difference between the model's estimate and the reference state of charge. Here a Coulomb-counting model fed a biased current measurement drifts steadily from the reference; the shaded band is what the benchmark quantifies.](figures/fig-error.png)
 
-The error over a cycle is summarised by its **root-mean-square error** (**RMSE**): the error at each sample is squared, the squares are averaged over the cycle, and the square root is taken. RMSE penalises large excursions more heavily than a mean absolute error would. A model that is consistently 2 % high scores an RMSE of 2 %; a model that is exact for most of a cycle but wrong by 20 % for a few minutes scores considerably worse. This weighting is deliberate, since in a vehicle a bounded, predictable error is far more useful than an occasional large one.
+The error over a cycle is summarised by its **root-mean-square error** (**RMSE**). With $\widehat{\mathrm{SOC}}_k$ the model's estimate and $\mathrm{SOC}_k$ the reference at sample $k$ of a cycle of $N$ samples,
+
+$$
+\mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_{k=1}^{N}\left(\widehat{\mathrm{SOC}}_k - \mathrm{SOC}_k\right)^{2}}, \qquad \mathrm{MAE} = \frac{1}{N}\sum_{k=1}^{N}\left|\widehat{\mathrm{SOC}}_k - \mathrm{SOC}_k\right| \tag{1.3}
+$$
+
+The mean absolute error (MAE) and the maximum absolute error are reported alongside it but do not enter the score. RMSE penalises large excursions more heavily than a mean absolute error would. A model that is consistently 2 % high scores an RMSE of 2 %; a model that is exact for most of a cycle but wrong by 20 % for a few minutes scores considerably worse. This weighting is deliberate, since in a vehicle a bounded, predictable error is far more useful than an occasional large one.
 
 The conditions under which error occurs matter as much as its magnitude. A model that is accurate at 25 °C but drifts at −20 °C is of limited use in a cold climate, and a model that is accurate only when initialised with the exact starting state of charge is of limited use in a vehicle, which does not know it. The scoring methodology therefore does not simply average error over the dataset. It reports error separately by cell, temperature and cycle type, and it includes two deliberate perturbations: a wrong initial state of charge and a constant bias on the current measurement. Chapter 5 sets out the full methodology.
 
@@ -170,45 +183,48 @@ Figure 2.2. The five stages. Stage 1 is public and stage 4 is confidential; the 
 
 ### 2.2 Three programs and one rule
 
-Behind the website are three separate programs, and the architecture follows from one rule: **the web tier never executes submitted code and never has access to the withheld data.** Both of those responsibilities belong to a separate machine, the **worker**. The worker in turn does not execute a model directly; it delegates execution to a **sandbox**, an isolated container with no network access and a read-only filesystem, which is discarded after each evaluation.
+Behind the website are three separate programs, and the architecture follows from one rule:
+
+> **The web tier never executes submitted code and never has access to the withheld data.**
+
+The three programs divide the work as follows:
+
+- **The website** serves pages and forms, records submissions, and shows results. It reads and writes the database and nothing else.
+- **The worker** is a separate machine under the laboratory's control. It holds the withheld data, claims queued submissions and runs each evaluation.
+- **The sandbox** is an isolated container the worker starts for every evaluation: no network access, a read-only filesystem, discarded when the run ends. It is the only place a submitted model is ever executed.
 
 ![Figure 2.3. The three programs. The website and the worker share nothing but the database; the sandbox is the only place a submitted model is ever executed.](figures/fig-tiers.png)
 
-The website and the worker never communicate directly. All coordination passes through the database. This has three consequences that recur throughout the manual: an additional worker can be added with no configuration, since it simply begins claiming jobs; the website remains fully available when no worker is reachable, as it did during a ten-hour network outage in September 2026; and the job queue is an ordinary database table rather than a separate message-queue service.
+The website and the worker never communicate directly; all coordination passes through the database. Three consequences of this recur throughout the manual:
+
+1. An additional worker can be added with no configuration, since it simply begins claiming jobs.
+2. The website remains fully available when no worker is reachable, as it did during a ten-hour network outage in September 2026.
+3. The job queue is an ordinary database table rather than a separate message-queue service.
+
+### An analogy: the sealed examination
+
+The arrangement is easier to remember as the way a university runs a written examination. Figure 2.4 draws the comparison.
+
+![Figure 2.4. The platform as a sealed examination. The registrar's office (website) accepts scripts and posts marks; the filing room (database) is the only place both sides touch; the locked marking room (worker) holds the only copy of the answer key (withheld data); each script is marked in a sealed booth (sandbox) and shredded afterwards.](figures/fig-exam.png)
+
+- **The registrar's office is the website.** Candidates enrol, hand in a sealed script, and later read their mark on the noticeboard. The clerks never open a script and have never seen the answer key.
+- **The filing room is the database.** The registrar drops each script in the IN tray; the examiner collects it from there and returns the mark to the DONE tray. The two never meet, so a second examiner can start work simply by collecting from the same tray.
+- **The locked marking room is the worker.** It holds the only copy of the answer key. Nobody but the examiner enters, and the examiner never leaves with it.
+- **The sealed exam booth is the sandbox.** The script is answered against the key one at a time, in a booth with no phone and no window, and is shredded the moment it has been marked. Nothing that happens in the booth can reach the outside, and nothing is kept.
+
+A submitted model is the candidate. It is given the questions (the withheld drive cycles), writes its answers (the estimates), and is marked against the key (the reference state of charge). It never sees the key, and no copy of it survives the examination.
 
 ### 2.3 Where the components are hosted
 
-| Component | Host | Rationale |
-|---|---|---|
-| Website | Vercel, a managed hosting service (free tier) | Serverless hosting with automatic deployment from the repository; no servers to administer |
-| Database and object storage | Supabase, a managed PostgreSQL service (free tier) | Database and file storage under one account |
-| Worker, withheld data, MATLAB | A virtual machine on Arbutus, the Digital Research Alliance of Canada's research cloud | Under the laboratory's control, and the only location where the withheld data exists |
-| Source code | GitHub, `McMaster-Battery-Research-Group` organisation | Collaborators may read and propose changes; only the owner merges |
+Each program runs on a different service, chosen so that the platform costs nothing to host and so that the withheld data stays on a machine the laboratory controls. Figure 2.5 shows the four.
+
+![Figure 2.5. Where each component runs. The website on Vercel, the database and file storage on Supabase, the worker on the Alliance's Arbutus cloud, and the source code on GitHub.](figures/fig-hosting.png)
 
 ### 2.4 Visual conventions
 
-Every diagram in this manual uses a single set of colours and shapes, so that a given kind of component looks the same on every page and remains distinguishable in monochrome:
+Every diagram in this manual uses one icon, one colour and one shape for each kind of thing, so a component looks the same on every page. The pictures use the icons; the flow diagrams, which are drawn with a diagramming tool that cannot show icons, use the shapes and colours. Figure 2.6 is the key to both.
 
-```mermaid
-flowchart LR
-    W["Website"] ~~~ K[["Worker"]] ~~~ S{{"Sandbox"}} ~~~ D[("Data")] ~~~ E[/"External service"/] ~~~ P(["Person"]) ~~~ X>"Withheld data or risk"]
-    classDef web fill:#F2E6EC,stroke:#7A003C,color:#1d2428
-    classDef worker fill:#FFF3D6,stroke:#B8860B,color:#1d2428
-    classDef sandbox fill:#E6F2EC,stroke:#0E5B3D,color:#1d2428
-    classDef data fill:#E3F0F5,stroke:#0D5D78,color:#1d2428
-    classDef ext fill:#F0F0F0,stroke:#495965,color:#1d2428
-    classDef person fill:#EFE6F5,stroke:#6B3FA0,color:#1d2428
-    classDef danger fill:#FFE5DF,stroke:#B3261E,color:#1d2428
-    class W web
-    class K worker
-    class S sandbox
-    class D data
-    class E ext
-    class P person
-    class X danger
-```
-
-Figure 2.4. The shapes and colours used in every diagram.
+![Figure 2.6. The visual vocabulary of the manual: the icon used in pictures, the shape and colour used in flow diagrams, and what each stands for.](figures/fig-legend.png)
 
 **Files to open:** [README.md](../../README.md) → [prisma/schema.prisma](../../prisma/schema.prisma) → [src/evaluator/worker.ts](../../src/evaluator/worker.ts).
 
@@ -221,7 +237,12 @@ Figure 2.4. The shapes and colours used in every diagram.
 
 ### 3.1 Registration
 
-Registration requires a name, an institutional affiliation, an e-mail address and a password. A confirmation e-mail follows. Opening its link displays a page with a **Confirm** button, and pressing that button is what verifies the account; Section 7.1 explains why the link alone is not sufficient. A verified user may then sign in, and the session remains valid for fourteen days.
+Registration is a four-step process:
+
+1. The form asks for a name, an institutional affiliation, an e-mail address and a password.
+2. A confirmation e-mail follows. Opening its link displays a page with a **Confirm** button.
+3. Pressing that button verifies the account. Section 7.1 explains why the link alone is not sufficient.
+4. The verified user signs in, and the session remains valid for fourteen days.
 
 ![Figure 3.1. The registration page. The name and affiliation entered here are displayed beside the user's models on the leaderboard.](figures/register.png)
 
@@ -281,7 +302,12 @@ The scorecard lists the eighteen test cases with the RMSE, the weight and the pr
 
 ### 3.5 The leaderboard
 
-The leaderboard ranks every public, completed model by weighted error in ascending order. Ties are broken by the all-cells error and then by submission time. The table can be filtered by author, affiliation and model type; additional columns, including the per-temperature and robustness cases, can be revealed with the **Columns** control; and the table can be exported as CSV. Selecting a model opens its results page, and the **Compare** page overlays two to four models on the same charts.
+The leaderboard ranks every public, completed model by weighted error in ascending order. Ties are broken by the all-cells error and then by submission time. The table offers:
+
+- filters by author, affiliation and model type,
+- additional columns, including the per-temperature and robustness cases, through the **Columns** control,
+- export as CSV,
+- a link from each model to its results page, and a **Compare** page that overlays two to four models on the same charts.
 
 ![Figure 3.6. The leaderboard, with its explanatory panel expanded.](figures/leaderboard.png)
 
@@ -408,7 +434,13 @@ The evaluator is approximately 800 lines of Python. It reimplements the laborato
 
 ### 5.1 The model interface
 
-A model is a single function invoked once per sample, in the same manner as an estimator running on a vehicle's battery controller. At each call it receives the current, voltage and temperature for that sample together with whatever state it returned from the previous call, and it returns its estimate and the state to carry forward. It has no access to future samples. The simplest admissible model, a Coulomb counter that integrates current over the rated capacity, is four lines:
+A model is a single function invoked once per sample, in the same manner as an estimator running on a vehicle's battery controller. At each call it receives the current, voltage and temperature for that sample together with whatever state it returned from the previous call, and it returns its estimate and the state to carry forward. It has no access to future samples. The simplest admissible model is a Coulomb counter, which integrates the measured current over the rated capacity $Q$ (here 4.6 Ah) at the one-second sample interval $\Delta t$:
+
+$$
+\widehat{\mathrm{SOC}}_k = \widehat{\mathrm{SOC}}_{k-1} + \frac{I_k\,\Delta t}{3600\,Q}, \qquad \widehat{\mathrm{SOC}}_0 = 1 \tag{5.1}
+$$
+
+In code it is four lines:
 
 ```python
 def Model(X, z=None):          # X = [current, voltage, temperature]
@@ -417,7 +449,12 @@ def Model(X, z=None):          # X = [current, voltage, temperature]
     return soc, soc            # (estimate in 0..1, state for the next call)
 ```
 
-Python models are imported and iterated in-process. MATLAB models are executed through a single `matlab -batch` session running a forty-line driver script whose only function is the same iteration. Both paths produce identical scores, verified against the four reference models.
+The two supported languages are executed differently but scored identically:
+
+- **Python** models are imported and iterated in-process.
+- **MATLAB** models are executed through a single `matlab -batch` session running a forty-line driver script whose only function is the same iteration.
+
+Both paths produce identical scores, verified against the four reference models.
 
 ### 5.2 The evaluation set
 
@@ -429,7 +466,13 @@ Before each cycle, one hour of its first sample is prepended as **padding**, so 
 
 ![Figure 5.2. The scoring pipeline. Each drive cycle yields one RMSE; the RMSEs are grouped into eighteen test cases; the test cases are weighted and summed.](figures/fig-pipeline.png)
 
-The weights are published and fixed, and they sum to one:
+The leaderboard score is the weighted sum of the eighteen test-case errors, where $\mathrm{RMSE}_i$ is the mean RMSE of the cycles in test case $i$ and $w_i$ its published weight:
+
+$$
+E = \sum_{i=1}^{18} w_i\,\mathrm{RMSE}_i, \qquad \sum_{i=1}^{18} w_i = 1 \tag{5.2}
+$$
+
+The weights are fixed and published:
 
 - Seven categories carry a weight of 0.1 each: the withheld cell, the open cells, charging, standard cycles, non-standard cycles, the initial-SOC perturbation and the current-offset perturbation.
 - The four payload conditions together carry 0.2.
@@ -476,7 +519,10 @@ erDiagram
 
 Figure 6.1. The core tables. Each line reads as "has": a user has many submissions; a submission has exactly one job and at most one result.
 
-Two conventions apply throughout. **Cascading deletion:** deleting a user removes that user's submissions, jobs, results and history, so no orphaned rows can exist. **Append-only history:** score revisions, weight changes and administrative events are never modified after they are written, so any past state can be reconstructed.
+Two conventions apply throughout:
+
+- **Cascading deletion.** Deleting a user removes that user's submissions, jobs, results and history, so no orphaned rows can exist.
+- **Append-only history.** Score revisions, weight changes and administrative events are never modified after they are written, so any past state can be reconstructed.
 
 Several tables stand outside the diagram:
 
@@ -500,7 +546,12 @@ Column-level detail is given in the appendix.
 
 ### 7.1 Why verification requires a button
 
-Corporate mail-security gateways follow every link in an incoming message before the recipient opens it. When the verification link itself performed the verification, these gateways consumed the single-use token and the recipient found it already invalid. The link therefore now leads to a page, and the account is verified only when the person presses the button on that page. In Figure 7.1 the gateway's visit is the third message; the account's state does not change until the person acts.
+Corporate mail-security gateways follow every link in an incoming message before the recipient opens it. When the verification link itself performed the verification, these gateways consumed the single-use token and the recipient found it already invalid. The current design separates the two steps:
+
+1. The link in the e-mail leads to a page and changes nothing.
+2. The account is verified only when the person presses the **Confirm** button on that page.
+
+In Figure 7.1 the gateway's visit is the third message; the account's state does not change until the person acts.
 
 ```mermaid
 sequenceDiagram
@@ -519,7 +570,12 @@ Figure 7.1. Verification is robust to mail gateways because following the link h
 
 ### 7.2 Authentication and sessions
 
-An account may attempt sign-in ten times per fifteen minutes, and a network address forty times, after which further attempts are refused for the remainder of the window. Passwords are stored as **bcrypt** hashes, a deliberately slow one-way function: a single verification is imperceptible, but an exhaustive guessing attack is impractical. A successful sign-in issues a signed **session token** held in a browser cookie and valid for fourteen days; requests are authenticated by verifying the signature, without a database lookup. Routes under `/submit`, `/profile` and `/admin` redirect unauthenticated visitors before rendering, but this is a convenience only. The authoritative check is repeated inside every server action.
+Sign-in follows four rules:
+
+1. **Attempt limits.** An account may attempt sign-in ten times per fifteen minutes, and a network address forty times, after which further attempts are refused for the remainder of the window.
+2. **Password storage.** Passwords are stored as **bcrypt** hashes, a deliberately slow one-way function: a single verification is imperceptible, but an exhaustive guessing attack is impractical.
+3. **Sessions.** A successful sign-in issues a signed **session token** held in a browser cookie and valid for fourteen days. Requests are authenticated by verifying the signature, without a database lookup.
+4. **Authorisation.** Routes under `/submit`, `/profile` and `/admin` redirect unauthenticated visitors before rendering, but this is a convenience only. The authoritative check is repeated inside every server action.
 
 ### 7.3 Containing a hostile submission
 
@@ -590,7 +646,11 @@ flowchart TB
 
 Figure 8.4. The activity log is the record; e-mail is a copy that each administrator enables per category.
 
-One property of the hosting platform deserves emphasis. A serverless request is frozen the instant a response is returned, so any e-mail dispatched asynchronously without being awaited is silently lost. Every such dispatch is therefore wrapped in `after()`, which keeps the request alive until the send completes. This behaviour was discovered in production.
+One property of the hosting platform deserves emphasis, because it was discovered in production:
+
+- A serverless request is frozen the instant a response is returned.
+- Any e-mail dispatched asynchronously without being awaited is therefore silently lost.
+- Every such dispatch is wrapped in `after()`, which keeps the request alive until the send completes.
 
 ### 8.4 The outage monitor
 
@@ -620,7 +680,10 @@ Figure 8.5. One alert per outage and one all-clear. The state is recorded in the
 
 ### 9.1 The deployed services
 
-The website deploys automatically on every push to the repository. The worker is a Linux virtual machine in the Alliance research cloud that pulls the repository every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the laboratory's MathWorks account.
+The two deployed programs update themselves in different ways:
+
+- **The website** deploys automatically on every push to the repository.
+- **The worker** is a Linux virtual machine in the Alliance research cloud. It pulls the repository every ten minutes, restarts only when idle, and runs MATLAB inside a container licensed through the laboratory's MathWorks account.
 
 ```mermaid
 flowchart TB
