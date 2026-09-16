@@ -37,7 +37,7 @@ Before each cycle, one hour of its first sample is prepended as **padding**, so 
 
 ### 5.3 From per-cycle errors to one score
 
-![Figure 5.2. The scoring pipeline. Each drive cycle yields one RMSE; the RMSEs are grouped into eighteen test cases; the test cases are weighted and summed.](figures/fig-pipeline.png)
+![Figure 5.2. The scoring pipeline. Each drive cycle yields one RMSE (ε); the RMSEs are grouped into eighteen test cases; the test cases are weighted and summed (Σ).](figures/fig-pipeline.png)
 
 The leaderboard score is the weighted sum of the eighteen test-case errors, where $\mathrm{RMSE}_i$ is the mean RMSE of the cycles in test case $i$ and $w_i$ its published weight:
 
