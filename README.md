@@ -10,9 +10,9 @@ Researchers upload a battery **state-of-charge estimation** algorithm; we run it
   </a>
 </p>
 
-## 📘 [Read the codebase manual (PDF)](https://github.com/McMaster-Battery-Research-Group/battery-soc-benchmark/raw/main/docs/walkthrough/codebase-walkthrough.pdf)
+## The codebase manual
 
-The whole system in one book: the battery problem it solves, how to use the site, what happens to a submission, how the score is computed, the database, security, administration and infrastructure. Every chapter opens with a plain-language summary and uses real screenshots and figures; the glossary and reference tables are at the back. Written for developers and non-developers alike. (The link opens the PDF in your browser or downloads it — about 40 pages.)
+The whole system in one book: the battery problem it solves, how to use the site, what happens to a submission, how the score is computed, the database, security, administration and infrastructure. Every chapter opens with a plain-language summary and uses real screenshots and figures; the glossary and reference tables are at the back. Written for developers and non-developers alike. The button above opens the PDF, about 50 pages.
 
 Prefer it in pieces? The same content is [one page per chapter](docs/walkthrough/README.md), or [a single Markdown file](docs/walkthrough/ALL-IN-ONE.md).
 
