@@ -4,6 +4,8 @@
 #   scp scripts/provision-arbutus-web.sh ubuntu@<ip>: && ssh ubuntu@<ip> ./provision-arbutus-web.sh
 # Optional environment:
 #   SOCBENCH_DOMAIN   public host name served over HTTPS          (default batterysocbenchmark.ca)
+#   SOCBENCH_REDIRECT host names that redirect to it, space-separated, e.g. "www.batterysocbenchmark.ca" (default none).
+#                     List a name only once its DNS record points at this host, or its certificate cannot be issued.
 #   SOCBENCH_WORKER   private address of the evaluation worker,   (default 192.168.201.184)
 #                     the only remote host allowed to reach PostgreSQL
 # Idempotent: safe to re-run. Holds NO secrets and never the blinded dataset (that stays on the worker).
@@ -12,6 +14,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 DOMAIN="${SOCBENCH_DOMAIN:-batterysocbenchmark.ca}"
 WORKER="${SOCBENCH_WORKER:-192.168.201.184}"
+REDIRECT="${SOCBENCH_REDIRECT:-}"
 log() { echo "[provision $(date -u +%H:%M:%S)] $*"; }
 
 log "sudo check"; sudo -n true
@@ -172,11 +175,14 @@ $DOMAIN {
 	}
 	reverse_proxy 127.0.0.1:3000
 }
-
-www.$DOMAIN {
-	redir https://$DOMAIN{uri} permanent
-}
 CADDY
+for h in $REDIRECT; do
+  printf '
+%s {
+	redir https://%s{uri} permanent
+}
+' "$h" "$DOMAIN" | sudo tee -a /etc/caddy/Caddyfile >/dev/null
+done
 sudo systemctl enable caddy >/dev/null 2>&1
 sudo systemctl reload caddy || sudo systemctl restart caddy
 
