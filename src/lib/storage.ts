@@ -14,13 +14,18 @@ import { randomBytes } from "crypto";
  *                      ~4.5 MB), the web app stores the object key, and the worker
  *                      downloads it with the service key wherever it runs.
  *                      Packages are deleted after evaluation.
+ *  STORAGE=remote    — worker only, paired with a STORAGE=local web host on
+ *                      another machine: files stay on the web host's disk and the
+ *                      worker reads and writes them through /api/internal/storage
+ *                      with STORAGE_REMOTE_URL + STORAGE_REMOTE_TOKEN (the same
+ *                      token is set on the web host, which enables the endpoint).
  *
  * Keys are opaque strings: a file name for local, an object path such as
- * `submissions/1724600000000-ab12cd.zip` for Supabase.
+ * `submissions/1724600000000-ab12cd.zip` for Supabase. Remote keys are the web host's local keys.
  * `materialize(key)` always returns a readable local path for the evaluator.
  */
 export interface ModelStorage {
-  readonly mode: "local" | "supabase";
+  readonly mode: "local" | "supabase" | "remote";
   put(bytes: Buffer, ext: "zip" | "mat" | "py"): Promise<string>;
   getBytes(key: string): Promise<Buffer>;
   materialize(key: string): Promise<string>;
@@ -136,7 +141,51 @@ export class SupabaseStorage implements ModelStorage {
   }
 }
 
-export const storage: ModelStorage = (process.env.STORAGE ?? "local") === "supabase" ? new SupabaseStorage() : new LocalStorage();
+/** Worker-side client of a STORAGE=local web host (see src/app/api/internal/storage/route.ts). */
+class RemoteStorage implements ModelStorage {
+  readonly mode = "remote" as const;
+  private url(q: string) {
+    const base = (process.env.STORAGE_REMOTE_URL ?? "").replace(/\/$/, "");
+    if (!base || !process.env.STORAGE_REMOTE_TOKEN) throw new Error("STORAGE=remote needs STORAGE_REMOTE_URL and STORAGE_REMOTE_TOKEN set on this host");
+    return `${base}/api/internal/storage?${q}`;
+  }
+  private headers(extra: Record<string, string> = {}) {
+    return { Authorization: `Bearer ${process.env.STORAGE_REMOTE_TOKEN}`, ...extra };
+  }
+  async put(bytes: Buffer, ext: "zip" | "mat" | "py") {
+    const res = await fetch(this.url(`ext=${ext}`), { method: "POST", headers: this.headers({ "Content-Type": "application/octet-stream" }), body: new Uint8Array(bytes) });
+    if (!res.ok) throw new Error(`Remote upload failed (${res.status}): ${await res.text()}`);
+    return ((await res.json()) as { key: string }).key;
+  }
+  async getBytes(key: string) {
+    const res = await fetch(this.url(`key=${encodeURIComponent(key)}`), { headers: this.headers(), cache: "no-store" });
+    if (!res.ok) throw new Error(`Package download failed (${res.status})`);
+    return Buffer.from(await res.arrayBuffer());
+  }
+  async materialize(key: string) {
+    const bytes = await this.getBytes(key);
+    const dir = path.join(os.tmpdir(), "socbench");
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, `${randomBytes(8).toString("hex")}${path.extname(key) || ".zip"}`);
+    await writeFile(file, bytes);
+    return file;
+  }
+  async remove(key: string) {
+    try {
+      await fetch(this.url(`key=${encodeURIComponent(key)}`), { method: "DELETE", headers: this.headers() });
+    } catch {}
+  }
+  async exists(key: string) {
+    try {
+      return (await fetch(this.url(`key=${encodeURIComponent(key)}`), { method: "HEAD", headers: this.headers() })).ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+const mode = process.env.STORAGE ?? "local";
+export const storage: ModelStorage = mode === "supabase" ? new SupabaseStorage() : mode === "remote" ? new RemoteStorage() : new LocalStorage();
 
 export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_MB ?? 50) * 1024 * 1024;
 export const ALLOWED_EXTENSIONS = ["zip"] as const;
