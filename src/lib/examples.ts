@@ -320,7 +320,8 @@ end`,
 import numpy as np
 from pathlib import Path
 
-W = np.load(Path(__file__).resolve().parent / "weights.npz")
+# dict(): materialise the arrays once — indexing an NpzFile re-reads the archive on every access
+W = dict(np.load(Path(__file__).resolve().parent / "weights.npz"))
 WINDOW = 300                                   # inputs are averaged over the last 300 samples
 
 
@@ -406,7 +407,8 @@ end`,
 import numpy as np
 from pathlib import Path
 
-W = np.load(Path(__file__).resolve().parent / "weights.npz")
+# dict(): materialise the arrays once — indexing an NpzFile re-reads the archive on every access
+W = dict(np.load(Path(__file__).resolve().parent / "weights.npz"))
 MAX = np.array([15.0, 4.5, 51.0])              # normalisation ranges used in training: [I, V, T]
 MIN = np.array([-19.0, 2.5, -27.0])
 
