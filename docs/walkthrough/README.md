@@ -28,7 +28,7 @@ All diagrams share one visual vocabulary, introduced in Section 2.4, so that a g
 6. [The data model](06-the-data-model.md) — 1 figure
 7. [Accounts and security](07-accounts-and-security.md) — 1 figure
 8. [Administration and monitoring](08-administration-and-monitoring.md) — 5 figures
-9. [Infrastructure](09-infrastructure.md) — 2 figures
+9. [Infrastructure](09-infrastructure.md) — 3 figures
 10. [Maintenance reference](10-maintenance-reference.md) — 0 figures
 11. [A ten-minute demonstration](11-a-ten-minute-demonstration.md) — 0 figures
 12. [Glossary](12-glossary.md) — 0 figures
