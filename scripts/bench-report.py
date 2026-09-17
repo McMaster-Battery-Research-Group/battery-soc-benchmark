@@ -56,11 +56,13 @@ def bars(metric, fmt, log=False):
     out = []
     for m, name in MODELS:
         vals = {c: f(by.get((m, c)), metric) for c in "ABCDEF"}
-        vmax = max(v for v in vals.values() if v)
+        import math
+        vmax = max(v for v in vals.values() if v); vmin = min(v for v in vals.values() if v)
+        lo, hi = math.log10(vmin) - 0.3, math.log10(vmax)
         out.append(f'<div class="grp"><h4>{name}</h4>')
         for c in "ABCDEF":
             v = vals[c]
-            pct = (v / vmax) * 100 if not log else (max(0, (__import__("math").log10(v) + 2)) / (__import__("math").log10(vmax) + 2)) * 100
+            pct = (v / vmax) * 100 if not log else (math.log10(v) - lo) / (hi - lo) * 100
             out.append(f'<div class="bar"><span class="k">{c}</span><i style="width:{pct:.1f}%;background:{COL[c]}"></i><b>{fmt(v)}</b></div>')
         out.append("</div>")
     return "".join(out)
