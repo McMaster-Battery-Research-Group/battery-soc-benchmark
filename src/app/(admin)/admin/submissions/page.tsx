@@ -5,6 +5,7 @@ import { StatusBadge, Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/input";
 import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-version";
 import { ModerateButtons } from "./moderate";
+import { EditAuthorship } from "./authorship";
 import { BulkProvider, RowCheck, HeaderCheck, BulkBar } from "./bulk-delete";
 import { Avatar } from "@/components/avatar";
 
@@ -81,6 +82,13 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                         </li>
                       ))}
                     </ul>
+                    <EditAuthorship
+                      id={s.id}
+                      seq={s.seq}
+                      modelName={s.modelName}
+                      owner={{ id: s.user.id, name: s.user.name, email: s.user.email, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null }}
+                      coAuthors={s.collaborators.map((c) => ({ id: c.user.id, name: c.user.name, email: c.user.email, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null }))}
+                    />
                   </td>
                   <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
                   <td className="px-3 py-2.5 tabular">{s.result ? fmtPct(s.result.weightedError) : "—"}</td>

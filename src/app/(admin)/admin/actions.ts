@@ -211,6 +211,82 @@ export async function toggleHiddenAction(id: string, isHidden: boolean) {
   revalidatePath("/admin/submissions");
 }
 
+// ---- authorship (admin): reassign the owner, or add/remove co-authors on someone else's submission
+
+/**
+ * Move a submission to a different owner. Used to correct authorship on entries created on
+ * someone's behalf, or migrated from the previous platform. The former owner is kept as an
+ * accepted co-author unless `keepFormerOwner` is false, so credit is never silently lost.
+ * Nothing is e-mailed: this is a records correction, not a moderation action.
+ */
+export async function adminSetSubmissionOwnerAction(id: string, newOwnerId: string, keepFormerOwner = true): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const sub = await db.submission.findUnique({ where: { id }, select: { id: true, seq: true, modelName: true, userId: true, user: { select: { name: true, email: true } } } });
+  if (!sub) return { ok: false, error: "Submission not found." };
+  if (sub.userId === newOwnerId) return { ok: false, error: "That person already owns this submission." };
+  const next = await db.user.findUnique({ where: { id: newOwnerId }, select: { id: true, name: true, email: true } });
+  if (!next) return { ok: false, error: "No account found for the chosen person." };
+
+  await db.$transaction(async (tx) => {
+    // the incoming owner must not also sit in the collaborator list
+    await tx.submissionCollaborator.deleteMany({ where: { submissionId: id, userId: next.id } });
+    await tx.submission.update({ where: { id }, data: { userId: next.id } });
+    if (keepFormerOwner) {
+      await tx.submissionCollaborator.upsert({
+        where: { submissionId_userId: { submissionId: id, userId: sub.userId } },
+        create: { submissionId: id, userId: sub.userId, acceptedAt: new Date(), notifiedAt: new Date() },
+        update: { acceptedAt: new Date(), notifiedAt: new Date() },
+      });
+    }
+  });
+
+  logEvent("admin.submission_owner_changed", { id, seq: sub.seq, by: admin.id, from: sub.userId, to: next.id, keepFormerOwner });
+  await recordAdminEvent("deletions", `${admin.name} reassigned submission #${sub.seq} "${sub.modelName}" from ${sub.user.name} <${sub.user.email}> to ${next.name} <${next.email}>${keepFormerOwner ? " (former owner kept as co-author)" : ""}`);
+  revalidatePath("/leaderboard");
+  revalidatePath(`/submissions/${id}`);
+  revalidatePath("/submissions");
+  revalidatePath("/admin/submissions");
+  return { ok: true, message: `#${sub.seq} now owned by ${next.name}` };
+}
+
+/** Add a co-author to any submission (admins only; listed as accepted, no invitation e-mail). */
+export async function adminAddCoAuthorAction(id: string, userId: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, userId: true, modelName: true } });
+  if (!sub) return { ok: false, error: "Submission not found." };
+  if (sub.userId === userId) return { ok: false, error: "That person is the owner." };
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true } });
+  if (!user) return { ok: false, error: "No account found for the chosen person." };
+  if ((await db.submissionCollaborator.count({ where: { submissionId: id } })) >= 10) return { ok: false, error: "A submission can have at most 10 co-authors." };
+  await db.submissionCollaborator.upsert({
+    where: { submissionId_userId: { submissionId: id, userId: user.id } },
+    create: { submissionId: id, userId: user.id, acceptedAt: new Date(), notifiedAt: new Date() },
+    update: { acceptedAt: new Date(), notifiedAt: new Date() },
+  });
+  logEvent("admin.coauthor_added", { id, seq: sub.seq, by: admin.id, userId: user.id });
+  await recordAdminEvent("deletions", `${admin.name} added ${user.name} <${user.email}> as a co-author of #${sub.seq} "${sub.modelName}"`);
+  revalidatePath("/leaderboard");
+  revalidatePath(`/submissions/${id}`);
+  revalidatePath("/admin/submissions");
+  return { ok: true, message: `${user.name} added as co-author` };
+}
+
+/** Remove a co-author from any submission (admins only). The owner cannot be removed this way. */
+export async function adminRemoveCoAuthorAction(id: string, userId: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, userId: true, modelName: true } });
+  if (!sub) return { ok: false, error: "Submission not found." };
+  if (sub.userId === userId) return { ok: false, error: "That is the owner — reassign the submission instead." };
+  const user = await db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+  await db.submissionCollaborator.deleteMany({ where: { submissionId: id, userId } });
+  logEvent("admin.coauthor_removed", { id, seq: sub.seq, by: admin.id, userId });
+  if (user) await recordAdminEvent("deletions", `${admin.name} removed ${user.name} <${user.email}> as a co-author of #${sub.seq} "${sub.modelName}"`);
+  revalidatePath("/leaderboard");
+  revalidatePath(`/submissions/${id}`);
+  revalidatePath("/admin/submissions");
+  return { ok: true, message: `${user?.name ?? "Co-author"} removed` };
+}
+
 export async function setRoleAction(userId: string, role: "USER" | "ADMIN") {
   const me = await requireAdmin();
   if (me.id === userId) throw new Error("You cannot change your own role");
