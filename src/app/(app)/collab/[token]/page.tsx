@@ -28,12 +28,13 @@ export default async function CollabInvitePage({ params }: { params: Promise<{ t
     include: { user: { select: { id: true, name: true } }, submission: { include: { user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } } } },
   });
   // The owner is CC'd on the invitation and therefore has this link — only the invitee may answer.
-  if (row && row.user.id !== session.user.id) {
+  const invitee = row?.user ?? null;
+  if (row && invitee && invitee.id !== session.user.id) {
     return (
       <div className="container-site py-12">
         <div className="mx-auto max-w-xl">
-          <Alert variant="warning" title={`This invitation is addressed to ${row.user.name}`}>
-            You are signed in as {session.user.name}. Only {row.user.name} can accept or decline it from their own account.
+          <Alert variant="warning" title={`This invitation is addressed to ${invitee.name}`}>
+            You are signed in as {session.user.name}. Only {invitee.name} can accept or decline it from their own account.
             {row.submission.user.id === session.user.id ? <> As the owner you can withdraw the invitation from the <Link href={`/submissions/${row.submissionId}`} className="underline">submission page</Link>.</> : null}
           </Alert>
         </div>
@@ -51,7 +52,7 @@ export default async function CollabInvitePage({ params }: { params: Promise<{ t
         ) : (
           <div className="card p-6 md:p-8">
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">Co-author invitation</p>
-            <h1 className="mt-2 font-heading text-2xl font-bold">Hi {row.user.name}, do you want to be listed as a co-author?</h1>
+            <h1 className="mt-2 font-heading text-2xl font-bold">Hi {invitee?.name ?? "there"}, do you want to be listed as a co-author?</h1>
             <div className="mt-5 flex items-center gap-3 rounded-brand border border-border p-3">
               <Avatar userId={row.submission.user.id} name={row.submission.user.name} hasAvatar={!!row.submission.user.avatarUpdatedAt} version={row.submission.user.avatarUpdatedAt?.getTime() ?? null} size={44} />
               <div className="min-w-0">

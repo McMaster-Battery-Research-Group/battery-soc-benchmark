@@ -26,7 +26,7 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
   if (!unique.length) return { ok: false, error: "Nothing selected." };
   const subs = await db.submission.findMany({
     where: { id: { in: unique } },
-    include: { user: { select: { email: true, name: true } }, result: { select: { tracesKey: true } }, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
+    include: { user: { select: { email: true, name: true } }, result: { select: { tracesKey: true } }, collaborators: { where: { acceptedAt: { not: null }, userId: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
   });
   const skipped: string[] = [];
   const lines: string[] = [];
@@ -42,7 +42,7 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
     lines.push(`#${sub.seq} "${sub.modelName}" — owner ${sub.user.name} <${sub.user.email}>`);
     logEvent("submission.deleted", { id: sub.id, seq: sub.seq, by: admin.id, bulk: true });
     if (notifyAuthors) {
-      for (const rcpt of [{ email: sub.user.email, name: sub.user.name }, ...sub.collaborators.map((c) => c.user)]) {
+      for (const rcpt of [{ email: sub.user.email, name: sub.user.name }, ...sub.collaborators.flatMap((c) => (c.user ? [c.user] : []))]) {
         if (await moderationEmail(rcpt.email, rcpt.name, sub.modelName, null, "delete", why, admin.name ?? "an administrator")) emailed++;
       }
     }
@@ -170,7 +170,7 @@ export async function adminModerateAction(id: string, action: ModerationAction, 
   if (why.length < 10) return { ok: false, error: "Please give a reason (at least 10 characters) — it is sent to the author." };
   const sub = await db.submission.findUnique({
     where: { id },
-    include: { user: { select: { email: true, name: true, affiliation: true } }, result: { select: { weightedError: true, tracesKey: true } }, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
+    include: { user: { select: { email: true, name: true, affiliation: true } }, result: { select: { weightedError: true, tracesKey: true } }, collaborators: { where: { acceptedAt: { not: null }, userId: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
   });
   if (!sub) return { ok: false, error: "Submission not found." };
   if (action === "delete" && sub.status === "RUNNING") return { ok: false, error: "Cancel the running evaluation first, then delete." };
@@ -188,7 +188,7 @@ export async function adminModerateAction(id: string, action: ModerationAction, 
   }
   logEvent("admin.moderate", { id, seq: sub.seq, action, by: admin.id, reason: why });
 
-  const recipients = [{ email: sub.user.email, name: sub.user.name }, ...sub.collaborators.map((c) => c.user)];
+  const recipients = [{ email: sub.user.email, name: sub.user.name }, ...sub.collaborators.flatMap((c) => (c.user ? [c.user] : []))];
   let sent = 0;
   for (const r of recipients) if (await moderationEmail(r.email, r.name, sub.modelName, action === "delete" ? null : sub.id, action, why, admin.name ?? "an administrator")) sent++;
 
@@ -269,6 +269,47 @@ export async function adminAddCoAuthorAction(id: string, userId: string): Promis
   revalidatePath(`/submissions/${id}`);
   revalidatePath("/admin/submissions");
   return { ok: true, message: `${user.name} added as co-author` };
+}
+
+/**
+ * Credit someone who has no account on the platform — administrators only. Stored as a
+ * collaborator row with no userId, so the person is listed everywhere co-authors appear but
+ * receives no e-mail and has no profile page. If they later register, replace the credit with
+ * a normal co-author.
+ */
+export async function adminAddCreditAction(id: string, name: string, affiliation: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const who = name.trim();
+  const where = affiliation.trim();
+  if (who.length < 2) return { ok: false, error: "Enter the person's full name." };
+  if (who.length > 120 || where.length > 160) return { ok: false, error: "Name or affiliation is too long." };
+  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, modelName: true } });
+  if (!sub) return { ok: false, error: "Submission not found." };
+  if ((await db.submissionCollaborator.count({ where: { submissionId: id } })) >= 10) return { ok: false, error: "A submission can have at most 10 co-authors." };
+  const clash = await db.submissionCollaborator.findFirst({ where: { submissionId: id, userId: null, name: who } });
+  if (clash) return { ok: false, error: `${who} is already credited on this submission.` };
+  await db.submissionCollaborator.create({ data: { submissionId: id, name: who, affiliation: where || null, acceptedAt: new Date(), notifiedAt: new Date() } });
+  logEvent("admin.credit_added", { id, seq: sub.seq, by: admin.id, name: who });
+  await recordAdminEvent("deletions", `${admin.name} credited ${who}${where ? ` (${where})` : ""} — who has no account — on #${sub.seq} "${sub.modelName}"`);
+  revalidatePath("/leaderboard");
+  revalidatePath(`/submissions/${id}`);
+  revalidatePath("/admin/submissions");
+  return { ok: true, message: `${who} credited` };
+}
+
+/** Remove an unregistered credit (matched by name, since there is no account to key on). */
+export async function adminRemoveCreditAction(id: string, name: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, modelName: true } });
+  if (!sub) return { ok: false, error: "Submission not found." };
+  const { count } = await db.submissionCollaborator.deleteMany({ where: { submissionId: id, userId: null, name } });
+  if (!count) return { ok: false, error: "That credit is no longer listed." };
+  logEvent("admin.credit_removed", { id, seq: sub.seq, by: admin.id, name });
+  await recordAdminEvent("deletions", `${admin.name} removed the credit for ${name} on #${sub.seq} "${sub.modelName}"`);
+  revalidatePath("/leaderboard");
+  revalidatePath(`/submissions/${id}`);
+  revalidatePath("/admin/submissions");
+  return { ok: true, message: `${name} removed` };
 }
 
 /** Remove a co-author from any submission (admins only). The owner cannot be removed this way. */

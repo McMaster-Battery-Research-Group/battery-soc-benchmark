@@ -19,7 +19,7 @@ export type LeaderboardRow = {
   userId: string;
   /** avatarUpdatedAt epoch ms, null when the author has no picture */
   avatarVersion: number | null;
-  collaborators: { id: string; name: string; avatarVersion: number | null }[];
+  collaborators: { id: string | null; name: string; avatarVersion: number | null }[];
   contestId: string | null;
   weightedError: number;
   complexity: number;
@@ -57,7 +57,7 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
     include: {
       user: { select: { name: true, affiliation: true, avatarUpdatedAt: true } },
       // only accepted co-authors are public
-      collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { id: true, name: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
+      collaborators: { where: { acceptedAt: { not: null } }, select: { name: true, affiliation: true, user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
       result: { select: resultSelect },
     },
     orderBy: { submittedAt: "desc" },
@@ -79,7 +79,7 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       affiliation: s.user.affiliation,
       userId: s.userId,
       avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null,
-      collaborators: s.collaborators.map((c) => ({ id: c.user.id, name: c.user.name, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null })),
+      collaborators: s.collaborators.map((c) => { const a = toCoAuthor(c); return { id: a.id, name: a.name, avatarVersion: a.avatarVersion }; }),
       contestId: s.contestId,
       ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string }),
     }));
@@ -90,7 +90,7 @@ export async function getSubmissionDetail(id: string) {
     where: { id },
     include: {
       user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } },
-      collaborators: { include: { user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
+      collaborators: { orderBy: { addedAt: "asc" }, select: { userId: true, name: true, affiliation: true, notifiedAt: true, acceptedAt: true, user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } } },
       result: true,
       job: { select: { log: true, attempts: true, cancelRequestedAt: true } },
       contest: { select: { id: true, slug: true, title: true, status: true } },
@@ -98,7 +98,7 @@ export async function getSubmissionDetail(id: string) {
   });
 }
 
-export function canViewSubmission(sub: { userId: string; isPrivate: boolean; isHidden: boolean; collaborators?: { userId: string }[] }, viewer?: { id: string; role: string } | null) {
+export function canViewSubmission(sub: { userId: string; isPrivate: boolean; isHidden: boolean; collaborators?: { userId: string | null }[] }, viewer?: { id: string; role: string } | null) {
   if (viewer?.role === "ADMIN") return true;
   if (viewer?.id === sub.userId) return true;
   if (viewer && sub.collaborators?.some((c) => c.userId === viewer.id)) return true;
@@ -143,4 +143,20 @@ export async function publicRankOf(submissionId: string): Promise<number | null>
     },
   });
   return better + 1;
+}
+
+/**
+ * A collaborator row resolves to either a site account or a plain credit an administrator
+ * entered for someone without one. `id` is null for the latter, which is what the UI keys on
+ * to skip the avatar request and the link to a researcher page.
+ */
+export type CoAuthor = { id: string | null; name: string; affiliation: string; avatarVersion: number | null };
+
+export function toCoAuthor(c: {
+  name: string | null;
+  affiliation: string | null;
+  user: { id: string; name: string; affiliation: string; avatarUpdatedAt: Date | null } | null;
+}): CoAuthor {
+  if (c.user) return { id: c.user.id, name: c.user.name, affiliation: c.user.affiliation, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null };
+  return { id: null, name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "", avatarVersion: null };
 }

@@ -5,25 +5,28 @@ import { useRouter } from "next/navigation";
 import { Users, Crown, X, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
-import { Hint } from "@/components/ui/input";
+import { Hint, Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
-import { adminSetSubmissionOwnerAction, adminAddCoAuthorAction, adminRemoveCoAuthorAction } from "../actions";
+import { adminSetSubmissionOwnerAction, adminAddCoAuthorAction, adminRemoveCoAuthorAction, adminAddCreditAction, adminRemoveCreditAction } from "../actions";
 
-export type AuthorRow = { id: string; name: string; email: string; avatarVersion: number | null };
+/** `id` is null and `email` empty for a co-author an administrator credited without an account. */
+export type AuthorRow = { id: string | null; name: string; email: string; affiliation?: string; avatarVersion: number | null };
 
 /**
  * Administrator authorship editor: change who owns a submission and who is credited
  * alongside them. For correcting entries created on someone's behalf or carried over
  * from the previous platform — no invitation e-mails are sent, people are simply listed.
  */
-export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: string; seq: number; modelName: string; owner: AuthorRow; coAuthors: AuthorRow[] }) {
+export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: string; seq: number; modelName: string; owner: AuthorRow & { id: string }; coAuthors: AuthorRow[] }) {
   const router = useRouter();
   const { push } = useToast();
   const [open, setOpen] = React.useState(false);
   const [pending, start] = React.useTransition();
   const [keepFormerOwner, setKeepFormerOwner] = React.useState(true);
+  const [creditName, setCreditName] = React.useState("");
+  const [creditAffil, setCreditAffil] = React.useState("");
 
   const run = (fn: () => Promise<{ ok: true; message: string } | { ok: false; error: string }>, failTitle: string) =>
     start(async () => {
@@ -33,7 +36,7 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: s
       router.refresh();
     });
 
-  const everyone = [owner.id, ...coAuthors.map((c) => c.id)];
+  const everyone = [owner.id, ...coAuthors.flatMap((c) => (c.id ? [c.id] : []))];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -73,13 +76,13 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: s
         {coAuthors.length ? (
           <ul className="mt-1.5 divide-y divide-border rounded-brand border border-border">
             {coAuthors.map((c) => (
-              <li key={c.id} className="flex items-center gap-2.5 px-3 py-2">
-                <Avatar userId={c.id} name={c.name} hasAvatar={c.avatarVersion !== null} version={c.avatarVersion} size={26} />
+              <li key={c.id ?? `x${c.name}`} className="flex items-center gap-2.5 px-3 py-2">
+                <Avatar userId={c.id ?? ""} name={c.name} hasAvatar={c.avatarVersion !== null} version={c.avatarVersion} size={26} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-grey-900">{c.name}</span>
-                  <span className="block truncate text-xs text-grey-600">{c.email}</span>
+                  <span className="block truncate text-xs text-grey-600">{c.email || c.affiliation || "no account — credited by an administrator"}</span>
                 </span>
-                <Button variant="ghost" size="sm" disabled={pending} title={`Remove ${c.name}`} onClick={() => run(() => adminRemoveCoAuthorAction(id, c.id), "Could not remove the co-author")}>
+                <Button variant="ghost" size="sm" disabled={pending} title={`Remove ${c.name}`} onClick={() => run(() => (c.id ? adminRemoveCoAuthorAction(id, c.id) : adminRemoveCreditAction(id, c.name)), "Could not remove the co-author")}>
                   <X />
                 </Button>
               </li>
@@ -92,12 +95,43 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: s
           <UserPickerDialog
             exclude={everyone}
             title="Add a co-author"
-            trigger={<Button variant="secondary" size="sm" disabled={pending}><UserPlus /> Add co-author</Button>}
+            trigger={<Button variant="secondary" size="sm" disabled={pending}><UserPlus /> Add co-author with an account</Button>}
             onAdd={async (u) => {
               run(() => adminAddCoAuthorAction(id, u.id), "Could not add the co-author");
             }}
           />
         </div>
+
+        <h4 className="mt-5 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Credit someone without an account</h4>
+        <Hint>For co-authors who will never use the platform, or entries carried over from the previous system. They are listed but get no profile page and no e-mail.</Hint>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <span>
+            <Label htmlFor={`cn-${id}`}>Full name</Label>
+            <Input id={`cn-${id}`} value={creditName} onChange={(e) => setCreditName(e.target.value)} placeholder="Jane Smith" />
+          </span>
+          <span>
+            <Label htmlFor={`ca-${id}`}>Affiliation (optional)</Label>
+            <Input id={`ca-${id}`} value={creditAffil} onChange={(e) => setCreditAffil(e.target.value)} placeholder="McMaster University" />
+          </span>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-2"
+          disabled={pending || creditName.trim().length < 2}
+          onClick={() =>
+            run(async () => {
+              const res = await adminAddCreditAction(id, creditName, creditAffil);
+              if (res.ok) {
+                setCreditName("");
+                setCreditAffil("");
+              }
+              return res;
+            }, "Could not add the credit")
+          }
+        >
+          <UserPlus /> Add credit
+        </Button>
 
         <DialogFooter>
           <DialogClose asChild><Button variant="secondary">Done</Button></DialogClose>

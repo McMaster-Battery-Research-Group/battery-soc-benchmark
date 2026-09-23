@@ -328,12 +328,13 @@ export async function addCollaboratorAction(id: string, userIdOrEmail: string): 
 /** Owner confirmation: e-mail every not-yet-notified collaborator (owner CC'd) and mark them notified. */
 export async function notifyCollaboratorsAction(id: string): Promise<{ ok: true; sent: number } | { ok: false; error: string }> {
   const { sub, session } = await ownedSubmission(id);
-  const pending = await db.submissionCollaborator.findMany({ where: { submissionId: id, notifiedAt: null }, include: { user: { select: { email: true, name: true } } } });
+  const pending = await db.submissionCollaborator.findMany({ where: { submissionId: id, notifiedAt: null, userId: { not: null } }, include: { user: { select: { email: true, name: true } } } });
   if (!pending.length) return { ok: false, error: "Everyone has already been notified." };
   const owner = await db.user.findUnique({ where: { id: sub.userId }, select: { email: true } });
   let sent = 0;
   for (const c of pending) {
     const token = c.inviteToken ?? randomBytes(24).toString("base64url");
+    if (!c.user || !c.userId) continue; // administrator-entered credit: nobody to invite
     const ok = await collaboratorInviteEmail(c.user.email, c.user.name, session.user.name, sub.modelName, sub.id, sub.status === "COMPLETED", token, owner?.email);
     if (ok) {
       sent++;
@@ -355,6 +356,7 @@ export async function resendInviteAction(id: string, userId: string): Promise<{ 
   if (!rl.ok) return { ok: false, error: `An invitation was sent recently — you can resend in ${retryText(rl.retryAfterSec)}.` };
   const token = c.inviteToken ?? randomBytes(24).toString("base64url");
   const owner = await db.user.findUnique({ where: { id: sub.userId }, select: { email: true } });
+  if (!c.user) return { ok: false, error: "That co-author has no account to invite." };
   const sent = await collaboratorInviteEmail(c.user.email, c.user.name, session.user.name, sub.modelName, sub.id, sub.status === "COMPLETED", token, owner?.email);
   if (!sent) return { ok: false, error: "The e-mail could not be sent — check the mail settings." };
   await db.submissionCollaborator.update({ where: { submissionId_userId: { submissionId: id, userId } }, data: { notifiedAt: new Date(), inviteToken: token } });
@@ -371,7 +373,7 @@ export async function respondToInviteAction(input: { submissionId: string } | { 
       : session?.user
         ? await db.submissionCollaborator.findUnique({ where: { submissionId_userId: { submissionId: input.submissionId, userId: session.user.id } }, include: { user: true, submission: { include: { user: true } } } })
         : null;
-  if (!row) return { ok: false, error: "This invitation is no longer valid — it may have been withdrawn or already answered." };
+  if (!row || !row.user || !row.userId) return { ok: false, error: "This invitation is no longer valid — it may have been withdrawn or already answered." };
   // Only the invited person may answer — the owner is CC'd on the e-mail and must not be able to accept on their behalf.
   if (!session?.user) return { ok: false, error: "Sign in as the invited person to respond." };
   if (session.user.id !== row.userId) return { ok: false, error: `This invitation is addressed to ${row.user.name}, not to your account.` };

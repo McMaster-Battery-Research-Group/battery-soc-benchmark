@@ -53,9 +53,12 @@ export default async function SubmissionPage({ params, searchParams }: { params:
   const canSee = isOwner || isAdmin || isCollaborator; // logs, report link
   const canManage = isOwner || isAdmin;
   const toPerson = (u: { id: string; name: string; affiliation: string; avatarUpdatedAt: Date | null }) => ({ id: u.id, name: u.name, affiliation: u.affiliation, avatarVersion: u.avatarUpdatedAt?.getTime() ?? null });
+  /** Owner plus accepted co-authors; a co-author credited by an administrator has no account, so `id` is null. */
+  const toAuthor = (c: { name: string | null; affiliation: string | null; user: { id: string; name: string; affiliation: string; avatarUpdatedAt: Date | null } | null }) =>
+    c.user ? { id: c.user.id as string | null, name: c.user.name, affiliation: c.user.affiliation, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null } : { id: null as string | null, name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "", avatarVersion: null };
   const r = sub.result;
   const values = r ? (Object.fromEntries(TEST_CASES.map((t) => [t.key, r[t.key as keyof typeof r] as number])) as Record<MetricKey, number>) : null;
-  const authors = [sub.user, ...sub.collaborators.filter((c) => c.acceptedAt).map((c) => c.user)];
+  const authors = [{ id: sub.user.id as string | null, name: sub.user.name, affiliation: sub.user.affiliation, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null }, ...sub.collaborators.filter((c) => c.acceptedAt).map(toAuthor)];
   const legacy = r ? !isCurrentBenchmark(r.evaluatorVersion) : false;
   const traces = (r?.timeSeries ?? []) as unknown as TimeSeriesTrace[];
   const perCycle = (r?.perCycle ?? []) as unknown as PerCycleRow[];
@@ -94,15 +97,21 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="flex -space-x-2">
-              {authors.map((u) => (
-                <Link key={u.id} href={`/users/${u.id}`} title={u.name} className="rounded-full ring-2 ring-white">
-                  <Avatar userId={u.id} name={u.name} hasAvatar={!!u.avatarUpdatedAt} version={u.avatarUpdatedAt?.getTime() ?? null} size={28} />
-                </Link>
-              ))}
+              {authors.map((u, i) =>
+                u.id ? (
+                  <Link key={u.id} href={`/users/${u.id}`} title={u.name} className="rounded-full ring-2 ring-white">
+                    <Avatar userId={u.id} name={u.name} hasAvatar={u.avatarVersion !== null} version={u.avatarVersion} size={28} />
+                  </Link>
+                ) : (
+                  <span key={`x${i}`} title={u.name} className="rounded-full ring-2 ring-white">
+                    <Avatar userId="" name={u.name} hasAvatar={false} size={28} />
+                  </span>
+                ),
+              )}
             </div>
             <span className="text-sm text-grey-700">
               {authors.map((u, i) => (
-                <React.Fragment key={u.id}>{i ? ", " : ""}<Link href={`/users/${u.id}`} className="text-ink hover:text-maroon hover:underline">{u.name}</Link></React.Fragment>
+                <React.Fragment key={u.id ?? `x${i}`}>{i ? ", " : ""}{u.id ? <Link href={`/users/${u.id}`} className="text-ink hover:text-maroon hover:underline">{u.name}</Link> : <span className="text-ink">{u.name}</span>}</React.Fragment>
               ))}
               {authors.length === 1 ? ` · ${sub.user.affiliation}` : ""}
             </span>
@@ -228,7 +237,8 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           <Row k="Submission ID" v={sub.id} />
         </dl>
       </section>
-      <Collaborators submissionId={sub.id} owner={toPerson(sub.user)} list={sub.collaborators.map((c) => ({ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }))} canEdit={canManage} viewerId={session?.user?.id} />
+      <Collaborators submissionId={sub.id} owner={toPerson(sub.user)} /* the owner's panel drives the invitation flow, so it lists account-linked co-authors only; administrator credits are managed in the admin panel */
+        list={sub.collaborators.flatMap((c) => (c.user ? [{ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }] : []))} canEdit={canManage} viewerId={session?.user?.id} />
     </div>
   );
 }

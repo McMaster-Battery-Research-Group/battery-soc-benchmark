@@ -116,10 +116,10 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
   /** Owner first, then every *confirmed* collaborator — pending (un-notified) ones get nothing until the owner confirms. */
   const recipients = async () => {
     // re-read: collaborators may have been added/confirmed while the evaluation ran
-    const fresh = await db.submissionCollaborator.findMany({ where: { submissionId: sub.id }, include: { user: { select: { email: true, name: true } } } });
+    const fresh = await db.submissionCollaborator.findMany({ where: { submissionId: sub.id, userId: { not: null } }, include: { user: { select: { email: true, name: true } } } });
     const skipped = fresh.filter((c) => !c.notifiedAt);
     if (skipped.length) await log(`${skipped.length} pending collaborator(s) not e-mailed — the owner has not confirmed them yet`);
-    return [{ email: sub.user.email, name: sub.user.name }, ...fresh.filter((c) => c.notifiedAt).map((c) => c.user)];
+    return [{ email: sub.user.email, name: sub.user.name }, ...fresh.filter((c) => c.notifiedAt).flatMap((c) => (c.user ? [c.user] : []))];
   };
   // Cancellation: the owner sets EvaluationJob.cancelRequestedAt; we notice it on
   // the next log line or the 10 s poll and abort the evaluator (which kills MATLAB too).
@@ -183,8 +183,8 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
     let report: Buffer | undefined;
     try {
-      const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
-      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, collaborators: fresh.collaborators.map((c) => c.user), result: fresh.result as unknown as ReportInput["result"], history: await getHistory(sub.id), weights: await getActiveWeights(), siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
+      const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true, collaborators: { where: { acceptedAt: { not: null } }, select: { name: true, affiliation: true, user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
+      if (fresh?.result) report = await buildSubmissionReport({ submission: fresh, user: sub.user, collaborators: fresh.collaborators.map((c) => (c.user ? { name: c.user.name, affiliation: c.user.affiliation } : { name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "" })), result: fresh.result as unknown as ReportInput["result"], history: await getHistory(sub.id), weights: await getActiveWeights(), siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
     } catch (e) {
       await log(`report generation failed (email sent without attachment): ${e instanceof Error ? e.message : String(e)}`);
     }

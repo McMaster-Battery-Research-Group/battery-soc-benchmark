@@ -47,13 +47,13 @@ export async function suggestUsersAction(excludeSubmissionId?: string): Promise<
 
   const mine = await db.submission.findMany({
     where: { OR: [{ userId: session.user.id }, { collaborators: { some: { userId: session.user.id } } }], ...(excludeSubmissionId ? { NOT: { id: excludeSubmissionId } } : {}) },
-    select: { user: { select: sel }, collaborators: { select: { user: { select: sel } } } },
+    select: { user: { select: sel }, collaborators: { where: { userId: { not: null } }, select: { user: { select: sel } } } },
     orderBy: { submittedAt: "desc" },
     take: 30,
   });
   for (const s of mine) {
     push(s.user, "Previous co-author");
-    for (const c of s.collaborators) push(c.user, "Previous co-author");
+    for (const c of s.collaborators) if (c.user) push(c.user, "Previous co-author");
   }
   if (me?.affiliation) {
     const peers = await db.user.findMany({ where: { emailVerified: { not: null }, affiliation: { equals: me.affiliation, mode: "insensitive" }, id: { notIn: [...seen] } }, select: sel, orderBy: { name: "asc" }, take: 8 });

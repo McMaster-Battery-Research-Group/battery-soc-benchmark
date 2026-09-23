@@ -11,6 +11,11 @@ import { Avatar } from "@/components/avatar";
 
 export const dynamic = "force-dynamic";
 
+/** Affiliation recorded for an administrator-entered credit, if any. */
+function c_affil(s: { collaborators: { name: string | null; affiliation: string | null; user: unknown }[] }, name: string) {
+  return s.collaborators.find((c) => !c.user && c.name === name)?.affiliation ?? "";
+}
+
 export default async function AdminSubmissions({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const subs = await db.submission.findMany({
@@ -69,15 +74,33 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                   </td>
                   <td className="max-w-[260px] px-3 py-2.5">
                     <ul className="space-y-1">
-                      {[{ u: s.user, role: "owner", state: "" }, ...s.collaborators.map((c) => ({ u: c.user, role: "co-author", state: c.acceptedAt ? "" : c.notifiedAt ? "invited" : "pending" }))].map(({ u, role, state }) => (
-                        <li key={u.id} className="flex items-center gap-2">
-                          <Avatar userId={u.id} name={u.name} hasAvatar={!!u.avatarUpdatedAt} version={u.avatarUpdatedAt?.getTime() ?? null} size={26} className={state ? "opacity-60" : undefined} />
+                      {[
+                        { id: s.user.id as string | null, name: s.user.name, email: s.user.email as string | null, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null, role: "owner", state: "" },
+                        // a co-author an administrator credited has no account: name only, no link, no e-mail
+                        ...s.collaborators.map((c) => ({
+                          id: (c.user?.id ?? null) as string | null,
+                          name: c.user?.name ?? c.name ?? "Unnamed co-author",
+                          email: (c.user?.email ?? null) as string | null,
+                          avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null,
+                          role: "co-author",
+                          state: c.user ? (c.acceptedAt ? "" : c.notifiedAt ? "invited" : "pending") : "no account",
+                        })),
+                      ].map((u, i) => (
+                        <li key={u.id ?? `x${i}`} className="flex items-center gap-2">
+                          <Avatar userId={u.id ?? ""} name={u.name} hasAvatar={u.avatarVersion !== null} version={u.avatarVersion} size={26} className={u.state ? "opacity-60" : undefined} />
                           <span className="min-w-0">
-                            <Link href={`/users/${u.id}`} className="block truncate text-grey-900 hover:text-maroon hover:underline">
-                              {u.name}
-                              {role === "co-author" ? <span className="ml-1 text-[10px] font-heading font-semibold uppercase tracking-wide text-grey-500">{state || "co-author"}</span> : null}
-                            </Link>
-                            <span className="block truncate text-xs text-grey-600" title={u.email}>{u.email}</span>
+                            {u.id ? (
+                              <Link href={`/users/${u.id}`} className="block truncate text-grey-900 hover:text-maroon hover:underline">
+                                {u.name}
+                                {u.role === "co-author" ? <span className="ml-1 text-[10px] font-heading font-semibold uppercase tracking-wide text-grey-500">{u.state || "co-author"}</span> : null}
+                              </Link>
+                            ) : (
+                              <span className="block truncate text-grey-900">
+                                {u.name}
+                                <span className="ml-1 text-[10px] font-heading font-semibold uppercase tracking-wide text-grey-500">{u.state}</span>
+                              </span>
+                            )}
+                            <span className="block truncate text-xs text-grey-600" title={u.email ?? undefined}>{u.email ?? (c_affil(s, u.name) || "credited by an administrator")}</span>
                           </span>
                         </li>
                       ))}
@@ -87,7 +110,7 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                       seq={s.seq}
                       modelName={s.modelName}
                       owner={{ id: s.user.id, name: s.user.name, email: s.user.email, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null }}
-                      coAuthors={s.collaborators.map((c) => ({ id: c.user.id, name: c.user.name, email: c.user.email, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null }))}
+                      coAuthors={s.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
                     />
                   </td>
                   <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>

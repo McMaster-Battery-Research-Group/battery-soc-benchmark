@@ -16,7 +16,7 @@ export async function rescoreAll(opts: { apply: boolean; notify: boolean; note: 
   const weights = opts.weights ?? (await getActiveWeights());
   const log = opts.log ?? (() => {});
   const results = await db.evaluationResult.findMany({
-    include: { submission: { include: { user: true, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { email: true, name: true, affiliation: true } } } } } } },
+    include: { submission: { include: { user: true, collaborators: { where: { acceptedAt: { not: null } }, select: { name: true, affiliation: true, user: { select: { email: true, name: true, affiliation: true } } } } } } },
   });
   let changed = 0, emailed = 0;
   const changes: { seq: number; modelName: string; from: number; to: number }[] = [];
@@ -37,11 +37,11 @@ export async function rescoreAll(opts: { apply: boolean; notify: boolean; note: 
       const freshResult = await db.evaluationResult.findUnique({ where: { id: r.id } });
       let report: Buffer | undefined;
       try {
-        report = await buildSubmissionReport({ submission: s, user: s.user, collaborators: s.collaborators.map((c) => c.user), result: freshResult as unknown as ReportInput["result"], history: await getHistory(s.id), weights, siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
+        report = await buildSubmissionReport({ submission: s, user: s.user, collaborators: s.collaborators.map((c) => (c.user ? { name: c.user.name, affiliation: c.user.affiliation } : { name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "" })), result: freshResult as unknown as ReportInput["result"], history: await getHistory(s.id), weights, siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
       } catch (e) {
         log(`  PDF failed for #${s.seq}: ${e instanceof Error ? e.message : e}`);
       }
-      for (const p of [{ email: s.user.email, name: s.user.name }, ...s.collaborators.map((c) => c.user)]) {
+      for (const p of [{ email: s.user.email, name: s.user.name }, ...s.collaborators.flatMap((c) => (c.user ? [c.user] : []))]) {
         const ok = await rescoreEmail(p.email, p.name, s.modelName, s.id, r.weightedError, fresh, opts.note, report);
         if (ok) emailed++;
         log(`  ${ok ? "e-mailed" : "E-MAIL FAILED"} ${p.email}`);

@@ -35,7 +35,7 @@ async function main() {
   console.log(`${legacy.length} of ${subs.length} completed submissions were scored by an older benchmark than ${BENCHMARK_VERSION}`);
   let sent = 0;
   for (const s of legacy) {
-    const people = [{ email: s.user.email, name: s.user.name }, ...s.collaborators.map((c) => c.user)];
+    const people = [{ email: s.user.email, name: s.user.name }, ...s.collaborators.flatMap((c) => (c.user ? [c.user] : []))];
     console.log(`#${s.seq} ${s.modelName} (${s.result!.evaluatorVersion}) → ${people.map((p) => p.email).join(", ")}`);
     if (!send) continue;
     for (const p of people) if (await legacyNoticeEmail(p.email, p.name, s.modelName, s.id, s.result!.evaluatorVersion.split("/")[0], BENCHMARK_VERSION, note)) sent++;

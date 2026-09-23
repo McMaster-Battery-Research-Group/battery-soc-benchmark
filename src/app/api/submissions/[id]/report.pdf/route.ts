@@ -11,12 +11,12 @@ export const dynamic = "force-dynamic";
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const sub = await db.submission.findUnique({ where: { id }, include: { result: true, user: { select: { name: true, affiliation: true } }, collaborators: { where: { acceptedAt: { not: null } }, include: { user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
+  const sub = await db.submission.findUnique({ where: { id }, include: { result: true, user: { select: { name: true, affiliation: true } }, collaborators: { where: { acceptedAt: { not: null } }, select: { userId: true, name: true, affiliation: true, user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
   if (!sub || !canViewSubmission(sub, session?.user) || !sub.result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const pdf = await buildSubmissionReport({
     submission: sub,
     user: sub.user,
-    collaborators: sub.collaborators.map((c) => c.user),
+    collaborators: sub.collaborators.map((c) => (c.user ? { name: c.user.name, affiliation: c.user.affiliation } : { name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "" })),
     history: await getHistory(id),
     weights: await getActiveWeights(),
     result: sub.result as unknown as ReportInput["result"],
