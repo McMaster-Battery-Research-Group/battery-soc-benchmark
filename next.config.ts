@@ -7,11 +7,11 @@ import type { NextConfig } from "next";
  */
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com",
   "font-src 'self' data:",
-  `connect-src 'self' ${process.env.SUPABASE_URL ?? "https://*.supabase.co"}`,
+  `connect-src 'self' ${process.env.SUPABASE_URL ?? "https://*.supabase.co"} https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

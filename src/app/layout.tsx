@@ -4,6 +4,8 @@ import "katex/dist/katex.min.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { AuthenticatedEntryTracker } from "@/components/analytics/authenticated-entry-tracker";
+import { LinkClickTracker } from "@/components/analytics/link-click-tracker";
 import { ToastProvider } from "@/components/ui/toast";
 import { auth } from "@/lib/auth";
 import { GoogleAnalytics } from "@next/third-parties/google";
@@ -27,11 +29,18 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
+  
+
+  //const googleAnalyticsId = process.env.GOOGLE_ANALYTICS_ID; 
+  const googleAnalyticsId = process.env.GOOGLE_ANALYTICS_DEV_ID; // used for testing purposes
+
   return (
     <html lang="en" className={poppins.variable}>
       <body className="flex min-h-screen flex-col">
         
-        <GoogleAnalytics gaId="G-20KVDGW116" />
+        {googleAnalyticsId ? <GoogleAnalytics gaId={googleAnalyticsId} /> : null}
+        <LinkClickTracker />
+        {session?.user ? <AuthenticatedEntryTracker /> : null}
         <ToastProvider>
           <a
             href="#main"

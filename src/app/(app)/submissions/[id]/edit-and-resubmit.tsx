@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { sendGAEvent } from "@next/third-parties/google";
 import { Pencil, UploadCloud, FileArchive, X, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
@@ -137,7 +138,7 @@ export function NewVersionDialog({ id, version, directUpload, maxMb, disabledRea
             <div className="flex items-center gap-3">
               <FileArchive className="size-8 text-maroon" />
               <div className="text-left"><p className="font-heading font-semibold text-ink">{file.name}</p><p className="text-xs text-grey-600">{fmtBytes(file.size)}</p></div>
-              <button type="button" onClick={() => pick(null)} className="ml-2 rounded-brand p-1 text-grey-600 hover:bg-grey-200 hover:text-ink" aria-label="Remove file"><X className="size-4" /></button>
+              <button type="button" onClick={() => { sendGAEvent("event", "button_click", { button_name: "remove_new_version_file" }); pick(null); }} className="ml-2 rounded-brand p-1 text-grey-600 hover:bg-grey-200 hover:text-ink" aria-label="Remove file"><X className="size-4" /></button>
             </div>
           ) : (
             <>

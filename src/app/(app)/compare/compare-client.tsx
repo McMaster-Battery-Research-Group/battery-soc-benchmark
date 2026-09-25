@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { sendGAEvent } from "@next/third-parties/google";
 import { Plus, X, Search, GitCompareArrows, Lock, SlidersHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
@@ -46,7 +47,7 @@ export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows
               <p className="truncate text-xs text-grey-600">{MODEL_TYPE_LABELS[s.modelType]} · {s.author}</p>
               <p className="mt-1 text-sm"><span className="font-heading font-semibold text-ink tabular">{fmtPct(s.weightedError)} %</span> <span className="text-grey-600">weighted</span></p>
             </div>
-            <button onClick={() => apply(ids.filter((x) => x !== s.id))} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-ink" aria-label={`Remove ${s.modelName}`}><X className="size-4" /></button>
+            <button onClick={() => { sendGAEvent("event", "button_click", { button_name: "remove_comparison_model" }); apply(ids.filter((x) => x !== s.id)); }} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-ink" aria-label={`Remove ${s.modelName}`}><X className="size-4" /></button>
           </div>
         ))}
         {ids.length < MAX ? <Picker rows={rows} ids={ids} onApply={(next) => apply(next.slice(0, MAX))} viewerId={viewerId} /> : null}

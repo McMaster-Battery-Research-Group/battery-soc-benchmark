@@ -36,6 +36,10 @@ services:
         value: "8"
       - key: NEXT_PUBLIC_SITE_URL
         sync: false          # https://your-vercel-domain — used in result emails
+      - key: GOOGLE_ANALYTICS_ID
+        sync: false          # GA4 web measurement ID, e.g. G-XXXXXXXXXX
+      - key: GOOGLE_ANALYTICS_DEV_API_SECRET
+        sync: false          # GA4 Measurement Protocol API secret
       - key: MAIL_FROM
         value: Battery SOC Benchmark <no-reply@batterysocbenchmark.ca>
       - key: SMTP_HOST

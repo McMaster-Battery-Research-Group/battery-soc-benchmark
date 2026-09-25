@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { sendGAEvent } from "@next/third-parties/google";
 import { X, Users, Send, MailCheck, Clock, Check, BadgeCheck, RefreshCw } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
@@ -145,10 +146,10 @@ function PersonCard({ p, role, state, onRemove, removeLabel, onResend, pending }
         </span>
       </span>
       {onResend ? (
-        <button type="button" onClick={onResend} disabled={pending} className="inline-flex items-center gap-1 rounded-brand px-2 py-1 font-heading text-xs font-medium text-maroon hover:bg-maroon-100" title="Send the invitation e-mail again (once per 12 h)"><RefreshCw className="size-3.5" /> Resend invite</button>
+        <button type="button" onClick={() => { sendGAEvent("event", "button_click", { button_name: "resend_collaborator_invitation" }); onResend(); }} disabled={pending} className="inline-flex items-center gap-1 rounded-brand px-2 py-1 font-heading text-xs font-medium text-maroon hover:bg-maroon-100" title="Send the invitation e-mail again (once per 12 h)"><RefreshCw className="size-3.5" /> Resend invite</button>
       ) : null}
       {onRemove ? (
-        <button type="button" onClick={onRemove} disabled={pending} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`${removeLabel ?? "Remove"} ${p.name}`} title={removeLabel}><X className="size-4" /></button>
+        <button type="button" onClick={() => { sendGAEvent("event", "button_click", { button_name: removeLabel === "Leave" ? "leave_submission" : "remove_collaborator" }); onRemove(); }} disabled={pending} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`${removeLabel ?? "Remove"} ${p.name}`} title={removeLabel}><X className="size-4" /></button>
       ) : null}
     </li>
   );

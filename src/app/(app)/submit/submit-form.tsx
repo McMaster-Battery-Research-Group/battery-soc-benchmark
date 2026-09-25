@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useActionState } from "react";
+import { sendGAEvent } from "@next/third-parties/google";
 import { UploadCloud, FileArchive, X, Trophy } from "lucide-react";
 import { createSubmissionAction, type SubmitState } from "./actions";
 import { Field, SubmitButton } from "@/components/forms/field";
@@ -161,7 +162,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
                 <p className="font-heading font-semibold text-ink">{file.name}</p>
                 <p className="text-xs text-grey-600">{fmtBytes(file.size)}</p>
               </div>
-              <button type="button" onClick={() => { pick(null); if (inputRef.current) inputRef.current.value = ""; }} className="ml-2 rounded-brand p-1 text-grey-600 hover:bg-grey-200 hover:text-ink" aria-label="Remove file"><X className="size-4" /></button>
+              <button type="button" onClick={() => { sendGAEvent("event", "button_click", { button_name: "remove_submission_file" }); pick(null); if (inputRef.current) inputRef.current.value = ""; }} className="ml-2 rounded-brand p-1 text-grey-600 hover:bg-grey-200 hover:text-ink" aria-label="Remove file"><X className="size-4" /></button>
             </div>
           ) : (
             <>
@@ -190,7 +191,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
                 <Avatar userId={c.id} name={c.name} hasAvatar={c.avatarVersion !== null} version={c.avatarVersion} size={24} />
                 <span className="font-heading font-medium text-ink">{c.name}</span>
                 <span className="hidden text-xs text-grey-600 sm:inline">· {c.affiliation}</span>
-                <button type="button" onClick={() => setCollabs((l) => l.filter((x) => x.id !== c.id))} className="rounded-full p-0.5 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`Remove ${c.name}`}><X className="size-3.5" /></button>
+                <button type="button" onClick={() => { sendGAEvent("event", "button_click", { button_name: "remove_submission_collaborator" }); setCollabs((l) => l.filter((x) => x.id !== c.id)); }} className="rounded-full p-0.5 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`Remove ${c.name}`}><X className="size-3.5" /></button>
               </li>
             ))}
           </ul>

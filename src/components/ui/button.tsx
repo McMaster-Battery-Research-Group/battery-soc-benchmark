@@ -2,6 +2,7 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
+import { sendGAEvent } from "@next/third-parties/google";
 import { cn } from "@/lib/utils";
 
 /**
@@ -40,8 +41,13 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, loading, children, disabled, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading, children, disabled, onClick, ...props }, ref) => {
     const classes = cn(buttonVariants({ variant, size }), variant === "tertiary" && "h-auto", className);
+    const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+      sendGAEvent("event", "button_click", { button_variant: variant ?? "primary" });
+      onClick?.(event);
+    };
+
     if (asChild) {
       // Slot requires exactly one element child; loading state is not supported here.
       return (
@@ -51,7 +57,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       );
     }
     return (
-      <button className={classes} ref={ref} disabled={disabled || loading} {...props}>
+      <button className={classes} ref={ref} disabled={disabled || loading} {...props} onClick={handleClick}>
         {loading ? <Loader2 className="animate-spin" aria-hidden /> : null}
         {children}
       </button>
