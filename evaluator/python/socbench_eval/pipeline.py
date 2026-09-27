@@ -74,6 +74,31 @@ def validation_job(data: BlindData) -> Job:
     return Job("validation", np.vstack([np.repeat(X1[:1], 60, axis=0), X1]), 60)
 
 
+def degenerate_output(y: "np.ndarray") -> str | None:
+    """Describe why a validation prediction cannot be a real SOC estimate, or None if it looks fine.
+
+    Catches the common case of a package written for a different calling convention: it runs
+    without error but ignores its input, so every sample comes back identical. Over a UDDS cycle
+    the true SOC falls by tens of percent, so a flat trace is never a working estimator.
+    """
+    y = np.asarray(y, dtype=float).reshape(-1)
+    if y.size == 0:
+        return "the model returned no values"
+    if not np.all(np.isfinite(y)):
+        return "the model returned NaN or infinite values"
+    spread = float(np.nanmax(y) - np.nanmin(y))
+    if spread < 1e-6:
+        return (
+            f"the model returned the same value ({y[0]:.4g}) for all {y.size} samples. "
+            "True SOC falls by tens of percent over this cycle, so a constant output means the "
+            "model is not reading its input — usually the package expects a different calling "
+            "convention. Model.m is called one sample at a time as [y, z] = Model(x, z); a model "
+            "written to take the whole T-by-3 matrix at once will hit its own guard clause and "
+            "return a constant."
+        )
+    return None
+
+
 def build_jobs(data: BlindData) -> list[Job]:
     jobs: list[Job] = []
     for key in CELL_KEYS:

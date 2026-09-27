@@ -55,7 +55,7 @@ def safe_extract(z: zipfile.ZipFile, dest: Path) -> str | None:
         with z.open(i) as src, open(target, "wb") as dst:
             shutil.copyfileobj(src, dst, 1024 * 1024)
     return None
-from .pipeline import build_jobs, complexity, display_indices, per_cycle_rows, robustness_traces, score, validation_job, write_full_traces
+from .pipeline import build_jobs, complexity, degenerate_output, display_indices, per_cycle_rows, robustness_traces, score, validation_job, write_full_traces
 from .runner import MatlabBackend, ModelError, PythonBackend
 
 
@@ -121,9 +121,15 @@ def main(argv=None) -> None:
 
         log("validation: m80 UDDS @ 10C, +0.3 A")
         try:
-            backend.run([validation_job(data)], log)
+            v = backend.run([validation_job(data)], log)
         except ModelError as e:
             fail(out, "VALIDATION", f"The model raised an error during the validation run (10 C UDDS, +0.3 A offset): {e}")
+        # a run that does not error can still be meaningless; stop here rather than spending an
+        # hour on the full sweep and reporting it as a poor score
+        if v:
+            why = degenerate_output(v[0].soc)
+            if why:
+                fail(out, "VALIDATION", f"The validation run produced no usable estimate: {why}")
 
         jobs = build_jobs(data)
         log(f"running {len(jobs)} input matrices (blinded cycles + robustness sweeps)")
@@ -172,9 +178,14 @@ def dry_run(args, out: Path, backend, runtime: str, calibration: dict, t0: float
     log(f"dry run on open data: m80 {cyc.name} @ {cyc.temp_c:g}C, {len(cyc.SOC)} samples")
     X1 = cyc.X(); X1[:, 0] += 0.3
     try:
-        backend.run([Job("validation", __import__("numpy").vstack([__import__("numpy").repeat(X1[:1], 60, axis=0), X1]), 60)], log)
+        v = backend.run([Job("validation", __import__("numpy").vstack([__import__("numpy").repeat(X1[:1], 60, axis=0), X1]), 60)], log)
     except ModelError as e:
         fail(out, "VALIDATION", f"The model raised an error during the validation run (+0.3 A offset): {e}")
+    # the whole point of a dry run is to catch this here rather than after a full evaluation
+    if v:
+        why = degenerate_output(v[0].soc)
+        if why:
+            fail(out, "VALIDATION", f"The validation run produced no usable estimate: {why}")
     try:
         p = backend.run([Job("cycle", build_input(cyc.X()), PAD_SAMPLES)], log)[0]
     except ModelError as e:
