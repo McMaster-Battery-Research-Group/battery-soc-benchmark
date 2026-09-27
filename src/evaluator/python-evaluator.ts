@@ -1,4 +1,5 @@
 import { spawn, execFile, execFileSync, type ChildProcess } from "child_process";
+import { probeContainer, memLimitMb, type ResourceUsage } from "./resource-probe";
 import { mkdtemp, readFile, rm, chmod } from "fs/promises";
 import os from "os";
 import path from "path";
@@ -173,6 +174,7 @@ export class PythonEvaluator implements Evaluator {
     const r = await this.spawn(input, false);
     const out = await parseResultsJson(r.text, input.log);
     if (r.traces) out.tracesFile = r.traces;
+    if (r.usage) out.resourceUsage = r.usage;
     return out;
   }
 
@@ -181,7 +183,7 @@ export class PythonEvaluator implements Evaluator {
   }
 
   /** Runs socbench_eval (in a container when possible) and returns the results.json text (+ the full-resolution traces file when written). */
-  private async spawn(input: EvaluationInput, dry: boolean): Promise<{ text: string; traces?: Buffer }> {
+  private async spawn(input: EvaluationInput, dry: boolean): Promise<{ text: string; traces?: Buffer; usage?: ResourceUsage }> {
     const data = process.env.SOCBENCH_BLIND_DATA;
     if (!data && !dry) throw new EvaluationError("SOCBENCH_BLIND_DATA is not set on the evaluation host.", false);
     const outDir = await mkdtemp(path.join(os.tmpdir(), "socbench-pyeval-"));
@@ -247,6 +249,14 @@ export class PythonEvaluator implements Evaluator {
     const redacted = args.map((x) => x.replace(/^(MLM_WEB_USER_CRED|MLM_LICENSE_FILE|MLM_WEB_ID)=.*$/, "$1=<redacted>"));
     await input.log(`[eval] ${cmd} ${redacted.join(" ")}`);
 
+    // measured per evaluation so host sizing and quota requests rest on real numbers, not on the limits
+    const probe = container
+      ? probeContainer(container, {
+          limitMemMb: memLimitMb(process.env.EVAL_MEMORY ?? "4g"),
+          limitCpuPct: Number(process.env.EVAL_CPUS ?? "2") * 100,
+        })
+      : null;
+    let usage: ResourceUsage | undefined;
     try {
       await new Promise<void>((resolve, reject) => {
         const child = spawn(cmd, args, {
@@ -290,10 +300,19 @@ export class PythonEvaluator implements Evaluator {
           }
         });
       });
+      usage = (await probe?.stop()) ?? undefined;
+      if (usage) {
+        await input.log(
+          `[eval] resources: peak ${Math.round(usage.peakMemMb)} MB of ${usage.limitMemMb} MB memory ` +
+            `(${Math.round((usage.peakMemMb / Math.max(1, usage.limitMemMb)) * 100)} %), ` +
+            `peak CPU ${usage.peakCpuPct.toFixed(0)} % of ${usage.limitCpuPct} % — ${usage.samples} samples`,
+        );
+      }
       const text = await readFile(path.join(outDir, "results.json"), "utf8");
       const traces = dry ? undefined : await readFile(path.join(outDir, "traces.mat")).catch(() => undefined);
-      return { text, traces };
+      return { text, traces, usage };
     } finally {
+      await probe?.stop().catch(() => {});
       await rm(outDir, { recursive: true, force: true }).catch(() => {});
     }
   }

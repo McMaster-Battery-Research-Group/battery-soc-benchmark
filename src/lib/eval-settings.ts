@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 export type EvalSettings = { evalTimeoutMin: number; dryRunTimeoutMin: number; submissionsPerDay: number; updatedAt: Date | null; updatedBy: string | null };
 
 const DEFAULTS = () => ({
-  evalTimeoutMin: Number(process.env.PY_EVAL_TIMEOUT_MIN ?? 360),
+  evalTimeoutMin: Number(process.env.PY_EVAL_TIMEOUT_MIN ?? 720),
   dryRunTimeoutMin: Number(process.env.DRY_RUN_TIMEOUT_MIN ?? 10),
   submissionsPerDay: Number(process.env.SUBMISSIONS_PER_DAY ?? 3),
 });

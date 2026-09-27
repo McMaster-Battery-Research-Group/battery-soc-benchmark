@@ -235,6 +235,12 @@ model EvaluationResult {
   /// { initialSocRmse: number[9], currentOffsetRmse: number[18] } — per-start and per-offset RMSEs behind tests 10–11; null for older results
   robustness Json?
 
+  /// What the sandbox actually used, sampled while it ran: { peakMemMb, meanMemMb, limitMemMb,
+  /// peakCpuPct, meanCpuPct, limitCpuPct, samples }. Null for runs evaluated before this was
+  /// measured, or when the sandbox was not Docker. Lets the evaluation host be sized from real
+  /// numbers rather than from the configured limits.
+  resourceUsage Json?
+
   evaluatorVersion String   @default("mock-1")
   createdAt        DateTime @default(now())
 }
@@ -269,7 +275,7 @@ model AdminEvent {
 model EvalSettings {
   id               Int      @id @default(1)
   /// hard compute limit per blinded evaluation, minutes
-  evalTimeoutMin   Int      @default(360)
+  evalTimeoutMin   Int      @default(720)
   /// hard limit per pre-submission test run, minutes
   dryRunTimeoutMin Int      @default(10)
   /// submissions per user per rolling 24 h (admins exempt)

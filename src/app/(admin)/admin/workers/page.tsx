@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Stat, Alert } from "@/components/ui/misc";
 import { WorkerControls, JobControls, AutoRefresh, LogView } from "./controls";
 import { EvalSettingsCard } from "./eval-settings-card";
+import { ResourceUsagePanel } from "./resource-usage";
 import { getEvalSettings } from "@/lib/eval-settings";
 import { fmtDateTime } from "@/lib/utils";
 
@@ -120,6 +121,8 @@ export default async function WorkersPage() {
       <EvalSettingsCard initial={{ evalTimeoutMin: settings.evalTimeoutMin, dryRunTimeoutMin: settings.dryRunTimeoutMin, submissionsPerDay: settings.submissionsPerDay }} updatedNote={settings.updatedAt ? fmtDateTime(settings.updatedAt) : null} />
 
       {/* ---------- queue */}
+      <ResourceUsagePanel />
+
       <h2 className="mt-8 font-heading text-lg font-semibold">Queue</h2>
       {active.length === 0 ? (
         <p className="mt-2 text-sm text-grey-700">Nothing queued or running.</p>
