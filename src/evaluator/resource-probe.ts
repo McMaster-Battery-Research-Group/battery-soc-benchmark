@@ -25,6 +25,30 @@ export interface ResourceUsage {
   limitCpuPct: number;
   /** How many samples were taken; 0 means nothing was measured. */
   samples: number;
+  /**
+   * The whole run, for the admin chart: memory in MB and CPU as a percentage of one core, at
+   * `stepSec` intervals. Long runs are averaged down to at most 720 points so the row stays small
+   * (about 11 KB); `stepSec` is the effective spacing after that reduction.
+   */
+  series?: { stepSec: number; mem: number[]; cpu: number[] };
+}
+
+/** Keeps a stored series to ~11 KB regardless of how long the evaluation ran. */
+const MAX_POINTS = 720;
+
+/** Average consecutive points together until at most `MAX_POINTS` remain. */
+function downsample(mem: number[], cpu: number[], intervalSec: number) {
+  const factor = Math.ceil(mem.length / MAX_POINTS);
+  if (factor <= 1) return { stepSec: intervalSec, mem, cpu };
+  const m: number[] = [];
+  const c: number[] = [];
+  for (let i = 0; i < mem.length; i += factor) {
+    const mj = mem.slice(i, i + factor);
+    const cj = cpu.slice(i, i + factor);
+    m.push(Math.round((mj.reduce((x, y) => x + y, 0) / mj.length) * 10) / 10);
+    c.push(Math.round((cj.reduce((x, y) => x + y, 0) / cj.length) * 10) / 10);
+  }
+  return { stepSec: intervalSec * factor, mem: m, cpu: c };
 }
 
 const MIB = 1024 * 1024;
@@ -72,6 +96,8 @@ export function probeContainer(container: string, opts: { intervalMs?: number; l
   let sumMem = 0;
   let sumCpu = 0;
   let n = 0;
+  const memSeries: number[] = [];
+  const cpuSeries: number[] = [];
   let stopped = false;
   let inFlight: Promise<unknown> = Promise.resolve();
 
@@ -83,6 +109,8 @@ export function probeContainer(container: string, opts: { intervalMs?: number; l
       peakCpu = Math.max(peakCpu, s.cpuPct);
       sumMem += s.memMb;
       sumCpu += s.cpuPct;
+      memSeries.push(Math.round(s.memMb * 10) / 10);
+      cpuSeries.push(Math.round(s.cpuPct * 10) / 10);
       n++;
     }
   };
@@ -111,6 +139,7 @@ export function probeContainer(container: string, opts: { intervalMs?: number; l
         meanCpuPct: round(sumCpu / n),
         limitCpuPct: opts.limitCpuPct,
         samples: n,
+        series: downsample(memSeries, cpuSeries, Math.round(intervalMs / 1000)),
       };
     },
   };

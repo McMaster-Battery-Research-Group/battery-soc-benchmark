@@ -26,6 +26,7 @@ import { StatusPoller } from "./status-poller";
 import { Celebration } from "@/components/celebration";
 import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
+import { ResourceChart, type ResourceSeries } from "./resource-chart";
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 import { getHistory, KIND_LABEL, type RevisionKind } from "@/lib/history";
 import { EditDetailsDialog, NewVersionDialog } from "./edit-and-resubmit";
@@ -237,6 +238,8 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           <Row k="Submission ID" v={sub.id} />
         </dl>
       </section>
+      {isAdmin && sub.result?.resourceUsage ? <ResourceChart usage={sub.result.resourceUsage as unknown as ResourceSeries} /> : null}
+
       <Collaborators submissionId={sub.id} owner={toPerson(sub.user)} /* the owner's panel drives the invitation flow, so it lists account-linked co-authors only; administrator credits are managed in the admin panel */
         list={sub.collaborators.flatMap((c) => (c.user ? [{ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }] : []))} canEdit={canManage} viewerId={session?.user?.id} />
     </div>
