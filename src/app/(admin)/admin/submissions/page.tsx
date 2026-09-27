@@ -6,6 +6,8 @@ import { NativeSelect } from "@/components/ui/input";
 import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-version";
 import { ModerateButtons } from "./moderate";
 import { EditAuthorship } from "./authorship";
+import { RunningProgress } from "./running-progress";
+import { AutoRefresh } from "../workers/controls";
 import { BulkProvider, RowCheck, HeaderCheck, BulkBar } from "./bulk-delete";
 import { Avatar } from "@/components/avatar";
 
@@ -26,11 +28,14 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
       user: { select: { id: true, name: true, email: true, avatarUpdatedAt: true } },
       collaborators: { include: { user: { select: { id: true, name: true, email: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
       result: { select: { weightedError: true, evaluatorVersion: true } },
+      job: { select: { log: true } },
       contest: { select: { title: true } },
     },
   });
   return (
     <div>
+      {/* the table is a server component; re-fetch while evaluations are in flight so the bars move */}
+      {subs.some((s) => s.status === "RUNNING") ? <AutoRefresh seconds={10} /> : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">Submissions</h1>
@@ -113,7 +118,10 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                       coAuthors={s.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
                     />
                   </td>
-                  <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
+                  <td className="px-3 py-2.5">
+                    <StatusBadge status={s.status} />
+                    {s.status === "RUNNING" ? <RunningProgress log={s.job?.log ?? ""} /> : null}
+                  </td>
                   <td className="px-3 py-2.5 tabular">{s.result ? fmtPct(s.result.weightedError) : "—"}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-grey-700" title={fmtDateTime(s.submittedAt)}>{fmtDate(s.submittedAt)}</td>
                   <td className="px-3 py-2.5"><ModerateButtons id={s.id} isPrivate={s.isPrivate} isHidden={s.isHidden} status={s.status} compact /></td>
