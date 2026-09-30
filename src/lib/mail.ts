@@ -183,6 +183,25 @@ export function moderationEmail(to: string, name: string, modelName: string, sub
   });
 }
 
+/**
+ * One e-mail covering several of a person's submissions removed in the same action, instead of
+ * one per submission — deleting fifteen test entries should not fill someone's inbox fifteen times.
+ */
+export function bulkModerationEmail(to: string, name: string, models: string[], reason: string, adminName: string) {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const n = models.length;
+  const list = models.map((m) => `<li style="margin:2px 0">${esc(m)}</li>`).join("");
+  return sendMail({
+    to: addr(name, to),
+    subject: n === 1 ? `Your submission "${models[0]}" was removed` : `${n} of your submissions were removed`,
+    html: layout(
+      "Submissions removed",
+      `<p>Hi ${esc(name)},</p><p>${n === 1 ? "The following submission was" : `These ${n} submissions were`} deleted by an administrator. Their results and leaderboard entries have been removed permanently.</p><ul style="margin:12px 0;padding-left:20px;color:#1d2428">${list}</ul><p style="margin:16px 0;padding:12px 16px;border-left:4px solid #7a003c;background:#f6f7f7"><strong>Reason given by ${esc(adminName)}:</strong><br>${esc(reason)}</p><p style="font-size:13px;color:#6d7a84">Questions or think this was a mistake? Reply to this e-mail or use the <a href="${site()}/contact" style="color:#7a003c">contact form</a>.</p>`,
+    ),
+    text: `${n === 1 ? "The following submission was" : `These ${n} submissions were`} deleted by an administrator:\n${models.map((m) => `  - ${m}`).join("\n")}\n\nReason (${adminName}): ${reason}\n${site()}/submissions`,
+  });
+}
+
 /** Sent when a submission's score is recomputed (e.g. the weights changed). The new PDF is attached. */
 export function rescoreEmail(to: string, name: string, modelName: string, submissionId: string, oldScore: number, newScore: number, note: string, report?: Buffer) {
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

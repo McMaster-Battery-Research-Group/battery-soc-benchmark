@@ -10,7 +10,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { contestSchema, zodErrors, type FieldErrors } from "@/lib/validation";
-import { moderationEmail } from "@/lib/mail";
+import { moderationEmail, bulkModerationEmail } from "@/lib/mail";
 import { storage } from "@/lib/storage";
 import { rescoreAll } from "@/lib/rescore";
 import { ADMIN_NOTIFY_KINDS, recordAdminEvent } from "@/lib/admin-notify";
@@ -30,6 +30,7 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
   });
   const skipped: string[] = [];
   const lines: string[] = [];
+  const perRecipient = new Map<string, { name: string; models: string[] }>();
   let emailed = 0;
   for (const sub of subs) {
     if (sub.status === "RUNNING") {
@@ -42,10 +43,16 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
     lines.push(`#${sub.seq} "${sub.modelName}" — owner ${sub.user.name} <${sub.user.email}>`);
     logEvent("submission.deleted", { id: sub.id, seq: sub.seq, by: admin.id, bulk: true });
     if (notifyAuthors) {
+      // gather per person; one e-mail each at the end, however many of their submissions went
       for (const rcpt of [{ email: sub.user.email, name: sub.user.name }, ...sub.collaborators.flatMap((c) => (c.user ? [c.user] : []))]) {
-        if (await moderationEmail(rcpt.email, rcpt.name, sub.modelName, null, "delete", why, admin.name ?? "an administrator")) emailed++;
+        const entry = perRecipient.get(rcpt.email) ?? { name: rcpt.name, models: [] };
+        entry.models.push(`#${sub.seq} ${sub.modelName}`);
+        perRecipient.set(rcpt.email, entry);
       }
     }
+  }
+  for (const [email, { name, models }] of perRecipient) {
+    if (await bulkModerationEmail(email, name, models, why, admin.name ?? "an administrator")) emailed++;
   }
   if (lines.length) {
     await recordAdminEvent("deletions", `${admin.name} bulk-deleted ${lines.length} submissions (${lines.map((l) => l.split(" ")[0]).join(", ")}) — reason: ${why}`);
