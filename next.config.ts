@@ -12,7 +12,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' ${process.env.SUPABASE_URL ?? "https://*.supabase.co"}`,
+  // the browser only ever talks to this origin; uploads go through /api/upload on this host
+  "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
