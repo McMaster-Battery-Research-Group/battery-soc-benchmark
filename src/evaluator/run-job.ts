@@ -151,6 +151,8 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
   await log(`${workerId()} started evaluation with "${evaluator.name}" evaluator (attempt ${job.attempts})`);
 
   try {
+    // a legacy entry is a recorded score with no package — it must never reach the evaluator
+    if (!sub.fileKey || !sub.fileType) throw new EvaluationError("This entry has no uploaded package (it is a legacy record) and cannot be evaluated.", true);
     const localPath = await storage.materialize(sub.fileKey);
     await log(`package ready at ${localPath}`);
     const out = await evaluator.evaluate({ submissionId: sub.id, filePath: localPath, fileType: sub.fileType, modelType: sub.modelType, evaluationLevel: sub.evaluationLevel, log, signal: abort.signal });
@@ -180,7 +182,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     ]);
     await log(`completed — weighted error ${out.weightedError.toFixed(3)} %`);
     await recordRevision({ submissionId: sub.id, kind: sub.version > 1 || job.attempts > 1 ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `v${sub.version} · attempt ${job.attempts}`, by: workerId() });
-    await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
+    if (sub.fileKey) await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
     let report: Buffer | undefined;
     try {
       const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true, collaborators: { where: { acceptedAt: { not: null } }, select: { name: true, affiliation: true, user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });
@@ -204,7 +206,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       return { submissionId: sub.id, status: "RETRY" };
     }
     if (err instanceof EvaluationCancelled || abort.signal.aborted) {
-      await storage.remove(sub.fileKey);
+      if (sub.fileKey) await storage.remove(sub.fileKey);
       const previous = sub.version > 1 ? await db.evaluationResult.findUnique({ where: { submissionId: sub.id }, select: { id: true } }).catch(() => null) : null;
       if (previous) {
         // a new version was cancelled mid-run: keep the previous version's score

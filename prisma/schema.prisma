@@ -75,7 +75,7 @@ model User {
   github          String?
   /// admin e-mail preferences, { feedback, accounts, roles, deletions }: boolean — null/missing key = on (see src/lib/admin-notify.ts)
   adminNotify     Json?
-  avatar          Bytes?    // small JPEG (≤256 px), resized in the browser before upload
+  avatar          Bytes? // small JPEG (≤256 px), resized in the browser before upload
   avatarType      String?
   avatarUpdatedAt DateTime?
 
@@ -105,30 +105,42 @@ model UserToken {
 }
 
 model Submission {
-  id              String           @id @default(cuid())
-  seq             Int              @unique @default(autoincrement())
+  id              String          @id @default(cuid())
+  seq             Int             @unique @default(autoincrement())
   userId          String
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   modelName       String
   description     String
   modelType       ModelType
-  evaluationLevel EvaluationLevel  @default(DYNAMIC)
-  isPrivate       Boolean          @default(false)
-  isHidden        Boolean          @default(false)
-  fileKey         String
-  fileName        String
-  fileType        FileType
-  fileSize        Int
+  evaluationLevel EvaluationLevel @default(DYNAMIC)
+  isPrivate       Boolean         @default(false)
+  isHidden        Boolean         @default(false)
+  fileKey         String?
+  fileName        String?
+  fileType        FileType?
+  fileSize        Int?
+
+  /// Administrator-set display credit. When present it REPLACES the owner's name and affiliation
+  /// everywhere the submission is shown, while `userId` still governs permissions, e-mail and
+  /// deletion. Used to credit work to someone who has no account, or whose account is not the author.
+  creditName        String?
+  creditAffiliation String?
+
+  /// A score carried over from before this platform existed: no package, no re-evaluation, and only
+  /// the headline figures. Shown with a badge so it is never mistaken for a run of this evaluator.
+  isLegacy       Boolean          @default(false)
+  /// Free text shown on a legacy entry: where the number came from.
+  legacySource   String?
   /// "python" | "matlab" — from the package's Model file. Workers claim only the runtimes they can run (WORKER_RUNTIMES).
-  runtime         String?
-  status          SubmissionStatus @default(QUEUED)
+  runtime        String?
+  status         SubmissionStatus @default(QUEUED)
   /// Package version: incremented when the owner uploads a new package for the same submission.
-  version         Int              @default(1)
-  failureMessage  String?
-  submittedAt     DateTime         @default(now())
-  completedAt     DateTime?
-  contestId       String?
-  contest         Contest?         @relation(fields: [contestId], references: [id], onDelete: SetNull)
+  version        Int              @default(1)
+  failureMessage String?
+  submittedAt    DateTime         @default(now())
+  completedAt    DateTime?
+  contestId      String?
+  contest        Contest?         @relation(fields: [contestId], references: [id], onDelete: SetNull)
 
   result        EvaluationResult?
   job           EvaluationJob?
@@ -200,34 +212,34 @@ model EvaluationResult {
   complexityUncertainty Int   @default(1)
 
   // Test cases 1–3
-  allCells        Float
-  blindedCell     Float
-  nonBlindedCells Float
+  allCells            Float?
+  blindedCell         Float?
+  nonBlindedCells     Float?
   // 4
-  charging Float
+  charging            Float?
   // 5/6 — range of loads (payload + HVAC)
-  massM80   Float
-  massM448  Float
-  massM448N Float
-  massM1000 Float
+  massM80             Float?
+  massM448            Float?
+  massM448N           Float?
+  massM1000           Float?
   // 7–8 — drive cycle type
-  standardCycles    Float
-  nonStandardCycles Float
+  standardCycles      Float?
+  nonStandardCycles   Float?
   // 9 — temperature
-  tempM20 Float
-  tempM10 Float
-  temp0   Float
-  temp10  Float
-  temp25  Float
-  temp40  Float
+  tempM20             Float?
+  tempM10             Float?
+  temp0               Float?
+  temp10              Float?
+  temp25              Float?
+  temp40              Float?
   // 10–11 — robustness
-  initialSocError     Float
-  currentSensorOffset Float
+  initialSocError     Float?
+  currentSensorOffset Float?
 
   maxError Float
 
   /// Array of { cell, cycle, temperatureC, rmse, mae, maxErr, durationH }
-  perCycle Json
+  perCycle   Json
   /// Array of { key, label, cell, cycle, temperatureC, t: number[], actual: number[], estimated: number[] }
   timeSeries Json
   /// storage key of traces.mat — every run at full 1 Hz resolution (download); null for results evaluated before 2026-08-30
@@ -273,15 +285,15 @@ model AdminEvent {
 /// Single-row evaluation policy, editable on Admin → Evaluation workers. Workers and the web tier
 /// re-read it within ~15 s (src/lib/eval-settings.ts); env vars act as defaults when the row is absent.
 model EvalSettings {
-  id               Int      @id @default(1)
+  id                Int      @id @default(1)
   /// hard compute limit per blinded evaluation, minutes
-  evalTimeoutMin   Int      @default(720)
+  evalTimeoutMin    Int      @default(720)
   /// hard limit per pre-submission test run, minutes
-  dryRunTimeoutMin Int      @default(10)
+  dryRunTimeoutMin  Int      @default(10)
   /// submissions per user per rolling 24 h (admins exempt)
-  submissionsPerDay Int     @default(3)
-  updatedAt        DateTime @updatedAt
-  updatedBy        String?
+  submissionsPerDay Int      @default(3)
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
 }
 
 /// Sliding-window rate limiting for sensitive actions (login, register, reset,
@@ -331,18 +343,18 @@ model WorkerHeartbeat {
 }
 
 model EvaluationJob {
-  id           String     @id @default(cuid())
-  submissionId String     @unique
-  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  attempts     Int        @default(0)
-  lockedAt     DateTime?
-  lockedBy     String?
-  log          String     @default("")
+  id                String     @id @default(cuid())
+  submissionId      String     @unique
+  submission        Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  attempts          Int        @default(0)
+  lockedAt          DateTime?
+  lockedBy          String?
+  log               String     @default("")
   /// Set when the owner asks to cancel a running evaluation; the worker aborts
   /// the evaluator process and deletes the submission.
   cancelRequestedAt DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@index([lockedAt])
 }
@@ -367,13 +379,13 @@ model Contest {
 }
 
 model ContestEntry {
-  id             String   @id @default(cuid())
-  contestId      String
-  contest        Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  acceptedTerms  DateTime @default(now())
-  teamName       String?
+  id            String   @id @default(cuid())
+  contestId     String
+  contest       Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acceptedTerms DateTime @default(now())
+  teamName      String?
 
   @@unique([contestId, userId])
 }
@@ -410,7 +422,7 @@ model ContactMessage {
   category  String   @default("question") // question | bug | feature | contest | data | other
   subject   String
   body      String
-  pageUrl   String?  // where the user was when they wrote it
+  pageUrl   String? // where the user was when they wrote it
   resolved  Boolean  @default(false)
   createdAt DateTime @default(now())
 

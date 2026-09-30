@@ -6,6 +6,7 @@ import { Lock, EyeOff } from "lucide-react";
 import type { LeaderboardRow } from "@/lib/queries";
 import { TEST_CASES, MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { fmtPct, fmtDate } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { RankBadge } from "./rank-badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Avatar } from "@/components/avatar";
@@ -35,6 +36,10 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             {row.original.modelName}
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-grey-600">
+            {/* carried over from before this platform: not a run of this evaluator */}
+            {row.original.isLegacy ? (
+              <Badge variant="gold" title="Recorded from an earlier evaluation, not run on this platform">carried over</Badge>
+            ) : null}
             <span>#{row.original.seq}{row.original.version > 1 ? ` · v${row.original.version}` : ""}</span>
             <span aria-hidden>·</span>
             <span className="whitespace-nowrap">{MODEL_TYPE_LABELS[row.original.modelType] ?? row.original.modelType}</span>
@@ -62,9 +67,16 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
         <div className="flex min-w-44 items-center gap-2.5">
           {/* owner first, then collaborators, stacked */}
           <span className="flex shrink-0 items-center">
-            <Link href={`/users/${row.original.userId}`} className="rounded-full ring-2 ring-white" title={row.original.author}>
-              <Avatar userId={row.original.userId} name={row.original.author} hasAvatar={row.original.avatarVersion !== null} version={row.original.avatarVersion} size={30} />
-            </Link>
+            {/* userId is null when an administrator credited the entry to someone without an account */}
+            {row.original.userId ? (
+              <Link href={`/users/${row.original.userId}`} className="rounded-full ring-2 ring-white" title={row.original.author}>
+                <Avatar userId={row.original.userId} name={row.original.author} hasAvatar={row.original.avatarVersion !== null} version={row.original.avatarVersion} size={30} />
+              </Link>
+            ) : (
+              <span className="rounded-full ring-2 ring-white" title={row.original.author}>
+                <Avatar userId="" name={row.original.author} hasAvatar={false} size={30} />
+              </span>
+            )}
             {/* a co-author credited by an administrator has no account: shown, but not linked */}
             {row.original.collaborators.slice(0, 3).map((c, i) =>
               c.id ? (
@@ -80,10 +92,17 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             {row.original.collaborators.length > 3 ? <span className="-ml-2 flex size-[26px] items-center justify-center rounded-full bg-grey-200 font-heading text-[10px] font-semibold text-grey-800 ring-2 ring-white">+{row.original.collaborators.length - 3}</span> : null}
           </span>
           <span className="min-w-0">
-            <Link href={`/users/${row.original.userId}`} className="block truncate text-grey-900 hover:text-maroon hover:underline">
-              {row.original.author}
-              {row.original.collaborators.length ? <span className="text-grey-600"> +{row.original.collaborators.length}</span> : null}
-            </Link>
+            {row.original.userId ? (
+              <Link href={`/users/${row.original.userId}`} className="block truncate text-grey-900 hover:text-maroon hover:underline">
+                {row.original.author}
+                {row.original.collaborators.length ? <span className="text-grey-600"> +{row.original.collaborators.length}</span> : null}
+              </Link>
+            ) : (
+              <span className="block truncate text-grey-900">
+                {row.original.author}
+                {row.original.collaborators.length ? <span className="text-grey-600"> +{row.original.collaborators.length}</span> : null}
+              </span>
+            )}
             <span className="block truncate text-xs text-grey-600">{row.original.affiliation}</span>
           </span>
         </div>

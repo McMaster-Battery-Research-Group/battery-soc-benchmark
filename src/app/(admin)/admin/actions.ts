@@ -36,7 +36,7 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
       skipped.push(`#${sub.seq} ${sub.modelName} (running — cancel it first)`);
       continue;
     }
-    await storage.remove(sub.fileKey).catch(() => {});
+    if (sub.fileKey) await storage.remove(sub.fileKey).catch(() => {});
     if (sub.result?.tracesKey) await storage.remove(sub.result.tracesKey).catch(() => {});
     await db.submission.delete({ where: { id: sub.id } });
     lines.push(`#${sub.seq} "${sub.modelName}" — owner ${sub.user.name} <${sub.user.email}>`);
@@ -177,7 +177,7 @@ export async function adminModerateAction(id: string, action: ModerationAction, 
   if ((action === "private" || action === "public") && sub.contestId) return { ok: false, error: "Contest entries must stay public — hide it instead." };
 
   if (action === "delete") {
-    await storage.remove(sub.fileKey);
+    if (sub.fileKey) await storage.remove(sub.fileKey);
     if (sub.result?.tracesKey) await storage.remove(sub.result.tracesKey).catch(() => {});
     await db.submission.delete({ where: { id } });
     after(() => submissionDeletedEmail({ ...sub, weightedError: sub.result?.weightedError ?? null, owner: sub.user }, { name: admin.name ?? "administrator", email: admin.email ?? "", role: "ADMIN" }, why).catch(() => {}));
@@ -357,7 +357,7 @@ export async function adminDeleteUserAction(userId: string, reason: string, noti
   const running = user.submissions.filter((s) => s.status === "RUNNING");
   if (running.length) return { ok: false, error: `Submission #${running[0].seq} is being evaluated — cancel it first.` };
   for (const s of user.submissions) {
-    await storage.remove(s.fileKey).catch(() => {});
+    if (s.fileKey) await storage.remove(s.fileKey).catch(() => {});
     if (s.result?.tracesKey) await storage.remove(s.result.tracesKey).catch(() => {});
   }
   await db.user.delete({ where: { id: userId } }); // submissions, results, dry runs, collaborations, tokens cascade

@@ -7,6 +7,7 @@ import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-v
 import { ModerateButtons } from "./moderate";
 import { EditAuthorship } from "./authorship";
 import { RunningProgress } from "./running-progress";
+import { LegacyEntryDialog } from "./legacy-entry";
 import { AutoRefresh } from "../workers/controls";
 import { BulkProvider, RowCheck, HeaderCheck, BulkBar } from "./bulk-delete";
 import { Avatar } from "@/components/avatar";
@@ -42,6 +43,7 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
           <p className="mt-1 text-sm text-grey-700">{subs.length} shown{status ? ` · ${status}` : ""}. Moderation actions ask for a reason and e-mail the author and accepted collaborators.</p>
         </div>
         <form className="flex items-center gap-2 text-sm">
+          <LegacyEntryDialog />
           <label htmlFor="status" className="text-grey-700">Status</label>
           <NativeSelect id="status" name="status" defaultValue={status ?? ""} className="h-9 w-40 text-sm">
             <option value="">All</option><option>QUEUED</option><option>RUNNING</option><option>COMPLETED</option><option>FAILED</option>
@@ -115,6 +117,7 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                       seq={s.seq}
                       modelName={s.modelName}
                       owner={{ id: s.user.id, name: s.user.name, email: s.user.email, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null }}
+                      credit={{ name: s.creditName, affiliation: s.creditAffiliation }}
                       coAuthors={s.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
                     />
                   </td>

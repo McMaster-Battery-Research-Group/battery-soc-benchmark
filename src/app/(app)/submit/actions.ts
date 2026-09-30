@@ -177,7 +177,7 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
   const hasPrevious = sub.version > 1 && !!(await db.evaluationResult.findUnique({ where: { submissionId: id }, select: { id: true } }));
   if (sub.status === "QUEUED" && !job?.lockedAt && hasPrevious) {
     // v2+ waiting in the queue: drop the new package, keep the previous result
-    await storage.remove(sub.fileKey);
+    if (sub.fileKey) await storage.remove(sub.fileKey);
     await db.$transaction([
       db.submission.update({ where: { id }, data: { status: "COMPLETED", version: sub.version - 1, completedAt: new Date() } }),
       db.evaluationJob.update({ where: { submissionId: id }, data: { lockedAt: null, lockedBy: null, cancelRequestedAt: null } }),
@@ -188,7 +188,7 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
     return { ok: true, immediate: true };
   }
   if (sub.status === "QUEUED" && !job?.lockedAt) {
-    await storage.remove(sub.fileKey);
+    if (sub.fileKey) await storage.remove(sub.fileKey);
     await db.submission.delete({ where: { id } });
     logEvent("submission.cancelled_queued", { id, seq: sub.seq });
     revalidatePath("/submissions");
@@ -291,7 +291,7 @@ export async function deleteSubmissionAction(id: string) {
     db.evaluationResult.findUnique({ where: { submissionId: id }, select: { weightedError: true, tracesKey: true } }),
     db.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true, role: true } }),
   ]);
-  await storage.remove(sub.fileKey);
+  if (sub.fileKey) await storage.remove(sub.fileKey);
   if (result?.tracesKey) await storage.remove(result.tracesKey).catch(() => {});
   await db.submission.delete({ where: { id } });
   logEvent("submission.deleted", { id, seq: sub.seq, by: session.user.id, owner: sub.userId });
@@ -411,7 +411,7 @@ export async function removeCollaboratorAction(id: string, userId: string) {
 export async function requeueSubmissionAction(id: string) {
   const { sub } = await ownedSubmission(id);
   if (sub.status !== "FAILED") throw new Error("Only failed submissions can be re-queued");
-  if (!(await storage.exists(sub.fileKey))) throw new Error("The uploaded model file is no longer available; please submit again");
+  if (!sub.fileKey || !(await storage.exists(sub.fileKey))) throw new Error("The uploaded model file is no longer available; please submit again");
   await db.$transaction([
     db.submission.update({ where: { id }, data: { status: "QUEUED", failureMessage: null, completedAt: null } }),
     db.evaluationJob.upsert({ where: { submissionId: id }, create: { submissionId: id }, update: { attempts: 0, lockedAt: null, lockedBy: null, log: "" } }),

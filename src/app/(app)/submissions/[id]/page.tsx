@@ -231,7 +231,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         <h2 className="font-heading font-semibold text-ink">About this submission</h2>
         <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
         <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-          <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}) — deleted after evaluation`} />
+          {sub.fileName && sub.fileSize !== null ? (
+            <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}) — deleted after evaluation`} />
+          ) : (
+            <Row k="Package" v="None — this is a carried-over record, not a run of this evaluator" />
+          )}
           <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
           {r ? <Row k="Evaluator" v={`${r.evaluatorVersion}${legacy ? ` — legacy; current benchmark is ${BENCHMARK_VERSION}. Kept for reference, unranked until a new version is submitted.` : ""}`} /> : null}
           {sub.completedAt ? <Row k="Completed" v={fmtDateTime(sub.completedAt)} /> : null}

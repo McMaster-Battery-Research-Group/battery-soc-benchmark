@@ -16,10 +16,13 @@ export type LeaderboardRow = {
   completedAt: string | null;
   author: string;
   affiliation: string;
-  userId: string;
+  /** null when an administrator credited the entry to someone without an account */
+  userId: string | null;
   /** avatarUpdatedAt epoch ms, null when the author has no picture */
   avatarVersion: number | null;
   collaborators: { id: string | null; name: string; avatarVersion: number | null }[];
+  /** a score carried over from before this platform; no package, not re-evaluable */
+  isLegacy: boolean;
   contestId: string | null;
   weightedError: number;
   complexity: number;
@@ -75,10 +78,13 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       isHidden: s.isHidden,
       submittedAt: s.submittedAt.toISOString(),
       completedAt: s.completedAt?.toISOString() ?? null,
-      author: s.user.name,
-      affiliation: s.user.affiliation,
-      userId: s.userId,
-      avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null,
+      // an administrator-set credit replaces the owner's name everywhere the entry is shown;
+      // the account still owns it for permissions and e-mail
+      author: s.creditName ?? s.user.name,
+      affiliation: s.creditName ? (s.creditAffiliation ?? "") : s.user.affiliation,
+      userId: s.creditName ? null : s.userId,
+      avatarVersion: s.creditName ? null : (s.user.avatarUpdatedAt?.getTime() ?? null),
+      isLegacy: s.isLegacy,
       collaborators: s.collaborators.map((c) => { const a = toCoAuthor(c); return { id: a.id, name: a.name, avatarVersion: a.avatarVersion }; }),
       contestId: s.contestId,
       ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string }),
@@ -137,8 +143,7 @@ export async function publicRankOf(submissionId: string): Promise<number | null>
       result: { evaluatorVersion: { startsWith: BENCHMARK_VERSION } },
       OR: [
         { result: { weightedError: { lt: w } } },
-        { result: { weightedError: w, allCells: { lt: ac } } },
-        { result: { weightedError: w, allCells: ac }, submittedAt: { lt: me.submittedAt } },
+        ...(ac === null ? [] : [{ result: { weightedError: w, allCells: { lt: ac } } }, { result: { weightedError: w, allCells: ac }, submittedAt: { lt: me.submittedAt } }]),
       ],
     },
   });

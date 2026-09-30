@@ -87,7 +87,7 @@ export async function clearLoadTestsAction(): Promise<{ ok: true; removed: numbe
   let removed = 0;
   for (const s of subs) {
     if (s.status === "RUNNING") continue; // cancel it first; deleting mid-run orphans a container
-    await storage.remove(s.fileKey).catch(() => {});
+    if (s.fileKey) await storage.remove(s.fileKey).catch(() => {});
     if (s.result?.tracesKey) await storage.remove(s.result.tracesKey).catch(() => {});
     await db.submission.delete({ where: { id: s.id } });
     removed++;

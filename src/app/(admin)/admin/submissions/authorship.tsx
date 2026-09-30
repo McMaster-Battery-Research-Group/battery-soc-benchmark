@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
 import { adminSetSubmissionOwnerAction, adminAddCoAuthorAction, adminRemoveCoAuthorAction, adminAddCreditAction, adminRemoveCreditAction } from "../actions";
+import { setSubmissionCreditAction } from "./credit-actions";
 
 /** `id` is null and `email` empty for a co-author an administrator credited without an account. */
 export type AuthorRow = { id: string | null; name: string; email: string; affiliation?: string; avatarVersion: number | null };
@@ -19,7 +20,7 @@ export type AuthorRow = { id: string | null; name: string; email: string; affili
  * alongside them. For correcting entries created on someone's behalf or carried over
  * from the previous platform — no invitation e-mails are sent, people are simply listed.
  */
-export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: string; seq: number; modelName: string; owner: AuthorRow & { id: string }; coAuthors: AuthorRow[] }) {
+export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }: { id: string; seq: number; modelName: string; owner: AuthorRow & { id: string }; coAuthors: AuthorRow[]; credit?: { name: string | null; affiliation: string | null } }) {
   const router = useRouter();
   const { push } = useToast();
   const [open, setOpen] = React.useState(false);
@@ -27,6 +28,8 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: s
   const [keepFormerOwner, setKeepFormerOwner] = React.useState(true);
   const [creditName, setCreditName] = React.useState("");
   const [creditAffil, setCreditAffil] = React.useState("");
+  const [showAs, setShowAs] = React.useState(credit?.name ?? "");
+  const [showAsAffil, setShowAsAffil] = React.useState(credit?.affiliation ?? "");
 
   const run = (fn: () => Promise<{ ok: true; message: string } | { ok: false; error: string }>, failTitle: string) =>
     start(async () => {
@@ -50,7 +53,29 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors }: { id: s
           Corrects who is credited. The owner controls the submission and appears first everywhere; co-authors are shown beside them. Nobody is e-mailed.
         </p>
 
-        <h4 className="mt-4 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Owner</h4>
+        <h4 className="mt-4 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Shown as</h4>
+        <Hint>Who the public sees as the author. Leave empty to show the owner account below. Setting this does not change who controls the submission.</Hint>
+        <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+          <span>
+            <Label htmlFor={`sa-${id}`}>Credited name</Label>
+            <Input id={`sa-${id}`} value={showAs} onChange={(e) => setShowAs(e.target.value)} placeholder={owner.name} />
+          </span>
+          <span>
+            <Label htmlFor={`saa-${id}`}>Affiliation</Label>
+            <Input id={`saa-${id}`} value={showAsAffil} onChange={(e) => setShowAsAffil(e.target.value)} placeholder="McMaster University" />
+          </span>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-2"
+          disabled={pending}
+          onClick={() => run(() => setSubmissionCreditAction(id, showAs, showAsAffil), "Could not change the credit")}
+        >
+          <Crown /> {showAs.trim() ? "Credit to this person" : "Clear the credit"}
+        </Button>
+
+        <h4 className="mt-5 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Owner account</h4>
         <div className="mt-1.5 flex items-center gap-2.5 rounded-brand border border-border px-3 py-2">
           <Avatar userId={owner.id} name={owner.name} hasAvatar={owner.avatarVersion !== null} version={owner.avatarVersion} size={30} />
           <span className="min-w-0 flex-1">
