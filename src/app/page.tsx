@@ -31,7 +31,7 @@ export default async function HomePage() {
               The standardized benchmark for battery state-of-charge estimation.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
-              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles from −20 °C to 40 °C plus robustness tests — wrong initial SOC, current-sensor offsets, charging.
+              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles from −20 °C to 40 °C plus robustness tests: wrong initial SOC, current-sensor offsets, charging.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild variant="gold" size="lg"><Link href="/submit">Submit a model <ArrowRight /></Link></Button>
@@ -84,7 +84,7 @@ export default async function HomePage() {
       <section className="container-site py-20">
         <div className="max-w-2xl">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">How it works</p>
-          <h2 className="mt-2 font-heading text-3xl font-bold">Three steps from data to a standardized score</h2>
+          <h2 className="mt-2 font-heading text-3xl font-bold">From open data to a standardized score</h2>
         </div>
         <PipelineDiagram className="mt-8 hidden md:block" />
         <ol className="mt-8 grid gap-6 md:grid-cols-3">

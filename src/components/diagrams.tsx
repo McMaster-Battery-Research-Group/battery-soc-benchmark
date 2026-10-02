@@ -3,7 +3,7 @@
  * Kept as plain SVG (no library) so they render server-side and print cleanly.
  */
 
-const M = "#7A003C", G = "#FDBF57", GREY = "#495965", LINE = "#DBDBDD", INK = "#1d2428", SOFT = "#faf3f6";
+const M = "#7A003C", G = "#FDBF57", GREY = "#495965", LINE = "#DBDBDD", INK = "#1d2428";
 const f = { fontFamily: "Poppins, Arial, sans-serif" } as const;
 const body = { fontFamily: "Arial, sans-serif" } as const;
 
@@ -33,7 +33,7 @@ export function ModelLoopDiagram({ className }: { className?: string }) {
         {/* model */}
         <rect x="272" y="60" width="216" height="100" rx="4" fill={M} />
         <text x="380" y="98" textAnchor="middle" fontSize="18" fontWeight="600" fill="#fff" style={f}>[Y, z] = Model(X, z)</text>
-        <text x="380" y="122" textAnchor="middle" fontSize="12" fill={G} style={body}>your estimator — Model.m or Model.p</text>
+        <text x="380" y="122" textAnchor="middle" fontSize="12" fill={G} style={body}>your estimator: Model.m or Model.p</text>
         <text x="380" y="142" textAnchor="middle" fontSize="11" fill="#fff" opacity="0.8" style={body}>first call has no z: initialise here</text>
         {/* arrow out */}
         <line x1="490" y1="110" x2="566" y2="110" stroke={GREY} strokeWidth="1.5" markerEnd="url(#arr)" />
@@ -43,10 +43,10 @@ export function ModelLoopDiagram({ className }: { className?: string }) {
         <text x="655" y="118" textAnchor="middle" fontSize="26" fontWeight="700" fill={INK} style={f}>SOC</text>
         <text x="655" y="140" textAnchor="middle" fontSize="12" fill={GREY} style={body}>0 … 1 (0–100 %)</text>
         <text x="655" y="185" textAnchor="middle" fontSize="11" fill={GREY} style={body}>compared with reference SOC</text>
-        {/* z loop */}
-        <path d="M 440 160 L 440 200 L 320 200 L 320 162" fill="none" stroke={M} strokeWidth="1.5" strokeDasharray="5 4" markerEnd="url(#arrM)" />
-        <rect x="336" y="190" width="88" height="20" rx="3" fill={SOFT} />
-        <text x="380" y="204" textAnchor="middle" fontSize="11" fill={M} style={body}>memory z → next call</text>
+        {/* z loop: the dashed feedback path runs along y=190, with its label placed BELOW the line
+            (y=210) so the two never overlap. */}
+        <path d="M 440 160 L 440 190 L 320 190 L 320 162" fill="none" stroke={M} strokeWidth="1.5" strokeDasharray="5 4" markerEnd="url(#arrM)" />
+        <text x="380" y="212" textAnchor="middle" fontSize="11" fill={M} style={body}>memory z → next call</text>
       </svg>
       <figcaption className="mt-2 text-xs text-grey-600">The evaluator mimics a battery management system: it never shows the model the future, only the current sample and whatever the model chose to remember.</figcaption>
     </figure>
@@ -57,7 +57,7 @@ export function ModelLoopDiagram({ className }: { className?: string }) {
 export function PipelineDiagram({ className }: { className?: string }) {
   const steps = [
     { t: "Open data", s: "3 cells · 6 temps · HPPC + drive cycles", fill: "#fff", stroke: LINE, text: INK },
-    { t: "Your model", s: "filter, network or physics — any method", fill: "#fff", stroke: LINE, text: INK },
+    { t: "Your model", s: "any method: filter, network or physics", fill: "#fff", stroke: LINE, text: INK },
     { t: "Blinded evaluator", s: "hidden cell + hidden cycles + fault cases", fill: M, stroke: M, text: "#fff" },
     { t: "Leaderboard", s: "weighted error, 18 test cases, plots", fill: G, stroke: G, text: INK },
   ];
@@ -80,10 +80,12 @@ export function PipelineDiagram({ className }: { className?: string }) {
             </g>
           );
         })}
-        {/* blinded-boundary line: flush to the left edge of the Blinded evaluator box (x=390) so it
-            marks where the blinded zone begins without crossing the Step 2→3 arrow (ends at x=388). */}
-        <line x1="390" y1="22" x2="390" y2="124" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
-        <text x="470" y="140" textAnchor="middle" fontSize="11" fill={GREY} style={body}>The dashed line is what you never see: the blinded data stays inside the evaluator.</text>
+        {/* blinded boundary: a dashed "wall" in the gap between Step 2 (ends x=360) and Step 3 (starts x=390),
+            broken where the Step 2→3 arrow passes through (y=75), so the arrow goes through a doorway
+            instead of being drawn over. */}
+        <line x1="375" y1="20" x2="375" y2="66" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
+        <line x1="375" y1="84" x2="375" y2="126" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
+        <text x="380" y="140" textAnchor="middle" fontSize="11" fill={GREY} style={body}>The dashed line is what you never see: the blinded data stays inside the evaluator.</text>
       </svg>
     </figure>
   );

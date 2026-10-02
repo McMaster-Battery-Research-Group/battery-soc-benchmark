@@ -159,14 +159,13 @@ function EcmSvg({ rc, filter }: { rc: number; filter: string }) {
             <line x1={x + 24} y1="41" x2={x + 24} y2="59" stroke={INK} strokeWidth="2" /><line x1={x + 36} y1="41" x2={x + 36} y2="59" stroke={INK} strokeWidth="2" />
             <text x={x + 30} y="72" textAnchor="middle" fontSize="9" fill={GREY} style={f}>C{i + 1}</text>
             <line x1={x + 60} y1="10" x2={x + 60} y2="50" stroke={INK} strokeWidth="1.5" />
-            <line x1={x + 60} y1="30" x2={x + step} y2="30" stroke={INK} strokeWidth="1.5" />
+            <line x1={x + 60} y1="30" x2={i === n - 1 ? endX - 3 : x + step} y2="30" stroke={INK} strokeWidth="1.5" />
           </g>
         );
       })}
-      {/* terminals */}
-      <line x1={endX} y1="30" x2={endX} y2="130" stroke={INK} strokeWidth="1.5" />
-      <line x1="60" y1="130" x2={endX} y2="130" stroke={INK} strokeWidth="1.5" />
-      <circle cx={endX} cy="30" r="3" fill={INK} /><circle cx={endX} cy="130" r="3" fill={INK} />
+      {/* terminals: left open (V_t is measured across them), drawn as open circles */}
+      <line x1="60" y1="130" x2={endX - 3} y2="130" stroke={INK} strokeWidth="1.5" />
+      <circle cx={endX} cy="30" r="3" fill="#fff" stroke={INK} strokeWidth="1.5" /><circle cx={endX} cy="130" r="3" fill="#fff" stroke={INK} strokeWidth="1.5" />
       <text x={endX + 10} y="34" fontSize="11" fill={INK} style={f}>+</text>
       <text x={endX + 10} y="134" fontSize="11" fill={INK} style={f}>−</text>
       <text x={endX + 22} y="86" fontSize="12" fill={INK} style={f}>V<tspan fontSize="8" dy="3">t</tspan></text>
@@ -187,7 +186,8 @@ function FnnSvg({ layers, inputs }: { layers: number[]; inputs?: string[] }) {
   const cols = layers.length;
   const xs = layers.map((_, i) => 40 + (i * (W - 80)) / (cols - 1));
   const shown = layers.map((n) => Math.min(n, 7));
-  const ys = (k: number) => Array.from({ length: k }, (_, j) => 25 + (j * (H - 60)) / Math.max(1, k - 1));
+  // spread k nodes over y = 25..H-35; a single node (e.g. the SOC output) sits at the vertical centre
+  const ys = (k: number) => (k === 1 ? [25 + (H - 60) / 2] : Array.from({ length: k }, (_, j) => 25 + (j * (H - 60)) / (k - 1)));
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`Feedforward network with layers ${layers.join(", ")}`}>
       {shown.slice(0, -1).map((k, i) =>
@@ -213,7 +213,7 @@ function FnnSvg({ layers, inputs }: { layers: number[]; inputs?: string[] }) {
 
 function RnnSvg({ cell, units }: { cell: string; units: number }) {
   return (
-    <svg viewBox="0 0 460 165" className="h-auto w-full" role="img" aria-label={`${cell} recurrent cell with ${units} units`}>
+    <svg viewBox="0 0 460 178" className="h-auto w-full" role="img" aria-label={`${cell} recurrent cell with ${units} units`}>
       {/* input */}
       <rect x="10" y="55" width="80" height="50" rx="4" fill="#fff" stroke={LINE} />
       <text x="50" y="77" textAnchor="middle" fontSize="13" fontWeight="600" fill={INK} style={f}>x<tspan fontSize="9" dy="3">t</tspan></text>
@@ -229,9 +229,10 @@ function RnnSvg({ cell, units }: { cell: string; units: number }) {
       <rect x="370" y="55" width="80" height="50" rx="4" fill="#fff" stroke={LINE} />
       <text x="410" y="75" textAnchor="middle" fontSize="11" fill={INK} style={f}>dense</text>
       <text x="410" y="93" textAnchor="middle" fontSize="12" fontWeight="600" fill={M} style={f}>SOC</text>
-      {/* recurrence */}
-      <path d="M 300 134 L 300 152 L 160 152 L 160 134" fill="none" stroke={G} strokeWidth="1.5" strokeDasharray="4 3" />
-      <text x="230" y="149" textAnchor="middle" fontSize="9.5" fill={M} style={f}>
+      {/* recurrence: state leaves the cell, runs underneath and re-enters it (arrowhead), label below the line */}
+      <path d="M 300 132 L 300 150 L 160 150 L 160 141" fill="none" stroke={M} strokeWidth="1.5" strokeDasharray="4 3" />
+      <path d="M 155.5 141 L 160 133 L 164.5 141 z" fill={M} />
+      <text x="230" y="167" textAnchor="middle" fontSize="9.5" fill={M} style={f}>
         h<tspan fontSize="7" dy="2.5">t−1</tspan>
         {cell === "LSTM" ? <><tspan dy="-2.5">, c</tspan><tspan fontSize="7" dy="2.5">t−1</tspan></> : null}
         <tspan dy="-2.5"> carried in z</tspan>
