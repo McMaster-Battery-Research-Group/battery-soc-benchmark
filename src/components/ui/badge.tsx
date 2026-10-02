@@ -28,7 +28,9 @@ export function StatusBadge({ status }: { status: string }) {
     COMPLETED: { v: "success", label: "Completed", dot: "bg-forest" },
     FAILED: { v: "danger", label: "Failed", dot: "bg-danger" },
     DRAFT: { v: "neutral", label: "Draft" },
+    UPCOMING: { v: "info", label: "Upcoming" },
     OPEN: { v: "success", label: "Open", dot: "bg-forest animate-pulse" },
+    JUDGING: { v: "warning", label: "Judging" },
     CLOSED: { v: "warning", label: "Closed" },
     JUDGED: { v: "maroon", label: "Judged" },
   };

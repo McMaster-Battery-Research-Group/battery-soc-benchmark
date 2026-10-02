@@ -61,18 +61,26 @@ export const submissionMetaSchema = z.object({
   acceptTerms: z.literal(true, { error: "You must accept the submission terms" }),
 });
 
-export const contestSchema = z.object({
-  title: z.string().trim().min(3).max(100),
-  slug: z.string().trim().regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers and dashes only").min(3).max(60),
-  summary: z.string().trim().min(10).max(300),
-  description: z.string().trim().min(10),
-  rules: z.string().trim().min(10),
-  prizeText: z.string().trim().min(1).max(200),
-  startsAt: z.coerce.date(),
-  endsAt: z.coerce.date(),
-  status: z.enum(["DRAFT", "OPEN", "CLOSED", "JUDGED"]),
-  maxSubmissionsPerUser: z.coerce.number().int().min(1).max(100),
-}).refine((c) => c.endsAt > c.startsAt, { message: "End date must be after start date", path: ["endsAt"] });
+/** Dates arrive already converted from site-time wall clock (parseZonedInput); null = blank or unreadable. */
+export const contestSchema = z
+  .object({
+    title: z.string().trim().min(3, "At least 3 characters").max(100),
+    slug: z.string().trim().regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers and dashes only").min(3).max(60),
+    summary: z.string().trim().min(10, "One or two sentences (at least 10 characters)").max(300),
+    description: z.string().trim().min(10, "Describe the contest (at least 10 characters)"),
+    rules: z.string().trim().min(10, "Add the rules (the starter template is a good base)"),
+    startsAt: z.date({ message: "Pick a start date and time" }),
+    endsAt: z.date({ message: "Pick a deadline" }),
+    registrationEndsAt: z.date().nullable(),
+    maxSubmissionsPerUser: z.coerce.number().int().min(1).max(100),
+    maxTeamSize: z.coerce.number().int().min(1, "At least 1").max(10, "At most 10"),
+    eligibility: z.enum(["ANYONE", "STUDENTS", "ACADEMIC"]),
+    eligibilityNote: z.string().trim().max(300).transform((v) => v || null),
+    allowedRuntimes: z.array(z.enum(["matlab", "python"])),
+    prizes: z.array(z.object({ label: z.string().trim().min(1, "Name the place").max(40), amount: z.string().trim().min(1, "Give the prize").max(60) })).max(10),
+  })
+  .refine((c) => c.endsAt > c.startsAt, { message: "The deadline must be after the start", path: ["endsAt"] })
+  .refine((c) => !c.registrationEndsAt || c.registrationEndsAt <= c.endsAt, { message: "Registration has to close by the deadline", path: ["registrationEndsAt"] });
 
 export const FEEDBACK_CATEGORIES = [
   ["question", "Question"],

@@ -53,6 +53,12 @@ enum ContestStatus {
   JUDGED
 }
 
+enum ContestEligibility {
+  ANYONE
+  STUDENTS
+  ACADEMIC
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -360,8 +366,8 @@ model EvaluationJob {
 }
 
 model Contest {
-  id                    String        @id @default(cuid())
-  slug                  String        @unique
+  id                    String             @id @default(cuid())
+  slug                  String             @unique
   title                 String
   summary               String
   description           String
@@ -369,23 +375,44 @@ model Contest {
   prizeText             String
   startsAt              DateTime
   endsAt                DateTime
-  status                ContestStatus @default(DRAFT)
-  maxSubmissionsPerUser Int           @default(5)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  /// DRAFT = hidden; OPEN = published (the phase - upcoming, open, judging - comes from the dates, see
+  /// src/lib/contest.ts); JUDGED = results finalized. CLOSED is only on contests from before scheduling.
+  status                ContestStatus      @default(DRAFT)
+  maxSubmissionsPerUser Int                @default(5)
+  /// registration deadline; null = registration stays open until endsAt
+  registrationEndsAt    DateTime?
+  /// [{ label, amount }] in prize order; prizeText is derived from it for listings
+  prizes                Json?
+  maxTeamSize           Int                @default(1)
+  eligibility           ContestEligibility @default(ANYONE)
+  /// extra eligibility wording shown at registration
+  eligibilityNote       String?
+  /// "python" | "matlab"; empty = any runtime
+  allowedRuntimes       String[]           @default([])
+  /// [{ place, label, amount, submissionId, userId, modelName, author, weightedError }] set when results are finalized
+  winners               Json?
+  judgedAt              DateTime?
+  /// Markdown shown above the winners (judging notes, ceremony, etc.)
+  resultsNote           String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   entries     ContestEntry[]
   submissions Submission[]
 }
 
 model ContestEntry {
-  id            String   @id @default(cuid())
-  contestId     String
-  contest       Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  acceptedTerms DateTime @default(now())
-  teamName      String?
+  id                   String   @id @default(cuid())
+  contestId            String
+  contest              Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acceptedTerms        DateTime @default(now())
+  teamName             String?
+  /// names of the other team members (the account holder is the first member)
+  teamMembers          String[] @default([])
+  /// the registrant confirmed the contest's eligibility statement
+  eligibilityConfirmed Boolean  @default(false)
 
   @@unique([contestId, userId])
 }

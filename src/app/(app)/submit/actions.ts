@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage, runtimeOf } from "@/lib/package-check";
+import { contestPhase, runtimeAllowed, RUNTIME_LABEL } from "@/lib/contest";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail, submissionDeletedEmail } from "@/lib/mail";
 import { recordRevision } from "@/lib/history";
@@ -102,7 +103,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   if (parsed.data.contestId) {
     const contest = await db.contest.findUnique({ where: { id: parsed.data.contestId }, include: { entries: { where: { userId: session.user.id } } } });
     const now = new Date();
-    if (!contest || contest.status !== "OPEN" || contest.startsAt > now || contest.endsAt < now) {
+    if (!contest || contestPhase(contest, now) !== "open") {
       if (preUploadedKey) await storage.remove(preUploadedKey);
       return { errors: { contestId: "This contest is not accepting submissions" }, values };
     }
@@ -114,6 +115,10 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     if (count >= contest.maxSubmissionsPerUser) {
       if (preUploadedKey) await storage.remove(preUploadedKey);
       return { errors: { contestId: `You have reached the limit of ${contest.maxSubmissionsPerUser} contest submissions` }, values };
+    }
+    if (!runtimeAllowed(contest.allowedRuntimes, runtimeOf(check.modelFile))) {
+      if (preUploadedKey) await storage.remove(preUploadedKey);
+      return { errors: { contestId: `This contest accepts only ${contest.allowedRuntimes.map((r) => RUNTIME_LABEL[r] ?? r).join(" or ")} packages` }, values };
     }
     contestId = contest.id;
   }
@@ -206,8 +211,8 @@ export async function updateSubmissionDetailsAction(id: string, input: { modelNa
   const { sub, session } = await ownedSubmission(id);
   const parsed = submissionMetaSchema.pick({ modelName: true, description: true, modelType: true }).safeParse(input);
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
-  const contest = sub.contestId ? await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, endsAt: true } }) : null;
-  const locked = !!contest && (contest.status !== "OPEN" || contest.endsAt < new Date());
+  const contest = sub.contestId ? await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, startsAt: true, endsAt: true } }) : null;
+  const locked = !!contest && contestPhase(contest) !== "open";
   if (locked && (parsed.data.modelName !== sub.modelName || parsed.data.modelType !== sub.modelType)) return { ok: false, errors: { form: "This contest has closed: the name and model type are frozen." } };
   const changes: string[] = [];
   if (parsed.data.modelName !== sub.modelName) changes.push(`name "${sub.modelName}" → "${parsed.data.modelName}"`);
@@ -232,8 +237,8 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
   const { sub, session } = await ownedSubmission(id);
   if (sub.status === "QUEUED" || sub.status === "RUNNING") return { ok: false, error: "An evaluation is already in progress for this submission." };
   if (sub.contestId) {
-    const contest = await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, endsAt: true } });
-    if (!contest || contest.status !== "OPEN" || contest.endsAt < new Date()) return { ok: false, error: "This contest has closed; its entries are frozen. Submit a new (non-contest) submission instead." };
+    const contest = await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, startsAt: true, endsAt: true } });
+    if (!contest || contestPhase(contest) !== "open") return { ok: false, error: "This contest has closed; its entries are frozen. Submit a new (non-contest) submission instead." };
   }
   const perDay = (await getEvalSettings()).submissionsPerDay;
   if (session.user.role !== "ADMIN" && perDay > 0) {
@@ -268,6 +273,10 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
   if (bytes.length > MAX_UPLOAD_BYTES) return reject(`File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB limit.`);
   const check = checkSubmissionPackage(bytes);
   if (!check.ok) return reject(check.problems.join(" "));
+  if (sub.contestId) {
+    const { allowedRuntimes } = (await db.contest.findUnique({ where: { id: sub.contestId }, select: { allowedRuntimes: true } })) ?? { allowedRuntimes: [] };
+    if (!runtimeAllowed(allowedRuntimes, runtimeOf(check.modelFile))) return reject(`This contest accepts only ${allowedRuntimes.map((r) => RUNTIME_LABEL[r] ?? r).join(" or ")} packages.`);
+  }
 
   const key = preUploadedKey ?? (await storage.put(bytes, "zip"));
   const version = sub.version + 1;

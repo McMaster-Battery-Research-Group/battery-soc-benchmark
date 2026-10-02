@@ -15,7 +15,7 @@ export default async function AdminHome() {
     db.submission.count({ where: { status: "QUEUED" } }),
     db.submission.count({ where: { status: "RUNNING" } }),
     db.submission.count({ where: { status: "FAILED" } }),
-    db.contest.count({ where: { status: "OPEN" } }),
+    db.contest.count({ where: { status: { in: ["OPEN", "CLOSED"] }, startsAt: { lte: new Date() }, endsAt: { gte: new Date() } } }),
     db.contactMessage.count({ where: { resolved: false } }),
     db.submission.findMany({ take: 8, orderBy: { submittedAt: "desc" }, include: { user: { select: { name: true } } } }),
     db.adminEvent.findMany({ take: 20, orderBy: { createdAt: "desc" } }),

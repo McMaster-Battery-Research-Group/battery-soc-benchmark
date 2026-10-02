@@ -447,3 +447,20 @@ export async function securityAlertEmail(opts: {
     (opts.submissionId ? `\n\n${site()}/submissions/${opts.submissionId}` : "");
   await Promise.all(targets.map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html: layout(subject, body), text })));
 }
+
+/** Sent to each registrant when an administrator finalizes a contest's results. */
+export function contestResultsEmail(to: string, name: string, contest: { title: string; slug: string }, winners: { place: number; label: string; amount: string; modelName: string; author: string; weightedError: number; userId: string | null }[], userId: string) {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const href = `${site()}/contest/${contest.slug}`;
+  const mine = winners.find((w) => w.userId === userId);
+  const rows = winners
+    .map((w) => `<tr><td style="padding:6px 12px 6px 0;font-weight:bold;color:#7a003c">${esc(w.label)}</td><td style="padding:6px 12px 6px 0">${esc(w.modelName)}<br><span style="font-size:13px;color:#6d7a84">${esc(w.author)} · ${w.weightedError.toFixed(2)} %</span></td><td style="padding:6px 0">${esc(w.amount)}</td></tr>`)
+    .join("");
+  const lead = mine ? `<p><strong>Congratulations: your entry ${esc(mine.modelName)} placed ${esc(mine.label)}.</strong> The organizers will contact you about the prize.</p>` : `<p>Thank you for taking part. The final standings are now on the contest page.</p>`;
+  return sendMail({
+    to: addr(name, to),
+    subject: mine ? `You placed ${mine.label} in ${contest.title}` : `Results: ${contest.title}`,
+    html: layout(`Results: ${esc(contest.title)}`, `<p>Hi ${esc(name)},</p><p>The results of <strong>${esc(contest.title)}</strong> are final.</p>${lead}<table cellpadding="0" cellspacing="0" style="margin:12px 0;font-size:14px">${rows}</table>${button(href, "See the final standings")}`),
+    text: `The results of ${contest.title} are final.\n\n${winners.map((w) => `${w.label}: ${w.modelName} (${w.author}), ${w.weightedError.toFixed(2)} %${w.amount ? `, ${w.amount}` : ""}`).join("\n")}\n\n${href}`,
+  });
+}

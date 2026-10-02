@@ -99,7 +99,7 @@ export async function getSubmissionDetail(id: string) {
       collaborators: { orderBy: { addedAt: "asc" }, select: { userId: true, name: true, affiliation: true, notifiedAt: true, acceptedAt: true, user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } } },
       result: true,
       job: { select: { log: true, attempts: true, cancelRequestedAt: true } },
-      contest: { select: { id: true, slug: true, title: true, status: true } },
+      contest: { select: { id: true, slug: true, title: true, status: true, startsAt: true, endsAt: true } },
     },
   });
 }
@@ -134,13 +134,13 @@ export async function getSiteStats() {
       orderBy: { allCells: "asc" },
       select: { allCells: true, submission: { select: { modelName: true, id: true, user: { select: { name: true } } } } },
     }),
-    db.contest.findFirst({ where: { status: "OPEN" }, orderBy: { endsAt: "asc" } }),
+    db.contest.findFirst({ where: { status: { in: ["OPEN", "CLOSED"] }, endsAt: { gte: new Date() } }, orderBy: { startsAt: "asc" } }),
   ]);
   return { submissions, users, institutions: affiliations.length, best, contest };
 }
 
 export async function getOpenContest() {
-  return db.contest.findFirst({ where: { status: "OPEN" }, orderBy: { endsAt: "asc" } });
+  return db.contest.findFirst({ where: { status: { in: ["OPEN", "CLOSED"] }, endsAt: { gte: new Date() } }, orderBy: { startsAt: "asc" } });
 }
 
 /** 1-based public rank (lower weighted error is better) among current-benchmark, public, visible, completed submissions; null when the submission itself is not ranked. */

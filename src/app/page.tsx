@@ -111,8 +111,8 @@ export default async function HomePage() {
             <div className="card overflow-hidden">
               <div className="flex items-center gap-3 bg-maroon px-6 py-4 text-white">
                 <Trophy className="size-5 text-gold" />
-                <p className="font-heading text-sm font-semibold uppercase tracking-wide">Open contest</p>
-                <span className="ml-auto text-xs text-white/80">Deadline {fmtDate(stats.contest.endsAt)}</span>
+                <p className="font-heading text-sm font-semibold uppercase tracking-wide">{stats.contest.startsAt > new Date() ? "Upcoming contest" : "Open contest"}</p>
+                <span className="ml-auto text-xs text-white/80">{stats.contest.startsAt > new Date() ? `Opens ${fmtDate(stats.contest.startsAt)}` : `Deadline ${fmtDate(stats.contest.endsAt)}`}</span>
               </div>
               <div className="p-6">
                 <h3 className="font-heading text-2xl font-bold">{stats.contest.title}</h3>

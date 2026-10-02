@@ -18,7 +18,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   const now = new Date();
   const contests = session?.user
     ? await db.contest.findMany({
-        where: { status: "OPEN", startsAt: { lte: now }, endsAt: { gte: now }, entries: { some: { userId: session.user.id } } },
+        where: { status: { in: ["OPEN", "CLOSED"] }, startsAt: { lte: now }, endsAt: { gte: now }, entries: { some: { userId: session.user.id } } },
         select: { id: true, title: true, slug: true, endsAt: true, maxSubmissionsPerUser: true, _count: { select: { submissions: { where: { userId: session.user.id, status: { not: "FAILED" } } } } } },
       })
     : [];

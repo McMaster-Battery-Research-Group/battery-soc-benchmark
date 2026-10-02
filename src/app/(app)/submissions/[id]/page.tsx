@@ -1,3 +1,4 @@
+import { contestPhase } from "@/lib/contest";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -126,9 +127,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             </summary>
             <div className="absolute right-0 z-20 mt-2 w-max min-w-64 rounded-brand border border-border bg-white p-3 shadow-lg">
               <div className="flex flex-col items-stretch gap-2 [&_button]:w-full [&_button]:justify-start">
-                <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} modelType={sub.modelType} locked={!!sub.contest && sub.contest.status !== "OPEN"} />
+                <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} modelType={sub.modelType} locked={!!sub.contest && contestPhase(sub.contest) !== "open"} />
                 {sub.status === "COMPLETED" || sub.status === "FAILED" ? (
-                  <NewVersionDialog id={sub.id} version={sub.version} directUpload={(process.env.STORAGE ?? "local") === "supabase"} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} disabledReason={sub.contest && sub.contest.status !== "OPEN" ? "Contest closed; its entries are frozen. Submit a new (non-contest) submission instead." : undefined} />
+                  <NewVersionDialog id={sub.id} version={sub.version} directUpload={(process.env.STORAGE ?? "local") === "supabase"} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} disabledReason={sub.contest && contestPhase(sub.contest) !== "open" ? "Contest closed; its entries are frozen. Submit a new (non-contest) submission instead." : undefined} />
                 ) : null}
                 <div className="my-1 h-px bg-border" />
                 <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} isOwner={isOwner} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} />

@@ -10,7 +10,10 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { contestSchema, zodErrors, type FieldErrors } from "@/lib/validation";
-import { moderationEmail, bulkModerationEmail } from "@/lib/mail";
+import { Prisma } from "@prisma/client";
+import { contestPhase, parseZonedInput, prizeTextOf, prizesOf, standings, type Winner } from "@/lib/contest";
+import { getLeaderboardRows } from "@/lib/queries";
+import { moderationEmail, bulkModerationEmail, contestResultsEmail } from "@/lib/mail";
 import { storage } from "@/lib/storage";
 import { rescoreAll } from "@/lib/rescore";
 import { ADMIN_NOTIFY_KINDS, recordAdminEvent } from "@/lib/admin-notify";
@@ -393,27 +396,127 @@ export interface ContestFormState {
   values?: Record<string, string>;
 }
 
+const CONTEST_TEXT_KEYS = ["title", "slug", "summary", "description", "rules", "startsAt", "endsAt", "registrationEndsAt", "maxSubmissionsPerUser", "maxTeamSize", "eligibility", "eligibilityNote"] as const;
+
+/**
+ * Create or edit a contest. `intent` decides publication: "draft" hides it, "publish" makes it public
+ * (its phase then follows the dates), "save" keeps whatever it is. Dates are typed in site time.
+ */
 export async function saveContestAction(_prev: ContestFormState, fd: FormData): Promise<ContestFormState> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const id = String(fd.get("id") ?? "");
-  const keys = ["title", "slug", "summary", "description", "rules", "prizeText", "startsAt", "endsAt", "status", "maxSubmissionsPerUser"];
-  const values = Object.fromEntries(keys.map((k) => [k, String(fd.get(k) ?? "")]));
-  const parsed = contestSchema.safeParse(values);
+  const intent = String(fd.get("intent") ?? "save");
+  const labels = fd.getAll("prizeLabel").map(String), amounts = fd.getAll("prizeAmount").map(String);
+  const prizes = labels.map((label, i) => ({ label, amount: amounts[i] ?? "" })).filter((p) => p.label.trim() || p.amount.trim());
+  const allowedRuntimes = fd.getAll("allowedRuntimes").map(String);
+  const values: Record<string, string> = Object.fromEntries(CONTEST_TEXT_KEYS.map((k) => [k, String(fd.get(k) ?? "")]));
+  values.prizes = JSON.stringify(prizes);
+  values.allowedRuntimes = allowedRuntimes.join(",");
+
+  const parsed = contestSchema.safeParse({
+    ...values,
+    startsAt: parseZonedInput(values.startsAt),
+    endsAt: parseZonedInput(values.endsAt),
+    registrationEndsAt: values.registrationEndsAt ? parseZonedInput(values.registrationEndsAt) : null,
+    allowedRuntimes,
+    prizes,
+  });
   if (!parsed.success) return { errors: zodErrors(parsed.error), values };
-  const clash = await db.contest.findUnique({ where: { slug: parsed.data.slug } });
+  const d = parsed.data;
+  const clash = await db.contest.findUnique({ where: { slug: d.slug } });
   if (clash && clash.id !== id) return { errors: { slug: "Another contest already uses this slug" }, values };
 
-  if (parsed.data.status === "OPEN") {
-    // Only one open contest at a time keeps the "current contest" UI unambiguous.
-    await db.contest.updateMany({ where: { status: "OPEN", ...(id ? { id: { not: id } } : {}) }, data: { status: "CLOSED" } });
+  const existing = id ? await db.contest.findUnique({ where: { id }, select: { status: true } }) : null;
+  if (id && !existing) return { errors: { form: "This contest no longer exists." }, values };
+  const status = intent === "publish" ? "OPEN" : intent === "draft" ? "DRAFT" : (existing?.status ?? "DRAFT");
+
+  // One running contest at a time keeps "the current contest" (homepage, submit form) unambiguous.
+  if (status === "OPEN" || status === "CLOSED") {
+    const overlap = await db.contest.findFirst({
+      where: { ...(id ? { id: { not: id } } : {}), status: { in: ["OPEN", "CLOSED"] }, startsAt: { lt: d.endsAt }, endsAt: { gt: d.startsAt } },
+      select: { title: true },
+    });
+    if (overlap) return { errors: { form: `These dates overlap "${overlap.title}", which is already published. Move the dates, or unpublish that contest first.` }, values };
   }
-  const contest = id
-    ? await db.contest.update({ where: { id }, data: parsed.data })
-    : await db.contest.create({ data: parsed.data });
+
+  const data = { ...d, prizeText: prizeTextOf(d.prizes), status };
+  const contest = id ? await db.contest.update({ where: { id }, data }) : await db.contest.create({ data });
+  if (!existing || existing.status !== status) {
+    const verb = status === "DRAFT" ? (existing ? "unpublished" : "drafted") : existing ? "published" : "created and published";
+    await recordAdminEvent("contests", `${admin.name} ${verb} contest "${contest.title}"`);
+  }
   revalidatePath("/contest");
   revalidatePath(`/contest/${contest.slug}`);
   revalidatePath("/admin/contests");
-  redirect(`/admin/contests/${contest.id}?saved=1`);
+  revalidatePath("/");
+  redirect(`/admin/contests/${contest.id}?saved=${status === "DRAFT" ? "draft" : "published"}`);
+}
+
+/** Copy a contest's settings and text into a new draft (dates kept; winners and registrations are not copied). */
+export async function duplicateContestAction(id: string) {
+  const admin = await requireAdmin();
+  const c = await db.contest.findUnique({ where: { id } });
+  if (!c) return;
+  let slug = `${c.slug}-copy`.slice(0, 60);
+  for (let n = 2; await db.contest.findUnique({ where: { slug }, select: { id: true } }); n++) slug = `${c.slug.slice(0, 52)}-copy-${n}`;
+  const copy = await db.contest.create({
+    data: {
+      slug, title: `Copy of ${c.title}`.slice(0, 100), summary: c.summary, description: c.description, rules: c.rules,
+      prizeText: c.prizeText, prizes: c.prizes ?? undefined, startsAt: c.startsAt, endsAt: c.endsAt, registrationEndsAt: c.registrationEndsAt,
+      maxSubmissionsPerUser: c.maxSubmissionsPerUser, maxTeamSize: c.maxTeamSize, eligibility: c.eligibility, eligibilityNote: c.eligibilityNote,
+      allowedRuntimes: c.allowedRuntimes, status: "DRAFT",
+    },
+  });
+  await recordAdminEvent("contests", `${admin.name} duplicated contest "${c.title}" as a draft`);
+  revalidatePath("/admin/contests");
+  redirect(`/admin/contests/${copy.id}`);
+}
+
+/**
+ * Record the winners once the deadline has passed. `picks` is one submission id per prize place (in
+ * order); the standings snapshot (model, author, score) is stored with each so the result does not
+ * shift if a submission is later renamed or rescored.
+ */
+export async function finalizeContestAction(id: string, picks: string[], resultsNote: string, notify: boolean): Promise<{ ok: true; emailed: number } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const c = await db.contest.findUnique({ where: { id }, include: { entries: { include: { user: { select: { name: true, email: true } } } } } });
+  if (!c) return { ok: false, error: "This contest no longer exists." };
+  const phase = contestPhase(c);
+  if (phase !== "judging" && phase !== "judged") return { ok: false, error: "Results can be finalized only after the deadline." };
+  const prizes = prizesOf(c);
+  const places = Math.max(prizes.length, 1);
+  if (picks.length !== places || picks.some((p) => !p)) return { ok: false, error: `Choose an entry for each of the ${places} place${places === 1 ? "" : "s"}.` };
+  if (new Set(picks).size !== picks.length) return { ok: false, error: "The same entry is picked for two places." };
+
+  const ranked = standings(await getLeaderboardRows({ contestId: c.id, isAdmin: true }), c.endsAt);
+  const byId = new Map(ranked.map((r) => [r.id, r]));
+  const winners: Winner[] = [];
+  for (const [i, sid] of picks.entries()) {
+    const r = byId.get(sid);
+    if (!r) return { ok: false, error: "One of the picked entries is not a scored, on-time entry of this contest." };
+    winners.push({ place: i + 1, label: prizes[i]?.label ?? "Winner", amount: prizes[i]?.amount ?? "", submissionId: r.id, userId: r.userId, modelName: r.modelName, author: r.author, weightedError: r.weightedError });
+  }
+  const wasJudged = c.status === "JUDGED";
+  await db.contest.update({ where: { id }, data: { winners, status: "JUDGED", judgedAt: new Date(), resultsNote: resultsNote.trim() || null } });
+  await recordAdminEvent("contests", `${admin.name} ${wasJudged ? "updated" : "finalized"} the results of "${c.title}" (1st: ${winners[0].modelName} by ${winners[0].author})`);
+
+  let emailed = 0;
+  if (notify) {
+    for (const e of c.entries) if (await contestResultsEmail(e.user.email, e.user.name, c, winners, e.userId)) emailed++;
+  }
+  revalidatePath(`/contest/${c.slug}`);
+  revalidatePath("/contest");
+  revalidatePath(`/admin/contests/${id}`);
+  return { ok: true, emailed };
+}
+
+/** Undo finalization (e.g. after a disqualification): back to judging, winners cleared. */
+export async function reopenContestResultsAction(id: string) {
+  const admin = await requireAdmin();
+  const c = await db.contest.update({ where: { id }, data: { status: "OPEN", winners: Prisma.DbNull, judgedAt: null } });
+  await recordAdminEvent("contests", `${admin.name} reopened judging for "${c.title}"`);
+  revalidatePath(`/contest/${c.slug}`);
+  revalidatePath(`/admin/contests/${id}/results`);
 }
 
 export async function deleteContestAction(id: string) {
