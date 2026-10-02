@@ -58,7 +58,7 @@ export function checkSubmissionPackage(bytes: Buffer): PackageCheck {
   const modelFile = names.includes("Model.m") ? "Model.m" : names.includes("Model.p") ? "Model.p" : names.includes("Model.py") ? "Model.py" : undefined;
   if (!modelFile) {
     const near = names.find((n) => /^model\.(m|p|py)$/i.test(n));
-    problems.push(near ? `Found "${near}" — the estimator must be named exactly "Model.m", "Model.p" or "Model.py" (case-sensitive).` : 'Missing "Model.m", "Model.p" or "Model.py". The SOC estimator function must be named Model.');
+    problems.push(near ? `Found "${near}". The estimator must be named exactly "Model.m", "Model.p" or "Model.py" (case-sensitive).` : 'Missing "Model.m", "Model.p" or "Model.py". The SOC estimator function must be named Model.');
   }
   if (modelFile === "Model.m") {
     const src = zip.getEntry("Model.m")!.getData().toString("utf8");
@@ -71,7 +71,7 @@ export function checkSubmissionPackage(bytes: Buffer): PackageCheck {
   if (modelFile === "Model.py") {
     const src = zip.getEntry("Model.py")!.getData().toString("utf8");
     if (!/^\s*def\s+Model\s*\(/m.test(src)) problems.push('Model.py must define "def Model(X, z=None)" returning (Y_est, z).');
-    if (/^\s*(import|from)\s+(torch|tensorflow|keras|sklearn|jax)/m.test(src)) warnings.push("Model.py imports a deep-learning framework; the evaluator's Python environment provides numpy and scipy only — bundle weights and implement inference with numpy, or confirm the framework is installed on the evaluation host.");
+    if (/^\s*(import|from)\s+(torch|tensorflow|keras|sklearn|jax)/m.test(src)) warnings.push("Model.py imports a deep-learning framework; the evaluator's Python environment provides numpy and scipy only. Bundle weights and implement inference with numpy, or confirm the framework is installed on the evaluation host.");
   }
   return { ok: problems.length === 0, problems, warnings, files, modelFile };
 }

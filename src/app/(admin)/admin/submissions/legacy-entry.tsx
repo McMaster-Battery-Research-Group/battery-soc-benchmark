@@ -76,7 +76,7 @@ export function LegacyEntryDialog() {
       </DialogTrigger>
       <DialogContent title="Record a legacy score" description="Work evaluated before this platform existed" size="md">
         <p className="text-sm text-grey-700">
-          Adds a leaderboard entry for a result produced elsewhere — the original MATLAB tool, for example. It is badged
+          Adds a leaderboard entry for a result produced elsewhere, the original MATLAB tool, for example. It is badged
           as carried over, has no package, and cannot be re-evaluated.
         </p>
 

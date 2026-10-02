@@ -28,12 +28,12 @@ export interface ExampleModel {
 export const EXAMPLES: ExampleModel[] = [
   {
     slug: "coulomb-counter",
-    name: "Example 1 — coulomb counter",
+    name: "Example 1: coulomb counter",
     modelType: "COULOMB_COUNTER",
     tagline: "Integrate current, divide by capacity. Twenty lines, the best way to learn the interface.",
     description: [
       "The simplest possible estimator: charge in and out of the cell is counted by integrating current at the 1 Hz sample rate and dividing by a fixed nominal capacity. The previous SOC is carried between calls in z.",
-      "It assumes the battery always starts full, ignores temperature-dependent capacity, and has no way to correct itself — so any current-sensor offset accumulates without bound. That is exactly why the robustness test cases exist.",
+      "It assumes the battery always starts full, ignores temperature-dependent capacity, and has no way to correct itself, so any current-sensor offset accumulates without bound. That is exactly why the robustness test cases exist.",
     ],
     files: [{ name: "Model.m", note: "the estimator" }],
     code: `% SOC Estimation Example V2
@@ -90,12 +90,12 @@ def Model(X, z=None):
   },
   {
     slug: "ekf",
-    name: "Example 2 — Extended Kalman filter",
+    name: "Example 2: Extended Kalman filter",
     modelType: "EKF",
     tagline: "A third-order equivalent-circuit model corrected by voltage measurements.",
     description: [
       "The battery is modelled as an open-circuit voltage source in series with an ohmic resistance R0 and three RC pairs. The state vector holds the three RC voltages and SOC. Each second the filter predicts the state with the circuit equations, then corrects it using the difference between measured and predicted terminal voltage.",
-      "OCV–SOC curves come from the HPPC rests at each temperature, and the ECM parameters were fitted to the open data with a genetic algorithm. Parameters depend on temperature (selected once at initialisation from X(3)) and SOC (re-interpolated whenever SOC moves by more than 2 %). Because the filter trusts voltage, it recovers from a wrong initial SOC and from a current offset — the two robustness tests where coulomb counting fails.",
+      "OCV–SOC curves come from the HPPC rests at each temperature, and the ECM parameters were fitted to the open data with a genetic algorithm. Parameters depend on temperature (selected once at initialisation from X(3)) and SOC (re-interpolated whenever SOC moves by more than 2 %). Because the filter trusts voltage, it recovers from a wrong initial SOC and from a current offset, the two robustness tests where coulomb counting fails.",
     ],
     files: [
       { name: "Model.m", note: "the estimator" },
@@ -253,13 +253,13 @@ def Model(X, z=None):
 `,
     codePyNote: "Same parameter files as the MATLAB package; scipy reads them directly.",
     spec: { kind: "ecm", rcPairs: 3, states: ["V₁", "V₂", "V₃", "SOC"], filter: "EKF" },
-    strengths: ["Self-correcting: recovers from wrong initial SOC and sensor offset", "Physically interpretable parameters from HPPC", "Moderate compute — runs on a BMS microcontroller"],
+    strengths: ["Self-correcting: recovers from wrong initial SOC and sensor offset", "Physically interpretable parameters from HPPC", "Moderate compute: runs on a BMS microcontroller"],
     weaknesses: ["Accuracy limited by ECM fidelity, especially below 0 °C", "Needs Q/R tuning per temperature", "Flat OCV region (mid-SOC) gives weak voltage feedback"],
     complexity: 8,
   },
   {
     slug: "fnn",
-    name: "Example 3 — Feedforward neural network",
+    name: "Example 3: Feedforward neural network",
     modelType: "FNN",
     tagline: "Two ReLU layers on 300-sample averaged inputs; weights pasted straight from the trained net.",
     description: [
@@ -313,7 +313,7 @@ end
 function x = mapminmax_reverse(y, s)
   x = bsxfun(@plus, bsxfun(@rdivide, bsxfun(@minus, y, s.ymin), s.gain), s.xoffset);
 end`,
-    codeNote: "Weight matrices elided for readability — the shipped file contains the full numeric arrays.",
+    codeNote: "Weight matrices elided for readability; the shipped file contains the full numeric arrays.",
     filesPy: [{ name: "Model.py", note: "the estimator" }, { name: "weights.npz", note: "weights + normalisation exported from the trained network" }],
     codePy: `# SOC Estimation Example — feedforward NN 3 -> 23 -> 18 -> 1, ReLU (Python)
 # Weights exported from the trained MATLAB network into weights.npz
@@ -343,12 +343,12 @@ def Model(X, z=None):
     codePyNote: "Runnable as shipped: weights.npz holds the arrays exported from the MATLAB network.",
     spec: { kind: "fnn", layers: [3, 23, 18, 1], activation: "ReLU", inputs: ["Ī", "V̄", "T̄"], window: 300 },
     strengths: ["Learns non-linear temperature effects directly from data", "Cheap inference (two small matrix products)", "No battery model or parameter fitting needed"],
-    weaknesses: ["Only as good as the training coverage — new cell / cycles hurt", "Averaging window lags fast transients", "No physical constraint: can produce jumpy estimates"],
+    weaknesses: ["Only as good as the training coverage: new cell / cycles hurt", "Averaging window lags fast transients", "No physical constraint: can produce jumpy estimates"],
     complexity: 4,
   },
   {
     slug: "lstm",
-    name: "Example 4 — LSTM recurrent network",
+    name: "Example 4: LSTM recurrent network",
     modelType: "LSTM",
     tagline: "A 10-unit LSTM stepped one sample at a time with hand-written gate equations.",
     description: [
@@ -400,7 +400,7 @@ end
         y = 1 ./ (1 + exp(-x));
     end
 end`,
-    codeNote: "Weight matrices elided for readability — the shipped file contains the full numeric arrays.",
+    codeNote: "Weight matrices elided for readability; the shipped file contains the full numeric arrays.",
     filesPy: [{ name: "Model.py", note: "the estimator" }, { name: "weights.npz", note: "LSTM + dense weights exported from the trained network" }],
     codePy: `# SOC Estimation Example — LSTM (10 units) stepped one sample at a time (Python)
 # Weights exported from the trained MATLAB network into weights.npz
@@ -433,7 +433,7 @@ def Model(X, z=None):
 `,
     codePyNote: "Runnable as shipped: weights.npz holds the arrays exported from the MATLAB network.",
     spec: { kind: "rnn", cell: "LSTM", units: 10, inputs: ["V", "I", "T"], output: "clipped ReLU" },
-    strengths: ["Memory of the full history — no explicit window", "Recovers from initial-SOC error as the state settles", "Best accuracy of the four examples across temperatures"],
+    strengths: ["Memory of the full history, no explicit window", "Recovers from initial-SOC error as the state settles", "Best accuracy of the four examples across temperatures"],
     weaknesses: ["Needs careful training on the open cycles", "Higher compute per step than FNN", "Behaviour outside the training envelope is unpredictable"],
     complexity: 5,
   },

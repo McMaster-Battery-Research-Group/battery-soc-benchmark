@@ -182,7 +182,7 @@ function Picker({ rows, ids, onApply, viewerId, compact }: { rows: LeaderboardRo
           {list.length === 0 ? <li className="px-2 py-6 text-center text-sm text-grey-600">No models match.</li> : null}
         </ul>
         <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-sm text-grey-700">{draft.length} of {MAX} selected{full ? " — untick one to pick another" : ""}</p>
+          <p className="text-sm text-grey-700">{draft.length} of {MAX} selected{full ? "; untick one to pick another" : ""}</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setDraft([])} disabled={!draft.length}>Clear</Button>
             <Button onClick={() => { onApply(draft); setOpen(false); setQ(""); }} disabled={!changed}>Compare{draft.length ? ` (${draft.length})` : ""}</Button>

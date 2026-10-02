@@ -80,7 +80,7 @@ export function verificationEmail(to: string, name: string, token: string) {
   const href = `${site()}/verify?token=${token}`;
   return sendMail({
     to: addr(name, to),
-    subject: "Verify your email — Battery SOC Benchmark",
+    subject: "Verify your email: Battery SOC Benchmark",
     html: layout("Confirm your email address", `<p>Hi ${name},</p><p>Thanks for registering. Confirm your email to start submitting SOC estimation models for blinded evaluation.</p>${button(href, "Verify email")}<p style="font-size:13px">This link expires in 24 hours.</p>`),
     text: `Verify your email: ${href}`,
   });
@@ -90,7 +90,7 @@ export function passwordResetEmail(to: string, name: string, token: string) {
   const href = `${site()}/reset-password?token=${token}`;
   return sendMail({
     to: addr(name, to),
-    subject: "Reset your password — Battery SOC Benchmark",
+    subject: "Reset your password: Battery SOC Benchmark",
     html: layout("Reset your password", `<p>Hi ${name},</p><p>We received a request to reset your password. If this wasn't you, you can ignore this email.</p>${button(href, "Choose a new password")}<p style="font-size:13px">This link expires in 1 hour.</p>`),
     text: `Reset your password: ${href}`,
   });
@@ -117,7 +117,7 @@ export function evaluationCompleteEmail(to: string, name: string, modelName: str
     subject: ok ? `Evaluation complete: ${modelName}` : `Evaluation failed: ${modelName}`,
     html: layout(
       ok ? "Your model has been evaluated" : "Your evaluation could not be completed",
-      `${ok ? confettiBanner(gif) : ""}<p>Hi ${name},</p><p>${ok ? `🎉 Congratulations — <strong>${modelName}</strong> finished blinded evaluation. ${summary ?? ""}` : `<strong>${modelName}</strong> failed during evaluation. ${summary ?? ""}`}</p>${button(href, "View results")}${report ? `<p style="font-size:13px;color:#6d7a84">The full report (summary, all test cases, time-domain traces and per-cycle errors) is attached as a PDF.</p>` : ""}`,
+      `${ok ? confettiBanner(gif) : ""}<p>Hi ${name},</p><p>${ok ? `🎉 Congratulations. <strong>${modelName}</strong> finished blinded evaluation. ${summary ?? ""}` : `<strong>${modelName}</strong> failed during evaluation. ${summary ?? ""}`}</p>${button(href, "View results")}${report ? `<p style="font-size:13px;color:#6d7a84">The full report (summary, all test cases, time-domain traces and per-cycle errors) is attached as a PDF.</p>` : ""}`,
     ),
     text: `${ok ? "Evaluation complete" : "Evaluation failed"}: ${href}`,
     attachments: [...(gif ? [gif] : []), ...(report ? [{ filename: `${modelName.replace(/[^a-z0-9]+/gi, "_")}-soc-benchmark-report.pdf`, content: report, contentType: "application/pdf" }] : [])],
@@ -146,7 +146,7 @@ export function collaboratorAcceptedEmail(to: string, ownerName: string, collabo
   return sendMail({
     to: addr(ownerName, to),
     subject: `${collaboratorName} accepted co-authorship on "${modelName}"`,
-    html: layout("Invitation accepted", `<p>Hi ${ownerName},</p><p><strong>${collaboratorName}</strong> accepted your invitation and is now listed as a co-author on <strong>${modelName}</strong> — their name and picture appear beside the model on the leaderboard and on their researcher page.</p>${button(href, "View the submission")}`),
+    html: layout("Invitation accepted", `<p>Hi ${ownerName},</p><p><strong>${collaboratorName}</strong> accepted your invitation and is now listed as a co-author on <strong>${modelName}</strong>. Their name and picture appear beside the model on the leaderboard and on their researcher page.</p>${button(href, "View the submission")}`),
     text: `${collaboratorName} accepted co-authorship on "${modelName}": ${href}`,
   });
 }
@@ -165,11 +165,11 @@ export function collaboratorDeclinedEmail(to: string, ownerName: string, collabo
 export function moderationEmail(to: string, name: string, modelName: string, submissionId: string | null, action: "private" | "public" | "hide" | "unhide" | "delete", reason: string, adminName: string) {
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const what = {
-    private: "was made private by an administrator — it is no longer shown on the public leaderboard, but you and your collaborators can still see it",
-    public: "was made public by an administrator — it now appears on the public leaderboard",
-    hide: "was hidden by an administrator — it is not visible to anyone except administrators",
-    unhide: "was unhidden by an administrator — it is visible again",
-    delete: "was deleted by an administrator — its results and leaderboard entry have been removed permanently",
+    private: "was made private by an administrator. It is no longer shown on the public leaderboard, but you and your collaborators can still see it",
+    public: "was made public by an administrator. It now appears on the public leaderboard",
+    hide: "was hidden by an administrator. It is not visible to anyone except administrators",
+    unhide: "was unhidden by an administrator. It is visible again",
+    delete: "was deleted by an administrator. Its results and leaderboard entry have been removed permanently",
   }[action];
   const href = submissionId ? `${site()}/submissions/${submissionId}` : `${site()}/submissions`;
   return sendMail({
@@ -212,7 +212,7 @@ export function rescoreEmail(to: string, name: string, modelName: string, submis
     subject: `Score updated: ${modelName} (${oldScore.toFixed(2)} → ${newScore.toFixed(2)} %)`,
     html: layout(
       "Your score has been recomputed",
-      `<p>Hi ${esc(name)},</p><p>The benchmark's scoring was updated and the weighted error of <strong>${esc(modelName)}</strong> has ${dir} from <strong>${oldScore.toFixed(3)} %</strong> to <strong>${newScore.toFixed(3)} %</strong>. Your model was <em>not</em> re-run — the per-test results are unchanged; only how they are combined into the headline score.</p><p style="margin:16px 0;padding:12px 16px;border-left:4px solid #7a003c;background:#f6f7f7"><strong>What changed:</strong><br>${esc(note)}</p>${button(href, "View the submission")}<p style="font-size:13px;color:#6d7a84">The full score history is listed on the submission page and in the attached report.</p>`,
+      `<p>Hi ${esc(name)},</p><p>The benchmark's scoring was updated and the weighted error of <strong>${esc(modelName)}</strong> has ${dir} from <strong>${oldScore.toFixed(3)} %</strong> to <strong>${newScore.toFixed(3)} %</strong>. Your model was <em>not</em> re-run; the per-test results are unchanged, only how they are combined into the headline score.</p><p style="margin:16px 0;padding:12px 16px;border-left:4px solid #7a003c;background:#f6f7f7"><strong>What changed:</strong><br>${esc(note)}</p>${button(href, "View the submission")}<p style="font-size:13px;color:#6d7a84">The full score history is listed on the submission page and in the attached report.</p>`,
     ),
     text: `Score updated for "${modelName}": ${oldScore.toFixed(3)} → ${newScore.toFixed(3)} %. ${note}\n${href}`,
     attachments: report ? [{ filename: `${modelName.replace(/[^a-z0-9]+/gi, "_")}-soc-benchmark-report.pdf`, content: report, contentType: "application/pdf" }] : undefined,
@@ -253,7 +253,7 @@ export async function accountEventEmail(kind: "registered" | "verified", user: {
   const { adminNotifyTargets } = await import("@/lib/admin-notify");
   const { fmtDateTime } = await import("@/lib/utils");
   const { recordAdminEvent } = await import("@/lib/admin-notify");
-  await recordAdminEvent("accounts", kind === "registered" ? `New account: ${user.name} <${user.email}> (${user.affiliation})` : `Account verified: ${user.name} <${user.email}>${via ? ` — via ${via}` : ""}`);
+  await recordAdminEvent("accounts", kind === "registered" ? `New account: ${user.name} <${user.email}> (${user.affiliation})` : `Account verified: ${user.name} <${user.email}>${via ? ` (via ${via})` : ""}`);
   const targets = (await adminNotifyTargets("accounts")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   if (!targets.length) return;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -322,7 +322,7 @@ export async function submissionDeletedEmail(sub: { seq: number; modelName: stri
   const { adminNotifyTargets } = await import("@/lib/admin-notify");
   const { fmtDateTime } = await import("@/lib/utils");
   const { recordAdminEvent } = await import("@/lib/admin-notify");
-  await recordAdminEvent("deletions", `Submission #${sub.seq} "${sub.modelName}" deleted by ${by.name} (${by.email.toLowerCase() === sub.owner.email.toLowerCase() ? "owner" : by.role.toLowerCase()}) — owner ${sub.owner.name}${reason ? ` — reason: ${reason}` : ""}`);
+  await recordAdminEvent("deletions", `Submission #${sub.seq} "${sub.modelName}" deleted by ${by.name} (${by.email.toLowerCase() === sub.owner.email.toLowerCase() ? "owner" : by.role.toLowerCase()}); owner ${sub.owner.name}${reason ? `; reason: ${reason}` : ""}`);
   const targets = await adminNotifyTargets("deletions");
   if (!targets.length) return;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -333,7 +333,7 @@ export async function submissionDeletedEmail(sub: { seq: number; modelName: stri
     ["Model", `${sub.modelName} (#${sub.seq}, ${sub.modelType.replace(/_/g, " ").toLowerCase()})`],
     ["Owner", `${sub.owner.name} <${sub.owner.email}>, ${sub.owner.affiliation}`],
     ["Status at deletion", `${sub.status.toLowerCase()}${sub.weightedError != null ? ` · weighted error ${sub.weightedError.toFixed(3)} %` : ""}${sub.isPrivate ? " · private" : ""}`],
-    ["Deleted by", `${by.name} <${by.email}> — ${isOwner ? "owner" : by.role === "ADMIN" ? "administrator" : "user"}`],
+    ["Deleted by", `${by.name} <${by.email}>, ${isOwner ? "owner" : by.role === "ADMIN" ? "administrator" : "user"}`],
     ["When", fmtDateTime(new Date())],
     ...(reason ? [["Reason given", reason] as [string, string]] : []),
   ];
@@ -373,7 +373,7 @@ export async function bulkDeletionEmail(byName: string, reason: string, lines: s
 /** Account deletion: optional notice to the person, and one FYI per admin ("accounts" toggle). */
 export async function accountDeletedEmail(user: { name: string; email: string }, reason: string, adminName: string, counts: { submissions: number }, notifyUser: boolean) {
   const { adminNotifyTargets, recordAdminEvent } = await import("@/lib/admin-notify");
-  const line = `${adminName} deleted the account of ${user.name} <${user.email}> (${counts.submissions} submissions removed) — reason: ${reason}`;
+  const line = `${adminName} deleted the account of ${user.name} <${user.email}> (${counts.submissions} submissions removed); reason: ${reason}`;
   await recordAdminEvent("accounts", line);
   if (notifyUser) {
     await sendMail({
@@ -381,7 +381,7 @@ export async function accountDeletedEmail(user: { name: string; email: string },
       subject: "Your Battery SOC Benchmark account has been deleted",
       html: layout(
         "Account deleted",
-        `<p>Hi ${user.name},</p><p>An administrator has deleted your Battery SOC Benchmark account, including your submissions and results.</p><p><strong>Reason given:</strong> ${reason.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p><p style="font-size:13px;color:#6d7a84">If you believe this is a mistake, reply to this e-mail or use the contact form on the site — you are welcome to register again unless told otherwise.</p>`,
+        `<p>Hi ${user.name},</p><p>An administrator has deleted your Battery SOC Benchmark account, including your submissions and results.</p><p><strong>Reason given:</strong> ${reason.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p><p style="font-size:13px;color:#6d7a84">If you believe this is a mistake, reply to this e-mail or use the contact form on the site. You are welcome to register again unless told otherwise.</p>`,
       ),
       text: `Your account was deleted. Reason: ${reason}`,
     });
@@ -438,7 +438,7 @@ export async function securityAlertEmail(opts: {
     `<p><strong>A submission tripped a security guard during evaluation.</strong></p>` +
     table +
     `<p><strong>Best-guess assessment:</strong> ${esc(opts.assessment)}</p>` +
-    `<p style="color:#6b7280;font-size:13px">The submitted package is not attached or quoted — evaluated packages are deleted immediately and never retained.</p>` +
+    `<p style="color:#6b7280;font-size:13px">The submitted package is not attached or quoted; evaluated packages are deleted immediately and never retained.</p>` +
     link;
   const text =
     `A submission tripped a security guard during evaluation.\n\n` +

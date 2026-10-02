@@ -31,7 +31,7 @@ export function OffsetRmseChart({ currentOffsetRmse, perCycle }: { currentOffset
     return row;
   });
   return (
-    <ChartFrame title="RMSE vs. sensor offset" description="Test 11 — the same three cycles re-run with a constant current offset; 0 A is the unmodified run. Only ±0.3 A enters the score." legend={CYCLES.map((c, b) => ({ label: c.label, color: SERIES[b] }))}>
+    <ChartFrame title="RMSE vs. sensor offset" description="Test 11: the same three cycles re-run with a constant current offset; 0 A is the unmodified run. Only ±0.3 A enters the score." legend={CYCLES.map((c, b) => ({ label: c.label, color: SERIES[b] }))}>
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
           <CartesianGrid {...gridProps} />

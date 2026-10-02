@@ -33,7 +33,7 @@ export function RunExample({ slug, runtime, modelName, signedIn }: { slug: strin
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-heading font-semibold text-ink">See it evaluated</p>
-          <p className="text-sm text-grey-700">Queues a dry run of the shipped <strong>{runtime === "matlab" ? "MATLAB" : "Python"}</strong> package on one public cycle — the same check you get for your own model. Counts toward your 5 test runs per hour.</p>
+          <p className="text-sm text-grey-700">Queues a dry run of the shipped <strong>{runtime === "matlab" ? "MATLAB" : "Python"}</strong> package on one public cycle, the same check you get for your own model. Counts toward your 5 test runs per hour.</p>
           {signedIn ? <DryRunQuotaLine refreshKey={attempts} className="mt-1" /> : null}
         </div>
         {signedIn ? (

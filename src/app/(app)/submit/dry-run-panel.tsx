@@ -58,7 +58,7 @@ export function DryRunPanel({ directUpload, onUse }: { directUpload: boolean; on
         <span className="flex size-9 shrink-0 items-center justify-center rounded-brand bg-maroon-100 text-maroon"><FlaskConical className="size-5" /></span>
         <div>
           <h2 className="font-heading text-lg font-semibold text-ink">Test your package first</h2>
-          <p className="text-sm text-grey-700">Runs your model through the real evaluator on one <strong>public</strong> drive cycle (m80, REORDERED1, 25 °C, 2 h). Catches format and runtime errors and shows your error and complexity — without using a submission, touching the blinded data, or appearing anywhere. Up to 5 per hour.</p>
+          <p className="text-sm text-grey-700">Runs your model through the real evaluator on one <strong>public</strong> drive cycle (m80, REORDERED1, 25 °C, 2 h). Catches format and runtime errors and shows your error and complexity, without using a submission, touching the blinded data, or appearing anywhere. Up to 5 per hour.</p>
           <DryRunQuotaLine refreshKey={attempts} className="mt-1" />
         </div>
       </div>
@@ -81,7 +81,7 @@ export function DryRunPanel({ directUpload, onUse }: { directUpload: boolean; on
               <span className="flex flex-wrap items-center gap-2">
                 Happy with it?
                 <Button size="sm" onClick={() => onUse(file)}><ArrowDown /> Use this package for the submission</Button>
-                <span className="text-grey-600">— it is copied into the form below; you only fill in the details.</span>
+                <span className="text-grey-600">It is copied into the form below; you only fill in the details.</span>
               </span>
             ) : (
               <>Happy with it? Submit the same .zip below for the blinded evaluation.</>

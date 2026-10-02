@@ -21,7 +21,7 @@ import { normalise, validateWeights, sameWeights, getActiveScoring, DEFAULT_WEIG
 export async function adminBulkDeleteAction(ids: string[], reason: string, notifyAuthors: boolean): Promise<{ ok: true; deleted: number; skipped: string[]; emailed: number } | { ok: false; error: string }> {
   const admin = await requireAdmin();
   const why = reason.trim();
-  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters) — it is kept in the activity log and sent to authors when notification is on." };
+  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters). It is kept in the activity log and sent to authors when notification is on." };
   const unique = [...new Set(ids)].slice(0, 100);
   if (!unique.length) return { ok: false, error: "Nothing selected." };
   const subs = await db.submission.findMany({
@@ -34,13 +34,13 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
   let emailed = 0;
   for (const sub of subs) {
     if (sub.status === "RUNNING") {
-      skipped.push(`#${sub.seq} ${sub.modelName} (running — cancel it first)`);
+      skipped.push(`#${sub.seq} ${sub.modelName} (running, cancel it first)`);
       continue;
     }
     if (sub.fileKey) await storage.remove(sub.fileKey).catch(() => {});
     if (sub.result?.tracesKey) await storage.remove(sub.result.tracesKey).catch(() => {});
     await db.submission.delete({ where: { id: sub.id } });
-    lines.push(`#${sub.seq} "${sub.modelName}" — owner ${sub.user.name} <${sub.user.email}>`);
+    lines.push(`#${sub.seq} "${sub.modelName}", owner ${sub.user.name} <${sub.user.email}>`);
     logEvent("submission.deleted", { id: sub.id, seq: sub.seq, by: admin.id, bulk: true });
     if (notifyAuthors) {
       // gather per person; one e-mail each at the end, however many of their submissions went
@@ -55,7 +55,7 @@ export async function adminBulkDeleteAction(ids: string[], reason: string, notif
     if (await bulkModerationEmail(email, name, models, why, admin.name ?? "an administrator")) emailed++;
   }
   if (lines.length) {
-    await recordAdminEvent("deletions", `${admin.name} bulk-deleted ${lines.length} submissions (${lines.map((l) => l.split(" ")[0]).join(", ")}) — reason: ${why}`);
+    await recordAdminEvent("deletions", `${admin.name} bulk-deleted ${lines.length} submissions (${lines.map((l) => l.split(" ")[0]).join(", ")}); reason: ${why}`);
     after(() => bulkDeletionEmail(admin.name ?? "an administrator", why, lines).catch(() => {}));
   }
   revalidatePath("/leaderboard");
@@ -109,7 +109,7 @@ export async function previewScoringAction(weights: Record<string, number>): Pro
 export async function saveScoringAction(weights: Record<string, number> | null, note: string, notify: boolean): Promise<{ ok: true; rescored: number; emailed: number } | { ok: false; error: string }> {
   const admin = await requireAdmin();
   const why = note.trim();
-  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters) — it is sent to authors and kept in the change log." };
+  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters). It is sent to authors and kept in the change log." };
   const w = weights ? normalise(weights) : DEFAULT_WEIGHTS;
   const problem = validateWeights(w);
   if (problem) return { ok: false, error: problem };
@@ -119,7 +119,7 @@ export async function saveScoringAction(weights: Record<string, number> | null, 
   const r = await rescoreAll({ apply: true, notify, note: why, by: admin.id, weights: w });
   await db.scoringConfig.update({ where: { id: cfg.id }, data: { rescored: r.changed, notified: r.emailed } });
   logEvent("admin.scoring_changed", { by: admin.id, reset: !weights, rescored: r.changed, emailed: r.emailed, note: why });
-  await recordAdminEvent("scoring", `Scoring weights ${weights ? "changed" : "reset to defaults"} by ${admin.name} — ${r.changed} submissions re-scored${r.emailed ? `, ${r.emailed} authors e-mailed` : ""}. Reason: ${why}`);
+  await recordAdminEvent("scoring", `Scoring weights ${weights ? "changed" : "reset to defaults"} by ${admin.name}: ${r.changed} submissions re-scored${r.emailed ? `, ${r.emailed} authors e-mailed` : ""}. Reason: ${why}`);
   revalidatePath("/leaderboard");
   revalidatePath("/docs");
   revalidatePath("/admin/scoring");
@@ -174,14 +174,14 @@ export type ModerationAction = "private" | "public" | "hide" | "unhide" | "delet
 export async function adminModerateAction(id: string, action: ModerationAction, reason: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const admin = await requireAdmin();
   const why = reason.trim();
-  if (why.length < 10) return { ok: false, error: "Please give a reason (at least 10 characters) — it is sent to the author." };
+  if (why.length < 10) return { ok: false, error: "Please give a reason (at least 10 characters). It is sent to the author." };
   const sub = await db.submission.findUnique({
     where: { id },
     include: { user: { select: { email: true, name: true, affiliation: true } }, result: { select: { weightedError: true, tracesKey: true } }, collaborators: { where: { acceptedAt: { not: null }, userId: { not: null } }, include: { user: { select: { email: true, name: true } } } } },
   });
   if (!sub) return { ok: false, error: "Submission not found." };
   if (action === "delete" && sub.status === "RUNNING") return { ok: false, error: "Cancel the running evaluation first, then delete." };
-  if ((action === "private" || action === "public") && sub.contestId) return { ok: false, error: "Contest entries must stay public — hide it instead." };
+  if ((action === "private" || action === "public") && sub.contestId) return { ok: false, error: "Contest entries must stay public; hide it instead." };
 
   if (action === "delete") {
     if (sub.fileKey) await storage.remove(sub.fileKey);
@@ -205,7 +205,7 @@ export async function adminModerateAction(id: string, action: ModerationAction, 
   revalidatePath("/admin/submissions");
   revalidatePath(`/users/${sub.userId}`);
   const verb = { private: "made private", public: "made public", hide: "hidden", unhide: "unhidden", delete: "deleted" }[action];
-  return { ok: true, message: `Submission #${sub.seq} ${verb} — ${sent} of ${recipients.length} people notified` };
+  return { ok: true, message: `Submission #${sub.seq} ${verb}; ${sent} of ${recipients.length} people notified` };
 }
 
 /** @deprecated kept for the HideToggle button; prefer adminModerateAction with a reason. */
@@ -297,7 +297,7 @@ export async function adminAddCreditAction(id: string, name: string, affiliation
   if (clash) return { ok: false, error: `${who} is already credited on this submission.` };
   await db.submissionCollaborator.create({ data: { submissionId: id, name: who, affiliation: where || null, acceptedAt: new Date(), notifiedAt: new Date() } });
   logEvent("admin.credit_added", { id, seq: sub.seq, by: admin.id, name: who });
-  await recordAdminEvent("deletions", `${admin.name} credited ${who}${where ? ` (${where})` : ""} — who has no account — on #${sub.seq} "${sub.modelName}"`);
+  await recordAdminEvent("deletions", `${admin.name} credited ${who}${where ? ` (${where})` : ""}, who has no account, on #${sub.seq} "${sub.modelName}"`);
   revalidatePath("/leaderboard");
   revalidatePath(`/submissions/${id}`);
   revalidatePath("/admin/submissions");
@@ -324,7 +324,7 @@ export async function adminRemoveCoAuthorAction(id: string, userId: string): Pro
   const admin = await requireAdmin();
   const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, userId: true, modelName: true } });
   if (!sub) return { ok: false, error: "Submission not found." };
-  if (sub.userId === userId) return { ok: false, error: "That is the owner — reassign the submission instead." };
+  if (sub.userId === userId) return { ok: false, error: "That is the owner; reassign the submission instead." };
   const user = await db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
   await db.submissionCollaborator.deleteMany({ where: { submissionId: id, userId } });
   logEvent("admin.coauthor_removed", { id, seq: sub.seq, by: admin.id, userId });
@@ -356,13 +356,13 @@ export async function setRoleAction(userId: string, role: "USER" | "ADMIN") {
 export async function adminDeleteUserAction(userId: string, reason: string, notifyUser: boolean): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const admin = await requireAdmin();
   const why = reason.trim();
-  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters) — it is kept in the activity log." };
+  if (why.length < 10) return { ok: false, error: "Give a reason (at least 10 characters). It is kept in the activity log." };
   if (userId === admin.id) return { ok: false, error: "You cannot delete your own account from here." };
   const user = await db.user.findUnique({ where: { id: userId }, include: { submissions: { select: { seq: true, status: true, fileKey: true, result: { select: { tracesKey: true } } } } } });
   if (!user) return { ok: false, error: "User not found." };
-  if (user.role === "ADMIN") return { ok: false, error: "This account is an administrator — revoke admin access first, then delete." };
+  if (user.role === "ADMIN") return { ok: false, error: "This account is an administrator; revoke admin access first, then delete." };
   const running = user.submissions.filter((s) => s.status === "RUNNING");
-  if (running.length) return { ok: false, error: `Submission #${running[0].seq} is being evaluated — cancel it first.` };
+  if (running.length) return { ok: false, error: `Submission #${running[0].seq} is being evaluated; cancel it first.` };
   for (const s of user.submissions) {
     if (s.fileKey) await storage.remove(s.fileKey).catch(() => {});
     if (s.result?.tracesKey) await storage.remove(s.result.tracesKey).catch(() => {});
@@ -372,7 +372,7 @@ export async function adminDeleteUserAction(userId: string, reason: string, noti
   after(() => accountDeletedEmail({ name: user.name, email: user.email }, why, admin.name ?? "an administrator", { submissions: user.submissions.length }, notifyUser).catch(() => {}));
   revalidatePath("/admin/users");
   revalidatePath("/leaderboard");
-  return { ok: true, message: `${user.name} deleted — ${user.submissions.length} submissions removed${notifyUser ? "; the person was e-mailed" : ""}` };
+  return { ok: true, message: `${user.name} deleted; ${user.submissions.length} submissions removed${notifyUser ? ", the person was e-mailed" : ""}` };
 }
 
 export async function verifyUserAction(userId: string) {

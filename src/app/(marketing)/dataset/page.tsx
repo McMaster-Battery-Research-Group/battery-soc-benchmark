@@ -14,7 +14,7 @@ const FILES = [
   { name: "1-Open Data.zip", size: "705 MB", d: "All open characterization tests and drive cycles for m80, m448-N and m1000 at six temperatures, as MATLAB .mat structs (1 Hz)." },
   { name: "2-Aiding Tools.zip", size: "10.4 MB", d: "Model Submission Test Tool, file Concatenation Tool and Figure Data Extraction Tool (MATLAB live scripts)." },
   { name: "3-Neural Network Training Example.zip", size: "64.5 MB", d: "FNN and LSTM training scripts with instructions for extracting weights into a Model.m." },
-  { name: "4-SOC estimation Model Examples.zip", size: "54 KB", d: "Four complete submission packages: coulomb counter, EKF, FNN and LSTM — the reference for the required format." },
+  { name: "4-SOC estimation Model Examples.zip", size: "54 KB", d: "Four complete submission packages: coulomb counter, EKF, FNN and LSTM, the reference for the required format." },
 ];
 
 const SPLIT: { test: string; m80: string; m448: string; m448N: string; m1000: string; note?: string }[] = [
@@ -62,7 +62,7 @@ export default function DatasetPage() {
                       <td className="px-3 py-2.5 tabular">{CELL_INFO[c].payloadKg} kg</td>
                       <td className="px-3 py-2.5">{CELL_INFO[c].hvac ? "On" : "Off"}</td>
                       <td className="px-3 py-2.5 tabular">Ch {CELL_INFO[c].channel}</td>
-                      <td className="px-3 py-2.5">{CELL_INFO[c].blind ? <Cell v="Blind — evaluation only" /> : <Cell v="Open + blind cycles" />}</td>
+                      <td className="px-3 py-2.5">{CELL_INFO[c].blind ? <Cell v="Blind, evaluation only" /> : <Cell v="Open + blind cycles" />}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -98,7 +98,7 @@ export default function DatasetPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-sm text-grey-700">Drive cycles repeat until pack power capability (from HPPC, scaled to 2,976 cells) drops below 60 kW — the point a vehicle would enter a power-limited mode. At −20 °C this removes roughly a third of the usable capacity. Reference SOC uses the C/20 capacity measured at 40 °C before each temperature block, linearly interpolated across the tests in between.</p>
+          <p className="mt-3 text-sm text-grey-700">Drive cycles repeat until pack power capability (from HPPC, scaled to 2,976 cells) drops below 60 kW, the point a vehicle would enter a power-limited mode. At −20 °C this removes roughly a third of the usable capacity. Reference SOC uses the C/20 capacity measured at 40 °C before each temperature block, linearly interpolated across the tests in between.</p>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
@@ -135,7 +135,7 @@ export default function DatasetPage() {
             <li>The −10 °C C/20 discharge/charge test and the −20 °C HPPC test were re-run after the characterization block; their timestamps differ.</li>
             <li>2026-06-26: m1000 −20 °C standard cycles and HWCUST2/HWGRADE2 moved from open to blind for consistency with the paper; two missing m80 25 °C characterization files were added.</li>
           </ul>
-          <p className="mt-4 text-sm text-grey-700">Use of the data requires citing the ITEC 2022 paper and the Borealis dataset — see the <Link href="/docs#citation" className="text-maroon underline">methodology page</Link>.</p>
+          <p className="mt-4 text-sm text-grey-700">Use of the data requires citing the ITEC 2022 paper and the Borealis dataset; see the <Link href="/docs#citation" className="text-maroon underline">methodology page</Link>.</p>
         </section>
       </div>
     </>

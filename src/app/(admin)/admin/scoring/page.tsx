@@ -17,11 +17,11 @@ export default async function AdminScoring() {
     <div>
       <h1 className="font-heading text-2xl font-bold">Scoring weights</h1>
       <p className="mt-1 max-w-3xl text-sm text-grey-700">
-        The headline <strong>weighted error</strong> is Σ weight × RMSE over the test cases below. Changing the weights recomputes every stored score from the unchanged per-test results (no model is re-run), records a score-history entry on each affected submission, and — if you tick the box — e-mails the authors a fresh PDF with your explanation. The per-test metrics themselves (RMSE per cycle, robustness sweeps, complexity) are computed by the evaluator and cannot be changed here; changing <em>those</em> is a new benchmark version (see README → <em>What happens if we change the grading?</em>).
+        The headline <strong>weighted error</strong> is Σ weight × RMSE over the test cases below. Changing the weights recomputes every stored score from the unchanged per-test results (no model is re-run), records a score-history entry on each affected submission, and, if you tick the box, e-mails the authors a fresh PDF with your explanation. The per-test metrics themselves (RMSE per cycle, robustness sweeps, complexity) are computed by the evaluator and cannot be changed here; changing <em>those</em> is a new benchmark version (see README → <em>What happens if we change the grading?</em>).
       </p>
 
       <Alert variant={active.isDefault ? "info" : "warning"} className="mt-4" title={active.isDefault ? "Default weights are active (Blind Modeling Tool V2)" : "Custom weights are active"}>
-        {active.updatedAt ? <>Last changed {fmtDateTime(active.updatedAt)} by {nameOf(active.updatedBy)}{active.note ? <> — “{active.note}”</> : null}.</> : <>No changes have been made since launch.</>}
+        {active.updatedAt ? <>Last changed {fmtDateTime(active.updatedAt)} by {nameOf(active.updatedBy)}{active.note ? <>: “{active.note}”</> : null}.</> : <>No changes have been made since launch.</>}
       </Alert>
 
       <WeightsEditor

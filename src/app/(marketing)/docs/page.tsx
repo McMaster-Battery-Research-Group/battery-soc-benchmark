@@ -64,14 +64,14 @@ export default async function DocsPage() {
         <article className="prose-brand max-w-3xl space-y-14 text-[15px] leading-relaxed text-grey-800">
           <section id="overview">
             <H2 id="overview">Overview</H2>
-            <p className="mt-3">Hundreds of SOC estimation methods are published every year, each evaluated on different data, drive profiles and error metrics — which makes them impossible to compare. This tool fixes the data and the test: everyone parameterises or trains on the same <Link href="/dataset">open data</Link>, and every submission is scored on the same blinded data by the same evaluator. Results are directly comparable across authors, methods and years.</p>
+            <p className="mt-3">Hundreds of SOC estimation methods are published every year, each evaluated on different data, drive profiles and error metrics, which makes them impossible to compare. This tool fixes the data and the test: everyone parameterises or trains on the same <Link href="/dataset">open data</Link>, and every submission is scored on the same blinded data by the same evaluator. Results are directly comparable across authors, methods and years.</p>
             <PipelineDiagram className="mt-5" />
             <p className="mt-3">Blinding matters. The m448 cell is never released, and the standard UDDS / HWFET / LA92 / US06 cycles plus one HWCUST and one HWGRADE cycle per cell and temperature are withheld. An algorithm cannot be tuned to the answer key.</p>
           </section>
 
           <section id="test-cases">
             <H2 id="test-cases">The blinded test cases</H2>
-            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the evaluation runs: the 144 blinded drive cycles (36 per cell: six cycle types at six temperatures) plus the robustness runs — test 4 uses charging profiles, test 10 restarts three cycles from a wrong initial SOC (90 / 60 / 30 %), test 11 re-runs three cycles with a constant current-sensor offset (±0.05, ±0.1, ±0.3 A) — 195 runs in all. The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
+            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the evaluation runs: the 144 blinded drive cycles (36 per cell: six cycle types at six temperatures) plus the robustness runs (test 4 uses charging profiles, test 10 restarts three cycles from a wrong initial SOC of 90 / 60 / 30 %, and test 11 re-runs three cycles with a constant current-sensor offset of ±0.05, ±0.1, ±0.3 A): 195 runs in all. The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
             {groups.map((g) => (
               <div key={g} className="mt-6">
                 <h3 className="font-heading text-lg font-semibold">{GROUP_LABELS[g]}</h3>
@@ -100,10 +100,10 @@ export default async function DocsPage() {
 
           <section id="submission-format">
             <H2 id="submission-format">Submission format</H2>
-            <p className="mt-3">A submission is a single <strong>.zip</strong> file with everything at the top level — no sub-folders. It must contain the estimator; author, affiliation and model name come from your account and the submission form:</p>
+            <p className="mt-3">A submission is a single <strong>.zip</strong> file with everything at the top level, no sub-folders. It must contain the estimator; author, affiliation and model name come from your account and the submission form:</p>
             <ul className="mt-3 list-disc space-y-2 pl-6">
-              <li><code className="rounded bg-grey-100 px-1">Model.m</code>, <code className="rounded bg-grey-100 px-1">Model.p</code> or <code className="rounded bg-grey-100 px-1">Model.py</code> — the estimator function, named exactly <code className="rounded bg-grey-100 px-1">Model</code>. Use p-code if you need to protect MATLAB source. Python models get the same <code className="rounded bg-grey-100 px-1">Model(X, z)</code> contract (return <code className="rounded bg-grey-100 px-1">(Y_est, z)</code>) and run in an environment with <strong>numpy and scipy only</strong> — ship trained weights as arrays and implement inference with numpy.</li>
-              <li>Any other files the model needs (parameter <code className="rounded bg-grey-100 px-1">.mat</code> files, lookup tables). Toolboxes are <em>not</em> available — implement network layers and filters yourself.</li>
+              <li><code className="rounded bg-grey-100 px-1">Model.m</code>, <code className="rounded bg-grey-100 px-1">Model.p</code> or <code className="rounded bg-grey-100 px-1">Model.py</code>: the estimator function, named exactly <code className="rounded bg-grey-100 px-1">Model</code>. Use p-code if you need to protect MATLAB source. Python models get the same <code className="rounded bg-grey-100 px-1">Model(X, z)</code> contract (return <code className="rounded bg-grey-100 px-1">(Y_est, z)</code>) and run in an environment with <strong>numpy and scipy only</strong>, so ship trained weights as arrays and implement inference with numpy.</li>
+              <li>Any other files the model needs (parameter <code className="rounded bg-grey-100 px-1">.mat</code> files, lookup tables). Toolboxes are <em>not</em> available, so implement network layers and filters yourself.</li>
             </ul>
             <h3 className="mt-6 font-heading text-lg font-semibold">Function signature</h3>
             <ModelLoopDiagram className="mt-3" />
@@ -116,7 +116,7 @@ export default async function DocsPage() {
             </ul>
             <h3 className="mt-6 font-heading text-lg font-semibold">Minimal example</h3>
             <CodeBlock code={CC_EXAMPLE} filename="Model.m" className="mt-3" />
-            <p className="mt-3">Complete EKF, FNN and LSTM packages — including how to unpack trained network weights into a step function — are walked through on the <Link href="/examples">Examples page</Link> with schematics and annotated source.</p>
+            <p className="mt-3">Complete EKF, FNN and LSTM packages, including how to unpack trained network weights into a step function, are walked through on the <Link href="/examples">Examples page</Link> with schematics and annotated source.</p>
           </section>
 
           <section id="test-tool">

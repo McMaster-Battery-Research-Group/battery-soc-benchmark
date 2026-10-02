@@ -58,7 +58,7 @@ export async function runDryRun(id: string) {
     await log(`${workerId()} started dry run of ${dr.fileName} (${Math.round(dr.fileSize / 1024)} KB)`);
     const localPath = await storage.materialize(dr.fileKey);
     const out = await evaluator.dryRun({ submissionId: dr.id, filePath: localPath, fileType: "ZIP", modelType: "OTHER", evaluationLevel: "DYNAMIC", log });
-    await log(`dry run OK — ${out.runtime} runtime, RMSE ${out.rmse.toFixed(3)} % on the open cycle, ${out.elapsedSec} s`);
+    await log(`dry run OK: ${out.runtime} runtime, RMSE ${out.rmse.toFixed(3)} % on the open cycle, ${out.elapsedSec} s`);
     await db.dryRun.update({ where: { id }, data: { status: "COMPLETED", result: out as object, completedAt: new Date(), lockedAt: null } });
   } catch (err) {
     const message = err instanceof EvaluationError && err.userFacing ? err.message : "The evaluator encountered an internal error.";
@@ -119,7 +119,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     // re-read: collaborators may have been added/confirmed while the evaluation ran
     const fresh = await db.submissionCollaborator.findMany({ where: { submissionId: sub.id, userId: { not: null } }, include: { user: { select: { email: true, name: true } } } });
     const skipped = fresh.filter((c) => !c.notifiedAt);
-    if (skipped.length) await log(`${skipped.length} pending collaborator(s) not e-mailed — the owner has not confirmed them yet`);
+    if (skipped.length) await log(`${skipped.length} pending collaborator(s) not e-mailed; the owner has not confirmed them yet`);
     return [{ email: sub.user.email, name: sub.user.name }, ...fresh.filter((c) => c.notifiedAt).flatMap((c) => (c.user ? [c.user] : []))];
   };
   // Cancellation: the owner sets EvaluationJob.cancelRequestedAt; we notice it on
@@ -181,7 +181,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       db.submission.update({ where: { id: sub.id }, data: { status: "COMPLETED", completedAt: new Date(), failureMessage: null } }),
       db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null } }),
     ]);
-    await log(`completed — weighted error ${out.weightedError.toFixed(3)} %`);
+    await log(`completed: weighted error ${out.weightedError.toFixed(3)} %`);
     await recordRevision({ submissionId: sub.id, kind: sub.version > 1 || job.attempts > 1 ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `v${sub.version} · attempt ${job.attempts}`, by: workerId() });
     if (sub.fileKey) await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
     let report: Buffer | undefined;
@@ -193,7 +193,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     }
     for (const r of await recipients()) {
       const sent = await evaluationCompleteEmail(r.email, r.name, sub.modelName, sub.id, true, `All-cells RMSE: ${out.allCells.toFixed(2)} %, weighted error: ${out.weightedError.toFixed(2)} %.`, report);
-      await log(sent ? `results email sent to ${r.email}${report ? " with PDF report" : ""}` : `results email to ${r.email} FAILED — check SMTP_* settings on the worker host`);
+      await log(sent ? `results email sent to ${r.email}${report ? " with PDF report" : ""}` : `results email to ${r.email} FAILED; check SMTP_* settings on the worker host`);
     }
     return { submissionId: sub.id, status: "COMPLETED" };
   } catch (err) {
@@ -201,7 +201,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     inflight.delete(abort);
     if (abort.signal.aborted && abort.signal.reason === SHUTDOWN) {
       // Worker is stopping: hand the job back untouched so another (or the restarted) worker picks it up.
-      await log(`worker ${workerId()} is shutting down — evaluation stopped and returned to the queue (no attempt used)`);
+      await log(`worker ${workerId()} is shutting down; evaluation stopped and returned to the queue (no attempt used)`);
       await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, attempts: { decrement: 1 } } }).catch(() => {});
       await db.submission.update({ where: { id: sub.id }, data: { status: "QUEUED" } }).catch(() => {});
       return { submissionId: sub.id, status: "RETRY" };
@@ -211,13 +211,13 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       const previous = sub.version > 1 ? await db.evaluationResult.findUnique({ where: { submissionId: sub.id }, select: { id: true } }).catch(() => null) : null;
       if (previous) {
         // a new version was cancelled mid-run: keep the previous version's score
-        process.stdout.write(`[${sub.seq}] v${sub.version} cancelled by the submitter — evaluator stopped, previous score kept\n`);
+        process.stdout.write(`[${sub.seq}] v${sub.version} cancelled by the submitter; evaluator stopped, previous score kept\n`);
         await db.submission.update({ where: { id: sub.id }, data: { status: "COMPLETED", version: sub.version - 1, completedAt: new Date() } }).catch(() => {});
         await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, cancelRequestedAt: null } }).catch(() => {});
-        await recordRevision({ submissionId: sub.id, kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} evaluation cancelled — v${sub.version - 1} score kept`, by: workerId() }).catch(() => {});
+        await recordRevision({ submissionId: sub.id, kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} evaluation cancelled; v${sub.version - 1} score kept`, by: workerId() }).catch(() => {});
         return { submissionId: sub.id, status: "CANCELLED" };
       }
-      process.stdout.write(`[${sub.seq}] cancelled by the submitter — evaluator stopped, submission removed\n`);
+      process.stdout.write(`[${sub.seq}] cancelled by the submitter; evaluator stopped, submission removed\n`);
       await db.submission.delete({ where: { id: sub.id } }).catch(() => {}); // cascades to job + result + history
       return { submissionId: sub.id, status: "CANCELLED" };
     }
@@ -250,7 +250,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
           ],
           assessment:
             "The evaluation result did not carry the evaluator's per-run integrity nonce, which means a " +
-            "results file was produced by something other than the evaluator — most likely the submitted model " +
+            "results file was produced by something other than the evaluator, most likely the submitted model " +
             "writing /out/results.json to forge its own score. The forged result was rejected and the run failed; " +
             "no score was recorded. Worth reviewing the submitter's other submissions.",
         });
@@ -261,7 +261,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     }
     for (const r of await recipients()) {
       const sent = await evaluationCompleteEmail(r.email, r.name, sub.modelName, sub.id, false, message);
-      await log(sent ? `failure email sent to ${r.email}` : `failure email to ${r.email} FAILED — check SMTP_* settings on the worker host`);
+      await log(sent ? `failure email sent to ${r.email}` : `failure email to ${r.email} FAILED; check SMTP_* settings on the worker host`);
     }
     return { submissionId: sub.id, status: "FAILED" };
   }

@@ -52,7 +52,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
               <Tooltip content="Hidden by an administrator"><EyeOff className="size-3 text-danger" /></Tooltip>
             ) : null}
             {!isCurrentBenchmark(row.original.evaluatorVersion) ? (
-              <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Kept for reference but NOT ranked — submit a new version to be scored on the current benchmark and ranked again.`}>
+              <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Kept for reference but NOT ranked; submit a new version to be scored on the current benchmark and ranked again.`}>
                 <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span>
               </Tooltip>
             ) : null}
@@ -138,7 +138,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
     col.accessor(tc.key, {
       id: tc.key,
       header: tc.short,
-      meta: { ...NUMERIC_META, tooltip: `Test ${tc.test} — ${tc.label}. ${tc.description}`, group: tc.group },
+      meta: { ...NUMERIC_META, tooltip: `Test ${tc.test}: ${tc.label}. ${tc.description}`, group: tc.group },
       cell: (c) => <span className="tabular">{fmtPct(c.getValue() as number)}</span>,
     }),
   ) as ColumnDef<LeaderboardRow, unknown>[];

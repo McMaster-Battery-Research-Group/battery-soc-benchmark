@@ -10,10 +10,10 @@ import { useToast } from "@/components/ui/toast";
 import { startLoadTestAction, clearLoadTestsAction } from "./load-test";
 
 const EXAMPLES = [
-  { slug: "coulomb-counter", label: "Coulomb counter — fastest, finishes in seconds" },
+  { slug: "coulomb-counter", label: "Coulomb counter: fastest, finishes in seconds" },
   { slug: "ekf", label: "Extended Kalman filter" },
   { slug: "fnn", label: "Feedforward neural network" },
-  { slug: "lstm", label: "LSTM — heaviest, about an hour" },
+  { slug: "lstm", label: "LSTM: heaviest, about an hour" },
 ];
 
 /**
@@ -78,8 +78,8 @@ export function LoadTestCard({ concurrency }: { concurrency: number }) {
             onChange={(e) => setRuntime(e.target.value as "python" | "matlab")}
             className="mt-1 h-10 w-full rounded-brand border border-border bg-white px-3 text-sm text-ink"
           >
-            <option value="python">Python — light, about 270 MB</option>
-            <option value="matlab">MATLAB — about 1.1 GB</option>
+            <option value="python">Python: light, about 270 MB</option>
+            <option value="matlab">MATLAB: about 1.1 GB</option>
           </select>
         </span>
         <span>

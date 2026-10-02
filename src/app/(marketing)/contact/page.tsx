@@ -10,7 +10,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
   const session = await auth();
   return (
     <>
-      <PageHeader eyebrow="Support" title="Contact & feedback" description="Questions, bug reports, ideas for the platform, contest eligibility, dataset issues — everything lands in the administrators\u2019 inbox and they are e-mailed immediately. We usually reply within two business days." />
+      <PageHeader eyebrow="Support" title="Contact & feedback" description="Questions, bug reports, ideas for the platform, contest eligibility, dataset issues: everything lands in the administrators\u2019 inbox and they are e-mailed immediately. We usually reply within two business days." />
       <div className="container-site grid gap-8 py-8 lg:grid-cols-3">
         <div className="lg:col-span-2"><ContactForm name={session?.user?.name ?? ""} email={session?.user?.email ?? ""} category={sp.category} subject={sp.subject} pageUrl={sp.from} /></div>
         <aside className="card p-5 text-sm text-grey-800">

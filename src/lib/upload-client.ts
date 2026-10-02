@@ -19,7 +19,7 @@ export async function uploadPackage(file: File, purpose: "submission" | "dry-run
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
     };
     xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status}): ${xhr.responseText.slice(0, 200)}`)));
-    xhr.onerror = () => reject(new Error("Upload failed — network error"));
+    xhr.onerror = () => reject(new Error("Upload failed: network error"));
     xhr.send(file);
   });
   return j.key;

@@ -81,7 +81,7 @@ export function Collaborators({ submissionId, owner, list, canEdit, viewerId }: 
               const res = await addCollaboratorAction(submissionId, u.id);
               if (!res.ok) throw new Error(res.error);
               setAdded((a) => [...a, u.id]);
-              push({ kind: "success", title: `${u.name} added as pending`, description: "No e-mail yet — review the list, then press Send invitations." });
+              push({ kind: "success", title: `${u.name} added as pending`, description: "No e-mail yet; review the list, then press Send invitations." });
               router.refresh();
             }}
           />
@@ -124,7 +124,7 @@ export function Collaborators({ submissionId, owner, list, canEdit, viewerId }: 
       <ul className="mt-4 grid gap-2 sm:grid-cols-2">
         <PersonCard p={owner} role="Owner" state="owner" />
         {list.map((c) => (
-          <PersonCard key={c.id} p={c} role={c.accepted ? "Co-author" : c.notified ? "Invited — awaiting reply" : "Pending — not invited"} state={c.accepted ? "accepted" : c.notified ? "invited" : "pending"} onRemove={canEdit || c.id === viewerId ? () => remove(c.id) : undefined} removeLabel={c.id === viewerId ? "Leave" : "Remove"} onResend={canEdit && c.notified && !c.accepted ? () => resend(c.id, c.name) : undefined} pending={pending} />
+          <PersonCard key={c.id} p={c} role={c.accepted ? "Co-author" : c.notified ? "Invited, awaiting reply" : "Pending, not invited"} state={c.accepted ? "accepted" : c.notified ? "invited" : "pending"} onRemove={canEdit || c.id === viewerId ? () => remove(c.id) : undefined} removeLabel={c.id === viewerId ? "Leave" : "Remove"} onResend={canEdit && c.notified && !c.accepted ? () => resend(c.id, c.name) : undefined} pending={pending} />
         ))}
       </ul>
     </section>

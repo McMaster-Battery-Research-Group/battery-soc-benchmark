@@ -128,7 +128,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
     <form ref={formRef} action={action} className="card p-6 md:p-8" noValidate>
       <fieldset className="space-y-5">
         <legend className="mb-1 font-heading text-lg font-semibold text-ink">1. Describe the model</legend>
-        <Field label="Model name" name="modelName" required maxLength={50} placeholder="e.g. LSTM-64 with OCV warm-start" value={modelName} error={errors.modelName} onChange={(e) => { setModelName(e.currentTarget.value); clearErr("modelName"); }} hint={<span className="tabular">{modelName.length}/50 — shown on the leaderboard; name it after the method.</span>} />
+        <Field label="Model name" name="modelName" required maxLength={50} placeholder="e.g. LSTM-64 with OCV warm-start" value={modelName} error={errors.modelName} onChange={(e) => { setModelName(e.currentTarget.value); clearErr("modelName"); }} hint={<span className="tabular">{modelName.length}/50. Shown on the leaderboard; name it after the method.</span>} />
         <Field label="Description" name="description" textarea required maxLength={1000} rows={5} placeholder="Architecture, inputs, training data used, key design choices…" value={description} error={errors.description} onChange={(e) => { setDescription(e.currentTarget.value); clearErr("description"); }} hint={<span className="tabular">{description.length}/1000</span>} />
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -174,7 +174,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
         {uploadPct !== null || checking ? (
           <div aria-live="polite">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-grey-200"><div className={`h-full rounded-full bg-maroon transition-[width] ${checking ? "animate-pulse" : ""}`} style={{ width: `${checking ? 100 : uploadPct}%` }} /></div>
-            <p className="mt-1 text-xs text-grey-600">{checking ? "Upload complete — checking the package structure and queuing the evaluation… you will be taken to the live status page." : `Uploading package… ${uploadPct}%`}</p>
+            <p className="mt-1 text-xs text-grey-600">{checking ? "Upload complete. Checking the package structure and queuing the evaluation… you will be taken to the live status page." : `Uploading package… ${uploadPct}%`}</p>
           </div>
         ) : null}
         <FieldError>{localErr ?? uploadErr ?? errors.file}</FieldError>
@@ -219,7 +219,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
             <Label htmlFor="contestId"><span className="inline-flex items-center gap-1.5"><Trophy className="size-4 text-maroon" /> Enter into a contest</span></Label>
             <NativeSelect id="contestId" name="contestId" value={contestId} onChange={(e) => { setContestId(e.target.value); if (e.target.value) setIsPrivate(false); clearErr("contestId"); }} aria-invalid={!!errors.contestId}>
               <option value="">Not a contest entry</option>
-              {contests.map((c) => <option key={c.id} value={c.id} disabled={c.remaining <= 0}>{c.title} — {c.remaining} of your submissions remaining</option>)}
+              {contests.map((c) => <option key={c.id} value={c.id} disabled={c.remaining <= 0}>{c.title}: {c.remaining} of your submissions remaining</option>)}
             </NativeSelect>
             <FieldError>{errors.contestId}</FieldError>
           </div>
@@ -232,7 +232,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
           <span className="text-grey-800">I confirm the model was developed using only the open portion of the dataset or other public data, and I accept the <a href="/terms" className="text-maroon underline" target="_blank">submission terms</a>. My name and affiliation will appear beside public results.</span>
         </label>
         <FieldError>{errors.acceptTerms}</FieldError>
-        {Object.keys(errors).some((k) => errors[k]) ? <Alert variant="danger" className="mt-4">{errors.form ?? "Please fix the highlighted fields — everything you entered has been kept."}</Alert> : null}
+        {Object.keys(errors).some((k) => errors[k]) ? <Alert variant="danger" className="mt-4">{errors.form ?? "Please fix the highlighted fields; everything you entered has been kept."}</Alert> : null}
         <div className="mt-6 flex items-center gap-3">
           <SubmitButton size="lg">Submit for evaluation</SubmitButton>
           <p className="text-xs text-grey-600">Package checks (layout, file names, function signature) run instantly; evaluation is queued.</p>

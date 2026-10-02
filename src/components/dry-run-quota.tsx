@@ -50,14 +50,14 @@ export function DryRunQuotaLine({ refreshKey, className }: { refreshKey: unknown
   if (q.unlimited) {
     return (
       <p className={cn("inline-flex items-center gap-1.5 text-xs text-grey-600", className)}>
-        <ShieldCheck className="size-3.5 text-maroon" /> Administrator — no test-run limit ({q.used} this hour).
+        <ShieldCheck className="size-3.5 text-maroon" /> Administrator: no test-run limit ({q.used} this hour).
       </p>
     );
   }
   return (
     <p className={cn("inline-flex items-center gap-1.5 text-xs", exhausted ? "text-maroon" : "text-grey-600", className)}>
       <Clock className="size-3.5" />
-      {exhausted ? <>Limit reached — next test run frees up in {formatWait(resetIn)}.</> : <>{q.remaining} of {q.limit} test runs left this hour.</>}
+      {exhausted ? <>Limit reached; next test run frees up in {formatWait(resetIn)}.</> : <>{q.remaining} of {q.limit} test runs left this hour.</>}
     </p>
   );
 }

@@ -25,7 +25,7 @@ export function TemperatureBars({ series }: { series: { name: string; values: Re
   });
   const max = Math.max(...data.flatMap((d) => series.map((_, i) => Number(d[`s${i}`]))));
   return (
-    <ChartFrame title="Error vs. ambient temperature" description="Test 9 — m80 cell, all blinded cycles at each chamber temperature." legend={multi ? series.map((s, i) => ({ label: s.name, color: SERIES[i] })) : undefined}>
+    <ChartFrame title="Error vs. ambient temperature" description="Test 9: m80 cell, all blinded cycles at each chamber temperature." legend={multi ? series.map((s, i) => ({ label: s.name, color: SERIES[i] })) : undefined}>
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} margin={{ top: 18, right: 8, left: 0, bottom: 0 }} barCategoryGap="28%" barGap={2}>
           <CartesianGrid {...gridProps} />

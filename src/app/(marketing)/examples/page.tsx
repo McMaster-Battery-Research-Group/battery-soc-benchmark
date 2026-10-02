@@ -24,13 +24,13 @@ export default async function ExamplesPage() {
       <PageHeader
         eyebrow="Reference implementations"
         title="Example models"
-        description="Four reference estimators — a coulomb counter, an EKF, a feedforward network and an LSTM — each as a MATLAB and a Python package. Read the schematic and the annotated source, download the package, or run it on a public drive cycle with one click to see what a result looks like."
+        description="Four reference estimators (a coulomb counter, an EKF, a feedforward network and an LSTM), each as a MATLAB and a Python package. Read the schematic and the annotated source, download the package, or run it on a public drive cycle with one click to see what a result looks like."
         actions={<Button asChild variant="secondary"><a href={DOI} target="_blank" rel="noreferrer"><Download /> Original packages on Borealis</a></Button>}
       />
       <div className="container-site py-10">
         <Tabs defaultValue={EXAMPLES[0].slug}>
           <TabsList>
-            {EXAMPLES.map((e) => <TabsTrigger key={e.slug} value={e.slug}>{e.name.replace(/^Example \d — /, "")}</TabsTrigger>)}
+            {EXAMPLES.map((e) => <TabsTrigger key={e.slug} value={e.slug}>{e.name.replace(/^Example \d: /, "")}</TabsTrigger>)}
           </TabsList>
           {EXAMPLES.map((e) => (
             <TabsContent key={e.slug} value={e.slug} className="space-y-6">
@@ -61,7 +61,7 @@ export default async function ExamplesPage() {
 
               <ExampleCode
                 slug={e.slug}
-                modelName={e.name.replace(/^Example \d — /, "")}
+                modelName={e.name.replace(/^Example \d: /, "")}
                 signedIn={!!session?.user}
                 matlab={{ code: e.code, files: e.files, note: e.codeNote }}
                 python={{ code: e.codePy, files: e.filesPy, note: e.codePyNote }}
@@ -73,8 +73,8 @@ export default async function ExamplesPage() {
         <div className="mt-10 rounded-brand border-l-4 border-gold bg-gold-100 p-5 text-sm text-grey-800">
           <p className="font-heading font-semibold text-ink">Adapting an example</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Keep the signature — MATLAB <code className="rounded bg-white px-1">[Y, z] = Model(X, z)</code> with a <code className="rounded bg-white px-1">nargin &lt; 2</code> initialisation block, or Python <code className="rounded bg-white px-1">def Model(X, z=None)</code> returning <code className="rounded bg-white px-1">(Y, z)</code>.</li>
-            <li>Put every parameter your model needs either inline or in a <code className="rounded bg-white px-1">.mat</code> loaded once at initialisation — never in the per-sample path.</li>
+            <li>Keep the signature: MATLAB <code className="rounded bg-white px-1">[Y, z] = Model(X, z)</code> with a <code className="rounded bg-white px-1">nargin &lt; 2</code> initialisation block, or Python <code className="rounded bg-white px-1">def Model(X, z=None)</code> returning <code className="rounded bg-white px-1">(Y, z)</code>.</li>
+            <li>Put every parameter your model needs either inline or in a <code className="rounded bg-white px-1">.mat</code> loaded once at initialisation, never in the per-sample path.</li>
             <li>Return SOC on 0–1 and store <em>all</em> memory in <code className="rounded bg-white px-1">z</code>; the evaluator keeps nothing else between calls.</li>
             <li>Use <Link href="/docs#test-tool" className="text-maroon underline">Test your package first</Link> on the Submit page, then <Link href="/submit" className="text-maroon underline">submit</Link>.</li>
           </ol>

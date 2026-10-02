@@ -52,17 +52,17 @@ export type MetricKey = (typeof METRIC_KEYS)[number];
  * One sentence, used wherever the site describes what a blinded evaluation runs, so the wording stays consistent
  * (the 144 cycles are only part of it — tests 4, 10 and 11 add charging profiles, wrong-initial-SOC and sensor-offset runs).
  */
-export const EVALUATION_SCOPE = "144 blinded drive cycles (four cells, six temperatures from −20 °C to 40 °C) plus the robustness tests — wrong initial SOC, current-sensor offsets and charging profiles — 195 evaluation runs in all";
+export const EVALUATION_SCOPE = "144 blinded drive cycles (four cells, six temperatures from −20 °C to 40 °C) plus the robustness tests (wrong initial SOC, current-sensor offsets and charging profiles): 195 evaluation runs in all";
 
 export const TEST_CASES: TestCaseDef[] = [
   { key: "allCells", test: 1, label: "All cells", short: "All cells", group: "overview", description: "All four cells, all blinded drive cycles. The single headline accuracy value; weighted 0 in the final score because every other test is a subset of it.", weight: 0, defaultVisible: true },
-  { key: "blindedCell", test: 2, label: "Blinded cell (m448)", short: "Blinded", group: "overview", description: "The m448 cell, for which no characterization or drive-cycle data is released — a true generalisation test.", weight: 0.1, defaultVisible: true },
+  { key: "blindedCell", test: 2, label: "Blinded cell (m448)", short: "Blinded", group: "overview", description: "The m448 cell, for which no characterization or drive-cycle data is released: a true generalisation test.", weight: 0.1, defaultVisible: true },
   { key: "nonBlindedCells", test: 3, label: "Non-blinded cells", short: "Non-blinded", group: "overview", description: "m80, m448-N and m1000 cells, blinded drive cycles only.", weight: 0.1, defaultVisible: true },
   { key: "charging", test: 4, label: "Charging", short: "Charging", group: "conditions", description: "CC-CV charge profiles for the m80 cell.", weight: 0.1, defaultVisible: true },
-  { key: "massM80", test: 5, label: "80 kg payload", short: "80 kg", group: "conditions", description: "Range of loads — single-passenger vehicle model (m80 cell, HVAC on).", weight: 1 / 30, defaultVisible: false },
-  { key: "massM448", test: 5, label: "448 kg payload, HVAC on", short: "448 kg · HVAC on", group: "conditions", description: "Range of loads — maximum rated payload with cabin HVAC (m448 cell).", weight: 2 / 30, defaultVisible: false },
-  { key: "massM448N", test: 6, label: "448 kg payload, HVAC off", short: "448 kg · HVAC off", group: "conditions", description: "Range of loads — maximum rated payload without cabin HVAC (m448-N cell).", weight: 2 / 30, defaultVisible: false },
-  { key: "massM1000", test: 5, label: "1000 kg payload", short: "1000 kg", group: "conditions", description: "Range of loads — towing a small trailer (m1000 cell). Highest current demand.", weight: 1 / 30, defaultVisible: false },
+  { key: "massM80", test: 5, label: "80 kg payload", short: "80 kg", group: "conditions", description: "Range of loads: single-passenger vehicle model (m80 cell, HVAC on).", weight: 1 / 30, defaultVisible: false },
+  { key: "massM448", test: 5, label: "448 kg payload, HVAC on", short: "448 kg · HVAC on", group: "conditions", description: "Range of loads: maximum rated payload with cabin HVAC (m448 cell).", weight: 2 / 30, defaultVisible: false },
+  { key: "massM448N", test: 6, label: "448 kg payload, HVAC off", short: "448 kg · HVAC off", group: "conditions", description: "Range of loads: maximum rated payload without cabin HVAC (m448-N cell).", weight: 2 / 30, defaultVisible: false },
+  { key: "massM1000", test: 5, label: "1000 kg payload", short: "1000 kg", group: "conditions", description: "Range of loads: towing a small trailer (m1000 cell). Highest current demand.", weight: 1 / 30, defaultVisible: false },
   { key: "standardCycles", test: 7, label: "Standard drive cycles", short: "Standard", group: "conditions", description: "UDDS, HWFET, LA92 and US06 for the m1000 cell.", weight: 0.1, defaultVisible: false },
   { key: "nonStandardCycles", test: 8, label: "Non-standard drive cycles", short: "HWCUST/HWGRADE", group: "conditions", description: "HWCUST and HWGRADE highway / mountain-pass cycles for the m1000 cell.", weight: 0.1, defaultVisible: false },
   { key: "tempM20", test: 9, label: "−20 °C", short: "−20 °C", group: "temperature", description: "m80 cell at −20 °C ambient. Resistance is ~10× higher than at 40 °C.", weight: 1 / 60, defaultVisible: true },

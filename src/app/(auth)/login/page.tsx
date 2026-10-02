@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <h1 className="font-heading text-2xl font-bold">Sign in</h1>
       <p className="mt-1 text-sm text-grey-700">Access your submissions and evaluate new models.</p>
       {sp.reset ? <Alert variant="success" className="mt-5">Your password has been reset. Sign in with your new password.</Alert> : null}
-      {sp.verified ? <Alert variant="success" className="mt-5">Email verified — you can sign in now.</Alert> : null}
+      {sp.verified ? <Alert variant="success" className="mt-5">Email verified. You can sign in now.</Alert> : null}
       <LoginForm next={sp.next} />
       <p className="mt-6 text-center text-sm text-grey-700">
         New here?{" "}

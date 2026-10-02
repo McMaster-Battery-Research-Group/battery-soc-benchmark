@@ -128,7 +128,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               <div className="flex flex-col items-stretch gap-2 [&_button]:w-full [&_button]:justify-start">
                 <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} modelType={sub.modelType} locked={!!sub.contest && sub.contest.status !== "OPEN"} />
                 {sub.status === "COMPLETED" || sub.status === "FAILED" ? (
-                  <NewVersionDialog id={sub.id} version={sub.version} directUpload={(process.env.STORAGE ?? "local") === "supabase"} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} disabledReason={sub.contest && sub.contest.status !== "OPEN" ? "Contest closed — its entries are frozen. Submit a new (non-contest) submission instead." : undefined} />
+                  <NewVersionDialog id={sub.id} version={sub.version} directUpload={(process.env.STORAGE ?? "local") === "supabase"} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} disabledReason={sub.contest && sub.contest.status !== "OPEN" ? "Contest closed; its entries are frozen. Submit a new (non-contest) submission instead." : undefined} />
                 ) : null}
                 <div className="my-1 h-px bg-border" />
                 <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} isOwner={isOwner} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} />
@@ -163,12 +163,12 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           {/* 2. why */}
           <section>
             <h2 className="font-heading text-lg font-semibold text-ink">Key cases</h2>
-            <p className="mb-3 mt-1 text-sm text-grey-700">The runs that separate estimators — cold and hot cycles, the blinded cell, wrong initial SOC, a biased current sensor. Each plot says why it is there.</p>
+            <p className="mb-3 mt-1 text-sm text-grey-700">The runs that separate estimators: cold and hot cycles, the blinded cell, wrong initial SOC, a biased current sensor. Each plot says why it is there.</p>
             <KeyCases traces={traces} modelName={sub.modelName} robustness={r.robustness as { initialSocRmse: number[]; currentOffsetRmse: number[] } | null} perCycle={perCycle} />
           </section>
 
           {/* 3. the rest, collapsed */}
-          <Fold id="charts" title="Test-case charts" sub="The scorecard as bar charts — tests 1–8, and RMSE against temperature (test 9).">
+          <Fold id="charts" title="Test-case charts" sub="The scorecard as bar charts: tests 1–8, and RMSE against temperature (test 9).">
             <div className="grid gap-6 xl:grid-cols-5">
               <div className="xl:col-span-3"><TestCaseBars series={[{ name: sub.modelName, values }]} /></div>
               <div className="xl:col-span-2"><TemperatureBars series={[{ name: sub.modelName, values }]} /></div>
@@ -205,7 +205,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             </Fold>
           ) : null}
           <Fold title={`How a ${MODEL_TYPE_LABELS[sub.modelType].toLowerCase()} works`} sub="The canonical structure for this model family; the author's description below gives the specific architecture.">
-            <ModelSchematic spec={specForModelType(sub.modelType)} title={`${MODEL_TYPE_LABELS[sub.modelType]} — standardized view`} />
+            <ModelSchematic spec={specForModelType(sub.modelType)} title={`${MODEL_TYPE_LABELS[sub.modelType]}: standardized view`} />
           </Fold>
 
           {/* 4. downloads, once */}
@@ -232,12 +232,12 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
         <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           {sub.fileName && sub.fileSize !== null ? (
-            <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}) — deleted after evaluation`} />
+            <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}), deleted after evaluation`} />
           ) : (
-            <Row k="Package" v="None — this is a carried-over record, not a run of this evaluator" />
+            <Row k="Package" v="None; this is a carried-over record, not a run of this evaluator" />
           )}
           <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
-          {r ? <Row k="Evaluator" v={`${r.evaluatorVersion}${legacy ? ` — legacy; current benchmark is ${BENCHMARK_VERSION}. Kept for reference, unranked until a new version is submitted.` : ""}`} /> : null}
+          {r ? <Row k="Evaluator" v={`${r.evaluatorVersion}${legacy ? ` (legacy; current benchmark is ${BENCHMARK_VERSION}. Kept for reference, unranked until a new version is submitted.)` : ""}`} /> : null}
           {sub.completedAt ? <Row k="Completed" v={fmtDateTime(sub.completedAt)} /> : null}
           <Row k="Submission ID" v={sub.id} />
         </dl>

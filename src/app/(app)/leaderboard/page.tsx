@@ -21,7 +21,7 @@ export default async function LeaderboardPage() {
       <PageHeader
         eyebrow="Blinded evaluation"
         title="Leaderboard"
-        description="Every model was scored on the same hidden Tesla 2170 drive-cycle data from −20 °C to 40 °C. Numbers are average RMSE in % SOC — lower is better."
+        description="Every model was scored on the same hidden Tesla 2170 drive-cycle data from −20 °C to 40 °C. Numbers are average RMSE in % SOC: lower is better."
         actions={
           <>
             <Button asChild variant="outline"><Link href="/compare"><GitCompareArrows /> Compare models</Link></Button>

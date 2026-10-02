@@ -10,7 +10,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
     <div className="container-site flex min-h-[55vh] flex-col items-center justify-center py-16 text-center">
       <TriangleAlert className="size-14 text-maroon" />
       <h1 className="mt-4 font-heading text-4xl font-bold text-ink">Something short-circuited</h1>
-      <p className="mt-2 max-w-md text-grey-700">An unexpected error occurred while rendering this page. It has been logged{error.digest ? ` (ref ${error.digest})` : ""} — trying again usually works.</p>
+      <p className="mt-2 max-w-md text-grey-700">An unexpected error occurred while rendering this page. It has been logged{error.digest ? ` (ref ${error.digest})` : ""}; trying again usually works.</p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Button onClick={reset}><RotateCcw /> Try again</Button>
         <Button asChild variant="outline"><Link href="/">Home</Link></Button>

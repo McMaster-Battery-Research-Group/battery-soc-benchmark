@@ -19,7 +19,7 @@ export async function parseResultsJson(text: string, log: (line: string) => Prom
   if (!scoring.isDefault) {
     headline = site;
     await log(`custom scoring weights are active (set ${scoring.updatedAt?.toISOString() ?? "?"}): weighted error ${site} (evaluator's default-weight value ${script})`);
-  } else if (Math.abs(site - script) > 0.01) await log(`NOTE weighted error differs: evaluator ${script} vs site ${site} — using evaluator value`);
+  } else if (Math.abs(site - script) > 0.01) await log(`NOTE weighted error differs: evaluator ${script} vs site ${site}; using evaluator value`);
   if (raw.suspicious) await log("NOTE evaluator flagged this submission as suspicious (mean RMSE > 25 %)");
   // Timing behind the complexity bin — needed to calibrate SOCBENCH_CAL_* per evaluation host (socbench-internal/docs/drac-migration.md)
   const sps = Number(raw.secondsPerSample);

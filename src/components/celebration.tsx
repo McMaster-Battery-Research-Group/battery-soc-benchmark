@@ -51,7 +51,7 @@ export function Celebration({ id, modelName, score, rank, recentlyCompleted }: {
     <div role="status" className="relative mt-6 flex items-start gap-3 overflow-hidden rounded-brand border border-gold-400 bg-gradient-to-r from-gold-100 to-white p-4">
       <PartyPopper className="mt-0.5 size-6 shrink-0 text-maroon" />
       <div className="min-w-0 flex-1 text-sm text-grey-800">
-        <p className="font-heading text-base font-semibold text-ink">Evaluation complete — congratulations!</p>
+        <p className="font-heading text-base font-semibold text-ink">Evaluation complete. Congratulations!</p>
         <p>
           <strong>{modelName}</strong> scored a weighted error of <strong className="text-ink">{score} %</strong>
           {rank ? <> and currently ranks <strong className="text-ink">#{rank}</strong> on the public leaderboard</> : null}. The full PDF report has been e-mailed to you{rank ? "" : " (private and legacy models are not ranked)"}.

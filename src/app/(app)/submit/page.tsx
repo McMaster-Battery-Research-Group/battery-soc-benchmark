@@ -35,16 +35,16 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           <div className="card p-5">
             <p className="font-heading font-semibold text-ink">Package checklist</p>
             <ul className="mt-3 space-y-3 text-sm text-grey-800">
-              <li className="flex gap-3"><FileArchive className="mt-0.5 size-4 shrink-0 text-maroon" /><span>A single <strong>.zip</strong> with files at the top level — no sub-folders.</span></li>
+              <li className="flex gap-3"><FileArchive className="mt-0.5 size-4 shrink-0 text-maroon" /><span>A single <strong>.zip</strong> with files at the top level, no sub-folders.</span></li>
               <li className="flex gap-3"><FileCode2 className="mt-0.5 size-4 shrink-0 text-maroon" /><span><code className="rounded bg-grey-100 px-1">Model.m</code>, <code className="rounded bg-grey-100 px-1">Model.p</code> or <code className="rounded bg-grey-100 px-1">Model.py</code> defining <code className="rounded bg-grey-100 px-1">[Y, z] = Model(X, z)</code>. <code className="rounded bg-grey-100 px-1">X = [I, V, T]</code>, <code className="rounded bg-grey-100 px-1">Y</code> is SOC in 0–1.</span></li>
               <li className="flex gap-3"><FileBox className="mt-0.5 size-4 shrink-0 text-maroon" /><span>Any parameter files the model loads (<code className="rounded bg-grey-100 px-1">.mat</code>, <code className="rounded bg-grey-100 px-1">.npz</code>, …). Your name, affiliation and model name come from your account and this form.</span></li>
-              <li className="flex gap-3"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-maroon" /><span>Use <strong>Test your package first</strong> above — it runs your model on a public cycle through the real evaluator and catches format and runtime errors before you spend a submission.</span></li>
+              <li className="flex gap-3"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-maroon" /><span>Use <strong>Test your package first</strong> above: it runs your model on a public cycle through the real evaluator and catches format and runtime errors before you spend a submission.</span></li>
             </ul>
             <Link href="/docs#submission-format" className="mt-4 inline-block text-sm font-medium text-maroon underline">Full submission format guide →</Link>
           </div>
           <div className="card p-5 text-sm text-grey-800">
             <p className="font-heading font-semibold text-ink">What happens to your file</p>
-            <p className="mt-2">Your package is stored only until the evaluator has run. Evaluations have a {Math.round((settings.evalTimeoutMin / 60) * 10) / 10}-hour compute limit — generous next to the reference models (the LSTM example finishes in minutes); a run that exceeds it fails with a timeout message. Source code is never shown to other users or administrators through the site. Submit a <code className="rounded bg-grey-100 px-1">Model.p</code> (p-code) if you need to protect proprietary implementations.</p>
+            <p className="mt-2">Your package is stored only until the evaluator has run. Evaluations have a {Math.round((settings.evalTimeoutMin / 60) * 10) / 10}-hour compute limit, generous next to the reference models (the LSTM example finishes in minutes); a run that exceeds it fails with a timeout message. Source code is never shown to other users or administrators through the site. Submit a <code className="rounded bg-grey-100 px-1">Model.p</code> (p-code) if you need to protect proprietary implementations.</p>
           </div>
         </aside>
       </div>

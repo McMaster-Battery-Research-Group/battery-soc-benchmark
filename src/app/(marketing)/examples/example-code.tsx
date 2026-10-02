@@ -60,7 +60,7 @@ export function ExampleCode({ slug, modelName, signedIn, matlab, python }: { slu
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-xs text-grey-600">Zip these at the top level — no folder inside the archive.</p>
+        <p className="mt-2 text-xs text-grey-600">Zip these at the top level, no folder inside the archive.</p>
         <a href={`/examples/download/${slug}.${rt}.zip`} className="mt-3 inline-flex items-center gap-1.5 font-heading text-sm font-semibold text-maroon hover:underline"><Download className="size-4" /> Download {rt === "matlab" ? "MATLAB" : "Python"} package</a>
       </aside>
       <div className="lg:col-span-2">

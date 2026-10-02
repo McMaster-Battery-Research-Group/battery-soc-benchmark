@@ -29,7 +29,7 @@ export function HowToRead({ legacyCount = 0, hasPrivate = false }: { legacyCount
       </button>
       {open ? (
         <div className="grid gap-x-10 gap-y-3 border-t border-border bg-grey-100/40 px-4 py-4 text-sm leading-relaxed text-grey-700 md:grid-cols-2">
-          <p><strong className="font-medium text-ink">Every number is an error in % SOC — lower is better.</strong> It is the <Term k="rmse" /> between the model&apos;s estimate and the true state of charge, averaged over a group of hidden test cycles.</p>
+          <p><strong className="font-medium text-ink">Every number is an error in % SOC: lower is better.</strong> It is the <Term k="rmse" /> between the model&apos;s estimate and the true state of charge, averaged over a group of hidden test cycles.</p>
           <p><strong className="font-medium text-ink">Rank follows <Term k="weighted-error" />.</strong> It combines all test cases with published weights so cold weather, heavy loads and sensor faults count as much as easy conditions. Sorting other columns doesn&apos;t change the medals.</p>
           <p><strong className="font-medium text-ink">Blinded vs. non-blinded:</strong> &ldquo;Blinded&rdquo; is the error on a cell whose data was never released. If it is much worse than &ldquo;All cells&rdquo;, the model has over-fitted the open data.</p>
           <p><strong className="font-medium text-ink">Complexity</strong> is a cost score from 1 (a few lines of arithmetic) to 10 (heavy). Use <em>Columns</em> to reveal the per-temperature and robustness tests, and click a model name for charts of every cycle. Terms are explained in the <Link href="/glossary" className="text-maroon underline">glossary</Link>.</p>

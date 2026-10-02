@@ -61,7 +61,7 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
                     {head ? <span className="mb-0.5 block font-heading text-[10px] font-semibold uppercase tracking-wide text-maroon">{g}</span> : null}
                     <span className="mr-1.5 text-xs text-grey-500">T{r.test}</span>
                     <Tooltip content={r.description}><span className={`cursor-help border-b border-dotted border-grey-400 ${r.w === 0 ? "" : "text-grey-900"}`}>{r.label}</span></Tooltip>
-                    {r.w === 0 ? <span className="ml-1.5 text-xs text-grey-500">(reference only — every other test is a subset of it)</span> : null}
+                    {r.w === 0 ? <span className="ml-1.5 text-xs text-grey-500">(reference only; every other test is a subset of it)</span> : null}
                   </td>
                   <td className="px-3 py-2 text-right font-heading font-semibold tabular text-ink">{fmtPct(r.value)} %</td>
                   <td className="px-3 py-2">
@@ -82,9 +82,9 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
         </table>
       </div>
       <div className="flex flex-wrap gap-x-8 gap-y-1 border-t border-border px-5 py-3 text-sm text-grey-700">
-        <span><span className="font-heading font-medium text-ink">Max error</span> {fmtPct(maxError, 1)} % — largest instantaneous |estimate − truth| over every blinded cycle{worstCase ? <> (on {worstCase} — plotted under Key cases for new evaluations)</> : null}; not scored</span>
+        <span><span className="font-heading font-medium text-ink">Max error</span> {fmtPct(maxError, 1)} %: largest instantaneous |estimate − truth| over every blinded cycle{worstCase ? <> (on {worstCase}, plotted under Key cases for new evaluations)</> : null}; not scored</span>
         <span><span className="font-heading font-medium text-ink"><Term k="complexity">Complexity</Term></span> {complexity} ±{complexityUncertainty} · {COMPLEXITY_LABELS[complexity]} (informational, not scored)</span>
-        {Math.abs(sum - weightedError) > 0.002 ? <span className="text-[#9a6a17]">The stored score ({fmtPct(weightedError)} %) differs from today&apos;s weights — see Score history.</span> : null}
+        {Math.abs(sum - weightedError) > 0.002 ? <span className="text-[#9a6a17]">The stored score ({fmtPct(weightedError)} %) differs from today&apos;s weights; see Score history.</span> : null}
       </div>
     </section>
     </TooltipProvider>

@@ -37,12 +37,12 @@ export async function setSubmissionCreditAction(id: string, name: string, affili
     if (!sub.creditName) return { ok: false, error: "This entry has no credit to clear." };
     await db.submission.update({ where: { id }, data: { creditName: null, creditAffiliation: null } });
     logEvent("admin.credit_cleared", { id, seq: sub.seq, by: admin.id });
-    await recordAdminEvent("deletions", `${admin.name} cleared the display credit on #${sub.seq} "${sub.modelName}" — it is shown as ${sub.user.name}'s work again`);
+    await recordAdminEvent("deletions", `${admin.name} cleared the display credit on #${sub.seq} "${sub.modelName}"; it is shown as ${sub.user.name}'s work again`);
   } else {
     if (who.length < 2) return { ok: false, error: "Enter the person's full name." };
     await db.submission.update({ where: { id }, data: { creditName: who, creditAffiliation: where || null } });
     logEvent("admin.credit_set", { id, seq: sub.seq, by: admin.id, name: who });
-    await recordAdminEvent("deletions", `${admin.name} credited #${sub.seq} "${sub.modelName}" to ${who}${where ? ` (${where})` : ""} — the owner account is unchanged`);
+    await recordAdminEvent("deletions", `${admin.name} credited #${sub.seq} "${sub.modelName}" to ${who}${where ? ` (${where})` : ""}; the owner account is unchanged`);
   }
 
   revalidatePath("/leaderboard");
@@ -78,7 +78,7 @@ export async function createLegacyEntryAction(input: LegacyEntry): Promise<{ ok:
   if (modelName.length < 2) return { ok: false, error: "Enter the model name." };
   if (creditName.length < 2) return { ok: false, error: "Enter who this score belongs to." };
   if (!Number.isFinite(weightedError) || weightedError < 0 || weightedError > 100) return { ok: false, error: "Weighted error must be a percentage between 0 and 100." };
-  if (source.length < 3) return { ok: false, error: "Say where this score came from — it is shown on the entry." };
+  if (source.length < 3) return { ok: false, error: "Say where this score came from; it is shown on the entry." };
 
   const when = input.submittedAt ? new Date(input.submittedAt) : new Date();
   if (Number.isNaN(when.getTime())) return { ok: false, error: "That date could not be read." };
@@ -117,7 +117,7 @@ export async function createLegacyEntryAction(input: LegacyEntry): Promise<{ ok:
   });
 
   logEvent("admin.legacy_created", { id: sub.id, seq: sub.seq, by: admin.id, creditName, weightedError });
-  await recordAdminEvent("deletions", `${admin.name} recorded a legacy score: #${sub.seq} "${modelName}" by ${creditName}, weighted error ${weightedError} % — ${source}`);
+  await recordAdminEvent("deletions", `${admin.name} recorded a legacy score: #${sub.seq} "${modelName}" by ${creditName}, weighted error ${weightedError} % (${source})`);
   revalidatePath("/leaderboard");
   revalidatePath("/admin/submissions");
   return { ok: true, seq: sub.seq };

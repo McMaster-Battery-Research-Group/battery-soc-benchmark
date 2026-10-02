@@ -26,7 +26,7 @@ export interface ReportInput {
 export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const { submission: s, user, result: r, siteUrl } = input;
-    const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true, info: { Title: `${s.modelName} — Battery SOC Benchmark report`, Author: "Battery SOC Benchmark, McMaster University" } });
+    const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true, info: { Title: `${s.modelName}: Battery SOC Benchmark report`, Author: "Battery SOC Benchmark, McMaster University" } });
     // The standard Helvetica fonts only cover WinAnsi: map typographic characters
     // that would otherwise print as garbage (− Σ ⱼ … → ≥ ≤).
     const rawText = doc.text.bind(doc);
@@ -92,7 +92,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     y += 190;
 
     // ---------- temperature chart
-    sectionTitle(doc, "Error vs. ambient temperature", "Test 9 — m80 cell at each chamber temperature.", X0, y);
+    sectionTitle(doc, "Error vs. ambient temperature", "Test 9: m80 cell at each chamber temperature.", X0, y);
     y = doc.y + 6;
     const temps: [MetricKey, string][] = [["tempM20", "−20 °C"], ["tempM10", "−10 °C"], ["temp0", "0 °C"], ["temp10", "10 °C"], ["temp25", "25 °C"], ["temp40", "40 °C"]];
     barChart(doc, X0, y, W, 130, temps.map(([k, l]) => ({ label: l, value: r[k] })), M);
@@ -167,9 +167,9 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     para("Model interface", "Your function is called once per measured sample, in order, with X = [current (A), voltage (V), temperature (°C)] and its own state z from the previous call; it returns the SOC estimate for that sample (0–1) and the updated state. Every cycle is preceded by one hour of rest at constant conditions so stateful models can settle; that hour is excluded from all metrics.");
     para("Per-cycle errors (Per-cycle errors table)", "For each blinded drive cycle the estimate is compared with the reference SOC measured in the laboratory: RMSE = sqrt(mean((SOC_est − SOC_ref)²)), MAE = mean(|SOC_est − SOC_ref|), max error = max(|SOC_est − SOC_ref|), all in % SOC over the samples of that cycle (excluding the padding).");
     para("Test cases 1–8", "Each test case is the arithmetic mean of the per-cycle RMSE values of the cycles that belong to it (all cells; the blinded m448 cell; the three non-blinded cells; the charging profiles; the m80 / m448 / m448-N / m1000 payload conditions; the standard UDDS/HWFET/LA92/US06 cycles; the non-standard HWCUST/HWGRADE cycles).");
-    para("Test 9 — temperature", "For the m80 cell, the mean per-cycle RMSE at each chamber temperature (−20, −10, 0, 10, 25, 40 °C) is reported as six separate entries.");
-    para("Test 10 — initial-SOC error", "Three blinded cycles are re-run with the model started at a wrong initial SOC of 90 %, 60 % and 30 % (instead of 100 %). The nine RMSE values are averaged with weights 3 : 2 : 1 for the 90 / 60 / 30 % starts, so the smaller, more realistic offsets count more.");
-    para("Test 11 — current-sensor offset", "Blinded cycles are re-run with a constant offset added to the measured current (±0.05, ±0.1 and ±0.3 A); the test value is the mean RMSE of the offset runs that count towards the score (the ±0.1 A and ±0.3 A cases).");
+    para("Test 9: temperature", "For the m80 cell, the mean per-cycle RMSE at each chamber temperature (−20, −10, 0, 10, 25, 40 °C) is reported as six separate entries.");
+    para("Test 10: initial-SOC error", "Three blinded cycles are re-run with the model started at a wrong initial SOC of 90 %, 60 % and 30 % (instead of 100 %). The nine RMSE values are averaged with weights 3 : 2 : 1 for the 90 / 60 / 30 % starts, so the smaller, more realistic offsets count more.");
+    para("Test 11: current-sensor offset", "Blinded cycles are re-run with a constant offset added to the measured current (±0.05, ±0.1 and ±0.3 A); the test value is the mean RMSE of the offset runs that count towards the score (the ±0.1 A and ±0.3 A cases).");
     para("Complexity", "Wall-clock time per sample of your model, divided by the time per sample of a plain coulomb counter measured on the same machine (the calibration constant), then placed into one of ten bins one third of a decade wide. It is informational and does not enter the weighted error.");
     para("Weighted error", "weighted error = Σ (weight_i × RMSE_i) over the test cases listed on the previous page. Test 1 (all cells) carries weight 0 because every other test is a subset of it. The weights sum to 1 and were " + (input.weights ? "set by the benchmark administrators (see the change log on the site)." : "published with the Blind Modeling Tool V2."));
 
@@ -199,7 +199,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     doc.fillColor(INK).font("Helvetica-Bold").fontSize(9).text("Sum = weighted error", X0 + 4, y + 4, { width: ac[0] + ac[1] + ac[2] - 8 });
     doc.text(`${fmt(acc, 3)} %`, X0 + ac[0] + ac[1] + ac[2], y + 4, { width: ac[3] - 6, align: "right" });
     y += 20;
-    doc.fillColor(GREY).font("Helvetica").fontSize(8).text(`Stored headline score: ${fmt(r.weightedError, 3)} %${Math.abs(acc - r.weightedError) > 0.002 ? "  (differs from the sum above because the weights were changed after this score was stored — see the score history)" : "  (matches the sum above to rounding)."}`, X0, y, { width: W });
+    doc.fillColor(GREY).font("Helvetica").fontSize(8).text(`Stored headline score: ${fmt(r.weightedError, 3)} %${Math.abs(acc - r.weightedError) > 0.002 ? "  (differs from the sum above because the weights were changed after this score was stored; see the score history)" : "  (matches the sum above to rounding)."}`, X0, y, { width: W });
     y = doc.y + 6;
     doc.text(`Complexity: measured ${r.complexity} ±${r.complexityUncertainty} on a 1–10 scale (${COMPLEXITY_LABELS[r.complexity] ?? ""}). Max error: ${fmt(r.maxError, 1)} % is the largest instantaneous |SOC_est − SOC_ref| over every blinded cycle.`, X0, y, { width: W });
 
@@ -234,7 +234,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     const robust = r.timeSeries.filter((t) => t.group === "initialSoc" || t.group === "offset");
     for (let start = 0; start < robust.length; start += 8) {
       doc.addPage();
-      if (start === 0) sectionTitle(doc, "Robustness cases", "Test 10 — three cycles restarted from a wrong initial SOC (90/60/30 %); test 11 — three cycles with a constant current-sensor offset (±0.3 A shown). Estimated vs. reference SOC, down-sampled.", X0, 48);
+      if (start === 0) sectionTitle(doc, "Robustness cases", "Test 10: three cycles restarted from a wrong initial SOC (90/60/30 %); test 11: three cycles with a constant current-sensor offset (±0.3 A shown). Estimated vs. reference SOC, down-sampled.", X0, 48);
       const py0 = start === 0 ? doc.y + 10 : 48;
       robust.slice(start, start + 8).forEach((tr, i) => {
         const col = i % 2;

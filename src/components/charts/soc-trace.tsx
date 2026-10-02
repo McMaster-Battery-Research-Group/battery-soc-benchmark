@@ -397,7 +397,7 @@ export function SocTrace({
         <div ref={wrapRef}>
           {blinded ? (
             <p className="mb-2 px-1 text-xs text-grey-600">
-              This is the blinded cell — its reference SOC is never released, so only the estimation <em>error</em> is shown.
+              This is the blinded cell: its reference SOC is never released, so only the estimation <em>error</em> is shown.
             </p>
           ) : null}
           {/* SOC — hidden for the blinded cell (no reference to plot against) */}

@@ -37,7 +37,7 @@ export function EditDetailsDialog({ id, modelName, description, modelType, locke
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button variant="outline" size="sm"><Pencil /> Edit details</Button></DialogTrigger>
-      <DialogContent title="Edit submission details" description={locked ? "This is a contest entry of a closed contest: the name and model type are frozen; only the description can change." : "Name, description and model type only — scores are never affected. Edits are noted in the score history."} size="md">
+      <DialogContent title="Edit submission details" description={locked ? "This is a contest entry of a closed contest: the name and model type are frozen; only the description can change." : "Name, description and model type only; scores are never affected. Edits are noted in the score history."} size="md">
         <div className="space-y-4">
           <div>
             <Label htmlFor="ed-name" required>Model name</Label>

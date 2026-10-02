@@ -33,9 +33,9 @@ export function WorkerControls({ id, paused, online }: { id: string; paused: boo
       {online ? (
         <>
           {paused ? (
-            <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => workerCommandAction(id, "resume"), "Resume queued — takes effect at the next heartbeat")}><Play /> Resume</Button>
+            <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => workerCommandAction(id, "resume"), "Resume queued; takes effect at the next heartbeat")}><Play /> Resume</Button>
           ) : (
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => workerCommandAction(id, "pause"), "Pause queued — finishes current work, claims nothing new")}><Pause /> Pause</Button>
+            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => workerCommandAction(id, "pause"), "Pause queued; finishes current work, claims nothing new")}><Pause /> Pause</Button>
           )}
           <Button size="sm" variant="outline" disabled={pending} onClick={() => confirm("Stop this worker process after it finishes its current work? Someone must restart it on that machine.") && run(() => workerCommandAction(id, "stop"), "Stop queued")}><Power /> Stop</Button>
         </>
@@ -49,7 +49,7 @@ export function WorkerControls({ id, paused, online }: { id: string; paused: boo
 export function JobControls({ submissionId, status }: { submissionId: string; status: string }) {
   const { run, pending } = useRun();
   if (status === "RUNNING") {
-    return <Button size="sm" variant="outline" disabled={pending} onClick={() => confirm("Release this lock? Only do this if the worker that holds it is dead — otherwise two machines will evaluate the same model.") && run(() => releaseJobAction(submissionId), "Lock released — back in the queue")}><Unlock /> Release lock</Button>;
+    return <Button size="sm" variant="outline" disabled={pending} onClick={() => confirm("Release this lock? Only do this if the worker that holds it is dead; otherwise two machines will evaluate the same model.") && run(() => releaseJobAction(submissionId), "Lock released, back in the queue")}><Unlock /> Release lock</Button>;
   }
   if (status === "FAILED") {
     return <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => retryJobAction(submissionId), "Re-queued with fresh attempts")}><RotateCcw /> Retry</Button>;

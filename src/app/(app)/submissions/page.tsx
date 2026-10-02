@@ -48,7 +48,7 @@ export default async function MySubmissionsPage() {
                           s.collaborators[0]?.acceptedAt ? (
                             <Badge variant="neutral"><Users className="size-3" /> Co-author with {s.user.name}</Badge>
                           ) : (
-                            <Badge variant="gold"><Users className="size-3" /> Invitation from {s.user.name} — respond on the submission page</Badge>
+                            <Badge variant="gold"><Users className="size-3" /> Invitation from {s.user.name}: respond on the submission page</Badge>
                           )
                         ) : null}
                         {s.isPrivate ? <Badge variant="neutral"><Lock className="size-3" /> Private</Badge> : null}

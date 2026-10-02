@@ -51,7 +51,7 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
       <div className="mt-4 rounded-brand bg-grey-100 px-4 py-3 text-sm text-grey-800" aria-live="polite">
         <div className="flex items-center gap-3">
           <Loader2 className="size-4 animate-spin text-bayfront" />
-          <span>{poll?.status === "RUNNING" ? "Running validation and one open cycle…" : "Queued — starts as soon as an evaluator is free."}</span>
+          <span>{poll?.status === "RUNNING" ? "Running validation and one open cycle…" : "Queued; starts as soon as an evaluator is free."}</span>
           {last ? <span className="ml-auto hidden max-w-[50%] truncate font-mono text-xs text-grey-600 sm:inline" title={last}>{last}</span> : null}
         </div>
         {poll?.log ? <LogView title={`Console (${lines.length} lines)`} log={poll.log} defaultOpen maxHeight="max-h-64" className="mt-3" /> : null}
@@ -65,7 +65,7 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
           <p className="break-words">{poll.failureMessage}</p>
           {poll.log ? <LogView title="Console" log={poll.log} defaultOpen maxHeight="max-h-72" className="mt-3" /> : null}
         </Alert>
-        <p className="flex items-center gap-2 text-sm text-grey-700"><XCircle className="size-4 text-danger" /> Fix the package and run the test again — or <Link href="/contact?category=bug&subject=Dry%20run%20failed" className="text-maroon underline">report a problem</Link> if you think the evaluator is at fault.</p>
+        <p className="flex items-center gap-2 text-sm text-grey-700"><XCircle className="size-4 text-danger" /> Fix the package and run the test again, or <Link href="/contact?category=bug&subject=Dry%20run%20failed" className="text-maroon underline">report a problem</Link> if you think the evaluator is at fault.</p>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export function DryRunResult({ id, poll, modelName = "Your model", footer }: { i
   return (
     <div className="mt-4 space-y-4">
       <Alert variant="success" title="It runs">
-        Passed the +0.3 A validation and completed the open cycle on the <strong>{r.runtime}</strong> runtime in {r.elapsedSec} s. This is not a score — the blinded evaluation runs {EVALUATION_SCOPE} — but a package that passes here will run there.
+        Passed the +0.3 A validation and completed the open cycle on the <strong>{r.runtime}</strong> runtime in {r.elapsedSec} s. This is not a score. The blinded evaluation runs {EVALUATION_SCOPE}, but a package that passes here will run there.
       </Alert>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([

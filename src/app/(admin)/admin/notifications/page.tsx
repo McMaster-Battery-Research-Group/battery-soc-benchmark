@@ -16,11 +16,11 @@ export default async function AdminNotifications() {
     <div>
       <h1 className="font-heading text-2xl font-bold">My notifications</h1>
       <p className="mt-1 max-w-3xl text-sm text-grey-700">
-        Which administrator e-mails go to <strong>{user?.email}</strong>. This only changes what you receive — other administrators keep their own settings. Results, rescore and moderation e-mails to authors are unaffected.
+        Which administrator e-mails go to <strong>{user?.email}</strong>. This only changes what you receive; other administrators keep their own settings. Results, rescore and moderation e-mails to authors are unaffected.
       </p>
       {fixedList ? (
         <Alert variant="warning" className="mt-4" title="A fixed recipient list is configured">
-          The <code className="rounded bg-grey-100 px-1">ADMIN_NOTIFY_EMAIL</code> environment variable overrides per-admin preferences — these toggles are saved but have no effect until it is removed.
+          The <code className="rounded bg-grey-100 px-1">ADMIN_NOTIFY_EMAIL</code> environment variable overrides per-admin preferences; these toggles are saved but have no effect until it is removed.
         </Alert>
       ) : null}
       <NotifyToggles kinds={ADMIN_NOTIFY_KINDS.map((k) => ({ ...k }))} initial={Object.fromEntries(ADMIN_NOTIFY_KINDS.map((k) => [k.key, prefs[k.key] !== false]))} />

@@ -224,7 +224,7 @@ export function LeaderboardTable({
                         "cursor-pointer border-b border-border transition-colors hover:bg-maroon-100/50",
                         row.original.isPrivate ? "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-[#fffbf5]",
                       )}
-                      title={row.original.isPrivate ? "Private — visible only to you; not on the public leaderboard" : undefined}
+                      title={row.original.isPrivate ? "Private; visible only to you, not on the public leaderboard" : undefined}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };

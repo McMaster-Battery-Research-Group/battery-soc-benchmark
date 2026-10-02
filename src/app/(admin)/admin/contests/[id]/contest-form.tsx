@@ -27,7 +27,7 @@ export function ContestForm({ contest, entriesCsv, entryCount }: { contest: C | 
       {state.errors?.form ? <Alert variant="danger">{state.errors.form}</Alert> : null}
       <div className="grid gap-5 md:grid-cols-2">
         <Field label="Title" name="title" required defaultValue={v("title")} error={state.errors?.title} />
-        <Field label="URL slug" name="slug" required defaultValue={v("slug")} error={state.errors?.slug} hint="/contest/<slug> — lowercase, dashes" />
+        <Field label="URL slug" name="slug" required defaultValue={v("slug")} error={state.errors?.slug} hint="/contest/<slug>, lowercase, dashes" />
       </div>
       <Field label="Summary" name="summary" textarea rows={2} required defaultValue={v("summary")} error={state.errors?.summary} hint="One or two sentences shown in listings and the hero." />
       <Field label="Prize text" name="prizeText" required defaultValue={v("prizeText")} error={state.errors?.prizeText} placeholder="CA$5,000 first prize · CA$2,000 second" />

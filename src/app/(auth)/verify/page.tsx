@@ -31,7 +31,7 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
         <div className="card p-6 text-center md:p-8">
           <MailCheck className="mx-auto size-12 text-forest" />
           <h1 className="mt-4 font-heading text-2xl font-bold">Confirm your email</h1>
-          <p className="mt-2 text-sm text-grey-700">Hi {rec!.user.name} — press the button to activate <strong className="text-ink">{rec!.user.email}</strong>.</p>
+          <p className="mt-2 text-sm text-grey-700">Hi {rec!.user.name}, press the button to activate <strong className="text-ink">{rec!.user.email}</strong>.</p>
           <form action={confirmEmailAction} className="mt-6">
             <input type="hidden" name="token" value={sp.token} />
             <Button type="submit" size="lg" className="w-full">Confirm my email</Button>

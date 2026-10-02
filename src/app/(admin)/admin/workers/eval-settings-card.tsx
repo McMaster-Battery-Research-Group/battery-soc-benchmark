@@ -19,7 +19,7 @@ export function EvalSettingsCard({ initial, updatedNote }: { initial: { evalTime
     start(async () => {
       const res = await saveEvalSettingsAction(v);
       if (!res.ok) return push({ kind: "error", title: "Not saved", description: res.error });
-      push({ kind: "success", title: "Evaluation settings saved", description: "Workers pick this up within ~15 seconds — no restart needed." });
+      push({ kind: "success", title: "Evaluation settings saved", description: "Workers pick this up within ~15 seconds; no restart needed." });
       router.refresh();
     });
   const num = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => setV({ ...v, [k]: Number(e.target.value) });

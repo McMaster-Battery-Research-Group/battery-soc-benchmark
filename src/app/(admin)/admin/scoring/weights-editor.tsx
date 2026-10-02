@@ -95,7 +95,7 @@ export function WeightsEditor({ rows, isDefault }: { rows: Row[]; isDefault: boo
           <DialogContent title={confirm === "reset" ? "Reset weights to the V2 defaults?" : "Apply the new weights?"} description="Every stored score is recomputed from its unchanged per-test results. Each affected submission gets a score-history entry; nothing is re-run and nothing is deleted." size="md">
             {confirm === "save" && preview ? (
               <div className="text-sm">
-                <p><strong>{preview.changed}</strong> of {preview.checked} scores would change{notify ? " — authors will be e-mailed" : " — authors will NOT be e-mailed"}.</p>
+                <p><strong>{preview.changed}</strong> of {preview.checked} scores would change{notify ? "; authors will be e-mailed" : "; authors will NOT be e-mailed"}.</p>
                 {preview.sample.length ? (
                   <ul className="mt-2 max-h-48 overflow-auto rounded-brand border border-border text-xs">
                     {preview.sample.map((s) => <li key={s.seq} className="flex justify-between px-3 py-1 odd:bg-grey-100/60"><span>#{s.seq} {s.modelName}</span><span className="tabular">{s.from.toFixed(3)} → {s.to.toFixed(3)}</span></li>)}

@@ -41,7 +41,7 @@ export default async function AdminHome() {
       <h2 className="mt-8 font-heading text-lg font-semibold">Activity</h2>
       <p className="mt-1 text-sm text-grey-700">The events administrators are e-mailed about, kept here regardless of anyone&apos;s e-mail toggles. Contact-form messages live under <Link href="/admin/messages" className="text-maroon underline">Messages</Link>.</p>
       {activity.length === 0 ? (
-        <p className="mt-3 text-sm text-grey-600">Nothing yet — new accounts, verifications, role changes, deletions and scoring changes will appear here.</p>
+        <p className="mt-3 text-sm text-grey-600">Nothing yet. New accounts, verifications, role changes, deletions and scoring changes will appear here.</p>
       ) : (
         <ul className="card mt-3 divide-y divide-border">
           {activity.map((e) => (

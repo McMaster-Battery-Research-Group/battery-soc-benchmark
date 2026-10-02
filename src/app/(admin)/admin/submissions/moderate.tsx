@@ -12,7 +12,7 @@ import { adminModerateAction, type ModerationAction } from "../actions";
 const LABEL: Record<ModerationAction, { verb: string; title: string; body: string; danger?: boolean }> = {
   private: { verb: "Make private", title: "Make this submission private?", body: "It disappears from the public leaderboard and researcher pages; the owner and collaborators keep access. They will be e-mailed with your reason." },
   public: { verb: "Make public", title: "Make this submission public?", body: "It appears on the leaderboard. The owner and collaborators will be e-mailed with your reason." },
-  hide: { verb: "Hide", title: "Hide this submission?", body: "Hidden submissions are invisible to everyone except administrators — use for rule violations or suspected cheating. The owner and collaborators will be e-mailed with your reason." },
+  hide: { verb: "Hide", title: "Hide this submission?", body: "Hidden submissions are invisible to everyone except administrators; use for rule violations or suspected cheating. The owner and collaborators will be e-mailed with your reason." },
   unhide: { verb: "Unhide", title: "Unhide this submission?", body: "It becomes visible again according to its private/public setting. The owner and collaborators will be e-mailed." },
   delete: { verb: "Delete", title: "Delete this submission permanently?", body: "Results, logs and leaderboard entry are removed and cannot be recovered. The owner and collaborators will be e-mailed with your reason.", danger: true },
 };

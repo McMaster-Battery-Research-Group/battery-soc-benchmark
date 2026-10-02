@@ -16,7 +16,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "Battery SOC Benchmark — McMaster University",
+    default: "Battery SOC Benchmark: McMaster University",
     template: "%s · Battery SOC Benchmark",
   },
   description:

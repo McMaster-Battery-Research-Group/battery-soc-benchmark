@@ -42,12 +42,12 @@ export default async function WorkersPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">Evaluation workers</h1>
-          <p className="mt-1 text-sm text-grey-700">Every machine running <code className="rounded bg-grey-100 px-1">npm run worker</code> reports here every 15 s. Add computers to add throughput — jobs are claimed atomically, so nothing else needs configuring. This page refreshes itself.</p>
+          <p className="mt-1 text-sm text-grey-700">Every machine running <code className="rounded bg-grey-100 px-1">npm run worker</code> reports here every 15 s. Add computers to add throughput; jobs are claimed atomically, so nothing else needs configuring. This page refreshes itself.</p>
         </div>
       </div>
 
       {stranded.map((x) => (
-        <Alert key={x.rt} variant="warning" className="mt-5" title={`${x.n} queued ${x.rt === "matlab" ? "MATLAB" : "Python"} submission${x.n > 1 ? "s" : ""} cannot start — no online worker runs ${x.rt === "matlab" ? "MATLAB" : "Python"} packages`}>
+        <Alert key={x.rt} variant="warning" className="mt-5" title={`${x.n} queued ${x.rt === "matlab" ? "MATLAB" : "Python"} submission${x.n > 1 ? "s" : ""} cannot start: no online worker runs ${x.rt === "matlab" ? "MATLAB" : "Python"} packages`}>
           Workers only claim the runtimes they declare (<code className="rounded bg-grey-100 px-1">WORKER_RUNTIMES</code>). Start a worker that can run {x.rt === "matlab" ? "MATLAB (today: the lab laptop with MATLAB installed)" : "Python (the Arbutus VM or the laptop)"}; the queued submissions start automatically when it reports in. Authors see &ldquo;no evaluator for {x.rt === "matlab" ? "MATLAB" : "Python"} packages is online&rdquo; on their submission page meanwhile.
         </Alert>
       ))}
@@ -89,7 +89,7 @@ export default async function WorkersPage() {
                   <Diag icon={GitCommit} label="Code" value={w.gitSha || "unknown"} />
                   <Diag label="Python" value={w.pythonInfo || "—"} warn={/not found/.test(w.pythonInfo)} />
                   <Diag label="MATLAB" value={w.matlabInfo || "—"} warn={/not found/.test(w.matlabInfo)} />
-                  <Diag label="Blinded data" value={w.blindData ? "present" : "MISSING — evaluations will fail"} warn={!w.blindData} />
+                  <Diag label="Blinded data" value={w.blindData ? "present" : "MISSING: evaluations will fail"} warn={!w.blindData} />
                   {w.busyWith.length ? (
                     <Diag
                       label="Working on"
@@ -112,7 +112,7 @@ export default async function WorkersPage() {
                   {w.lastError ? <Diag label="Last error" value={w.lastError} warn /> : null}
                 </dl>
 
-                <LogView title={`Console — last ${w.log ? w.log.split("\n").length : 0} lines`} log={w.log} />
+                <LogView title={`Console: last ${w.log ? w.log.split("\n").length : 0} lines`} log={w.log} />
               </section>
             );
           })}

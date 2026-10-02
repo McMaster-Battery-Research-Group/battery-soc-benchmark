@@ -28,11 +28,11 @@ function PersonCard({ p }: { p: Person }) {
 export default function AboutPage() {
   return (
     <>
-      <PageHeader eyebrow="About the project" title="An open, blinded benchmark from McMaster University" description="Developed by Dr. Phillip Kollmeyer's battery research group in the Department of Electrical and Computer Engineering so that state-of-charge estimation methods can finally be compared on equal terms — and to give students and industry a public, credible place to prove their algorithms." />
+      <PageHeader eyebrow="About the project" title="An open, blinded benchmark from McMaster University" description="Developed by Dr. Phillip Kollmeyer's battery research group in the Department of Electrical and Computer Engineering so that state-of-charge estimation methods can finally be compared on equal terms, and to give students and industry a public, credible place to prove their algorithms." />
       <div className="container-site max-w-3xl space-y-12 py-10 text-[15px] leading-relaxed text-grey-800">
         <section>
           <SectionTitle>Why a blind modelling tool</SectionTitle>
-          <p>Other fields have long relied on independent, comparative evaluation: the NIST Face Recognition Vendor Test or the PEER blind prediction contests in structural engineering. Battery state estimation had nothing equivalent — every paper used its own cells, cycles and metrics, and the author&apos;s effort on each baseline could unintentionally skew a comparison. This platform provides the dataset, the blinded test cases and the evaluator so that a lower number really does mean a better algorithm.</p>
+          <p>Other fields have long relied on independent, comparative evaluation: the NIST Face Recognition Vendor Test or the PEER blind prediction contests in structural engineering. Battery state estimation had nothing equivalent: every paper used its own cells, cycles and metrics, and the author&apos;s effort on each baseline could unintentionally skew a comparison. This platform provides the dataset, the blinded test cases and the evaluator so that a lower number really does mean a better algorithm.</p>
         </section>
         <section>
           <SectionTitle>The lab</SectionTitle>

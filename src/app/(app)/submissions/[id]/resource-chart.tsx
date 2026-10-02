@@ -44,7 +44,7 @@ export function ResourceChart({ usage }: { usage: ResourceSeries }) {
         <span className="text-xs text-grey-600">Administrators only · {usage.samples} samples</span>
       </div>
       <p className="mt-1 max-w-prose text-sm text-grey-600">
-        What this evaluation actually consumed inside its container. Used to size the evaluation host — a peak well
+        What this evaluation actually consumed inside its container. Used to size the evaluation host: a peak well
         below the limit means containers could be smaller, letting more run at once.
       </p>
 
@@ -133,7 +133,7 @@ export function ResourceChart({ usage }: { usage: ResourceSeries }) {
         </>
       ) : (
         <p className="mt-3 text-sm text-grey-600">
-          No per-sample series for this run — it finished before the first sample, or predates this measurement.
+          No per-sample series for this run: it finished before the first sample, or predates this measurement.
         </p>
       )}
     </section>

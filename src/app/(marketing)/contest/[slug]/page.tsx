@@ -86,7 +86,7 @@ export default async function ContestPage({ params }: { params: Promise<{ slug: 
           </TabsList>
           <TabsContent value="leaderboard">
             <div id="leaderboard" className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-grey-700">{isLive ? "Live standings — ranking is by weighted error and freezes at the deadline." : `Final standings, frozen at ${fmtDateTime(contest.endsAt)}.`} Ties break on all-cells RMSE, then earlier submission.</p>
+              <p className="text-sm text-grey-700">{isLive ? "Live standings: ranking is by weighted error and freezes at the deadline." : `Final standings, frozen at ${fmtDateTime(contest.endsAt)}.`} Ties break on all-cells RMSE, then earlier submission.</p>
             </div>
             <LeaderboardTable rows={frozen} viewerId={session?.user?.id} compact title={contest.slug} />
           </TabsContent>

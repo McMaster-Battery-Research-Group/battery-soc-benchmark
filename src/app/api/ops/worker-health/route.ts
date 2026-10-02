@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 /** 12 missed 15-second heartbeats — long enough that a vm-update.sh restart never trips it. */
 const OFFLINE_AFTER_MS = 3 * 60_000;
 const RUNTIMES = ["python", "matlab"] as const;
-const RECOVERED_TEXT = "Workers recovered — evaluation service is back to normal.";
+const RECOVERED_TEXT = "Workers recovered: evaluation service is back to normal.";
 
 function tokenOk(req: NextRequest): boolean {
   const secret = process.env.OPS_HEALTH_TOKEN;
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const lastSeen = workers.map((w) => w.lastSeenAt).sort((a, b) => b.getTime() - a.getTime())[0];
     details.push(lastSeen ? `Last heartbeat from any worker: ${lastSeen.toISOString()}.` : "No worker has ever reported in.");
     details.push(
-      "The worker process may still be running but unable to reach the database (as in the Sept 1, 2026 Arbutus routing outage) — SSH to the machine and check `systemctl status socbench-worker` before restarting anything.",
+      "The worker process may still be running but unable to reach the database (as in the Sept 1, 2026 Arbutus routing outage). SSH to the machine and check `systemctl status socbench-worker` before restarting anything.",
     );
   } else {
     for (const b of backlog) {

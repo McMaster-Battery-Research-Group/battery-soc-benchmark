@@ -105,7 +105,7 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
                 <Avatar userId={c.id ?? ""} name={c.name} hasAvatar={c.avatarVersion !== null} version={c.avatarVersion} size={26} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-grey-900">{c.name}</span>
-                  <span className="block truncate text-xs text-grey-600">{c.email || c.affiliation || "no account — credited by an administrator"}</span>
+                  <span className="block truncate text-xs text-grey-600">{c.email || c.affiliation || "no account, credited by an administrator"}</span>
                 </span>
                 <Button variant="ghost" size="sm" disabled={pending} title={`Remove ${c.name}`} onClick={() => run(() => (c.id ? adminRemoveCoAuthorAction(id, c.id) : adminRemoveCreditAction(id, c.name)), "Could not remove the co-author")}>
                   <X />

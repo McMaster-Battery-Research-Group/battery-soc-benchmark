@@ -76,7 +76,7 @@ export async function ensureDocker(waitMs = 90_000, log?: (l: string) => void): 
         : [];
   for (const c of candidates) {
     try {
-      log?.(`[sandbox] Docker daemon not running — starting ${c}`);
+      log?.(`[sandbox] Docker daemon not running; starting ${c}`);
       if (process.platform === "darwin") execFile("open", ["-a", c]);
       else spawn(c, [], { detached: true, stdio: "ignore", windowsHide: true }).unref();
       break;
@@ -145,7 +145,7 @@ export async function mhlmLicenseEnv(log?: (l: string) => Promise<void> | void):
     }).catch((e) => {
       throw new EvaluationError(`MATLAB licensing: could not reach login.mathworks.com (${e instanceof Error ? e.message : String(e)})`, false);
     });
-    if (!res.ok) throw new EvaluationError(`MATLAB licensing: token exchange failed (${res.status}). The identity token may have expired — repeat the one-time login on the evaluation host (socbench-internal/docs/drac-migration.md).`, false);
+    if (!res.ok) throw new EvaluationError(`MATLAB licensing: token exchange failed (${res.status}). The identity token may have expired. Repeat the one-time login on the evaluation host (socbench-internal/docs/drac-migration.md).`, false);
     const data = (await res.json()) as { accessTokenString?: string };
     if (!data.accessTokenString) throw new EvaluationError("MATLAB licensing: unexpected response from login.mathworks.com (no access token).", false);
     // MWAS tokens last 24 h; refresh well before that so a long evaluation never starts with a stale one
@@ -258,7 +258,7 @@ export class PythonEvaluator implements Evaluator {
       const pkgDir = path.resolve(process.cwd(), "evaluator", "python");
       args = ["-m", "socbench_eval", input.filePath, outDir, ...(data ? ["--data", data] : []), ...(dry ? ["--dry-run"] : [])];
       env = { ...allowListedEnv(), PYTHONPATH: pkgDir, PYTHONUNBUFFERED: "1", PYTHONIOENCODING: "utf-8" };
-      await input.log(mode === "docker" ? `[eval] sandbox: MATLAB package but EVAL_SANDBOX_MATLAB_IMAGE is not set — running on the host with an allow-listed environment` : `[eval] sandbox: none — running on the host with an allow-listed environment`);
+      await input.log(mode === "docker" ? `[eval] sandbox: MATLAB package but EVAL_SANDBOX_MATLAB_IMAGE is not set; running on the host with an allow-listed environment` : `[eval] sandbox: none, running on the host with an allow-listed environment`);
     }
     // never echo credentials into the job log (it is shown to the submitter): mask licence tokens / licence strings
     const redacted = args.map((x) => x.replace(/^(MLM_WEB_USER_CRED|MLM_LICENSE_FILE|MLM_WEB_ID)=.*$/, "$1=<redacted>"));
@@ -328,7 +328,7 @@ export class PythonEvaluator implements Evaluator {
         await input.log(
           `[eval] resources: peak ${Math.round(usage.peakMemMb)} MB of ${usage.limitMemMb} MB memory ` +
             `(${Math.round((usage.peakMemMb / Math.max(1, usage.limitMemMb)) * 100)} %), ` +
-            `peak CPU ${usage.peakCpuPct.toFixed(0)} % of ${usage.limitCpuPct} % — ${usage.samples} samples`,
+            `peak CPU ${usage.peakCpuPct.toFixed(0)} % of ${usage.limitCpuPct} %, ${usage.samples} samples`,
         );
       }
       const text = await readFile(path.join(outDir, "results.json"), "utf8");
@@ -343,7 +343,7 @@ export class PythonEvaluator implements Evaluator {
         throw new EvaluationError("The evaluator produced an unreadable results.json.", false);
       }
       if (parsedNonce !== resultNonce) {
-        await input.log("[eval] SECURITY: results.json nonce mismatch — the result was not produced by the evaluator; rejecting it.");
+        await input.log("[eval] SECURITY: results.json nonce mismatch. The result was not produced by the evaluator; rejecting it.");
         throw new EvaluationError("The evaluation result failed its integrity check and was rejected.", false, true);
       }
       const traces = dry ? undefined : await readFile(path.join(outDir, "traces.mat")).catch(() => undefined);

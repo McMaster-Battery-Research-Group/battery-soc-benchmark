@@ -31,7 +31,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   if (session.user.role !== "ADMIN" && perDay > 0) {
     const today = await db.submission.count({ where: { userId: session.user.id, submittedAt: { gt: new Date(Date.now() - 24 * 3600_000) } } });
     if (today >= perDay) {
-      return { errors: { form: `You have submitted ${today} models in the last 24 hours — the limit is ${perDay} per day so the evaluation queue stays fair. Use "Test your package first" for iteration; it does not count.` }, values: { modelName: String(fd.get("modelName") ?? ""), description: String(fd.get("description") ?? ""), modelType: String(fd.get("modelType") ?? ""), evaluationLevel: String(fd.get("evaluationLevel") ?? "DYNAMIC"), contestId: String(fd.get("contestId") ?? "") } };
+      return { errors: { form: `You have submitted ${today} models in the last 24 hours. The limit is ${perDay} per day so the evaluation queue stays fair. Use "Test your package first" for iteration; it does not count.` }, values: { modelName: String(fd.get("modelName") ?? ""), description: String(fd.get("description") ?? ""), modelType: String(fd.get("modelType") ?? ""), evaluationLevel: String(fd.get("evaluationLevel") ?? "DYNAMIC"), contestId: String(fd.get("contestId") ?? "") } };
     }
   }
 
@@ -77,7 +77,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     if (preUploadedKey) await storage.remove(preUploadedKey);
     return { errors: { file: msg }, values };
   };
-  if (ext !== "zip") return reject("Only .zip submission packages are accepted — see the submission format guide.");
+  if (ext !== "zip") return reject("Only .zip submission packages are accepted; see the submission format guide.");
   if (fileSize > MAX_UPLOAD_BYTES) return reject(`File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB limit`);
   const check = checkSubmissionPackage(bytes);
   if (!check.ok) {
@@ -170,7 +170,7 @@ export async function togglePrivateAction(id: string, isPrivate: boolean) {
  */
 export async function cancelSubmissionAction(id: string): Promise<{ ok: true; immediate: boolean } | { ok: false; error: string }> {
   const { sub } = await ownedSubmission(id);
-  if (sub.status === "COMPLETED" || sub.status === "FAILED") return { ok: false, error: "This submission has already finished — delete it instead." };
+  if (sub.status === "COMPLETED" || sub.status === "FAILED") return { ok: false, error: "This submission has already finished; delete it instead." };
   // Only delete outright if no worker has claimed the job yet; a claimed job is
   // effectively running (the status flips a moment later), so ask the worker to abort.
   const job = await db.evaluationJob.findUnique({ where: { submissionId: id }, select: { lockedAt: true } });
@@ -182,7 +182,7 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
       db.submission.update({ where: { id }, data: { status: "COMPLETED", version: sub.version - 1, completedAt: new Date() } }),
       db.evaluationJob.update({ where: { submissionId: id }, data: { lockedAt: null, lockedBy: null, cancelRequestedAt: null } }),
     ]);
-    await recordRevision({ submissionId: id, kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} cancelled before evaluation — v${sub.version - 1} score kept`, by: (await auth())?.user?.id });
+    await recordRevision({ submissionId: id, kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} cancelled before evaluation; v${sub.version - 1} score kept`, by: (await auth())?.user?.id });
     revalidatePath("/submissions");
     revalidatePath(`/submissions/${id}`);
     return { ok: true, immediate: true };
@@ -233,12 +233,12 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
   if (sub.status === "QUEUED" || sub.status === "RUNNING") return { ok: false, error: "An evaluation is already in progress for this submission." };
   if (sub.contestId) {
     const contest = await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, endsAt: true } });
-    if (!contest || contest.status !== "OPEN" || contest.endsAt < new Date()) return { ok: false, error: "This contest has closed — its entries are frozen. Submit a new (non-contest) submission instead." };
+    if (!contest || contest.status !== "OPEN" || contest.endsAt < new Date()) return { ok: false, error: "This contest has closed; its entries are frozen. Submit a new (non-contest) submission instead." };
   }
   const perDay = (await getEvalSettings()).submissionsPerDay;
   if (session.user.role !== "ADMIN" && perDay > 0) {
     const today = await db.scoreRevision.count({ where: { submission: { userId: sub.userId }, kind: { in: ["resubmission"] }, createdAt: { gt: new Date(Date.now() - 24 * 3600_000) } } }) + (await db.submission.count({ where: { userId: sub.userId, submittedAt: { gt: new Date(Date.now() - 24 * 3600_000) } } }));
-    if (today >= perDay) return { ok: false, error: `Daily limit of ${perDay} full evaluations reached — try again tomorrow, or use "Test your package first" (free).` };
+    if (today >= perDay) return { ok: false, error: `Daily limit of ${perDay} full evaluations reached. Try again tomorrow, or use "Test your package first" (free).` };
   }
 
   let bytes: Buffer;
@@ -275,7 +275,7 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
     db.submission.update({ where: { id }, data: { version, fileKey: key, fileName, fileSize: bytes.length, runtime: runtimeOf(check.modelFile), status: "QUEUED", failureMessage: null, completedAt: null } }),
     db.evaluationJob.upsert({ where: { submissionId: id }, create: { submissionId: id }, update: { attempts: 0, lockedAt: null, lockedBy: null, log: "", cancelRequestedAt: null } }),
   ]);
-  await recordRevision({ submissionId: id, kind: "resubmission", evaluatorVersion: "-", note: `v${version}: ${fileName} (${Math.round(bytes.length / 1024)} KB) uploaded — queued for evaluation`, by: session.user.id });
+  await recordRevision({ submissionId: id, kind: "resubmission", evaluatorVersion: "-", note: `v${version}: ${fileName} (${Math.round(bytes.length / 1024)} KB) uploaded, queued for evaluation`, by: session.user.id });
   logEvent("submission.resubmitted", { id, seq: sub.seq, version, userId: session.user.id, fileKB: Math.round(bytes.length / 1024) });
   revalidatePath("/leaderboard");
   revalidatePath("/submissions");
@@ -285,7 +285,7 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
 
 export async function deleteSubmissionAction(id: string) {
   const { sub, session } = await ownedSubmission(id);
-  if (sub.status === "RUNNING") throw new Error("Cannot delete a submission while it is being evaluated — cancel it first");
+  if (sub.status === "RUNNING") throw new Error("Cannot delete a submission while it is being evaluated; cancel it first");
   const [owner, result, actor] = await Promise.all([
     db.user.findUnique({ where: { id: sub.userId }, select: { name: true, email: true, affiliation: true } }),
     db.evaluationResult.findUnique({ where: { submissionId: id }, select: { weightedError: true, tracesKey: true } }),
@@ -343,22 +343,22 @@ export async function notifyCollaboratorsAction(id: string): Promise<{ ok: true;
   }
   logEvent("collaborators.invited", { submissionId: id, sent, pending: pending.length });
   revalidatePath(`/submissions/${id}`);
-  return sent ? { ok: true, sent } : { ok: false, error: "E-mails could not be sent — check the mail settings." };
+  return sent ? { ok: true, sent } : { ok: false, error: "E-mails could not be sent; check the mail settings." };
 }
 
 /** Re-send the invitation e-mail to one invited-but-unanswered collaborator (owner/admin; at most once per 12 h per person). */
 export async function resendInviteAction(id: string, userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const { sub, session } = await ownedSubmission(id);
   const c = await db.submissionCollaborator.findUnique({ where: { submissionId_userId: { submissionId: id, userId } }, include: { user: { select: { email: true, name: true } } } });
-  if (!c || !c.notifiedAt) return { ok: false, error: "This person has not been invited yet — use Send invitations." };
+  if (!c || !c.notifiedAt) return { ok: false, error: "This person has not been invited yet; use Send invitations." };
   if (c.acceptedAt) return { ok: false, error: "Already accepted." };
   const rl = await rateLimit(`invite:${id}:${userId}`, 1, 12 * 60 * 60_000);
-  if (!rl.ok) return { ok: false, error: `An invitation was sent recently — you can resend in ${retryText(rl.retryAfterSec)}.` };
+  if (!rl.ok) return { ok: false, error: `An invitation was sent recently; you can resend in ${retryText(rl.retryAfterSec)}.` };
   const token = c.inviteToken ?? randomBytes(24).toString("base64url");
   const owner = await db.user.findUnique({ where: { id: sub.userId }, select: { email: true } });
   if (!c.user) return { ok: false, error: "That co-author has no account to invite." };
   const sent = await collaboratorInviteEmail(c.user.email, c.user.name, session.user.name, sub.modelName, sub.id, sub.status === "COMPLETED", token, owner?.email);
-  if (!sent) return { ok: false, error: "The e-mail could not be sent — check the mail settings." };
+  if (!sent) return { ok: false, error: "The e-mail could not be sent; check the mail settings." };
   await db.submissionCollaborator.update({ where: { submissionId_userId: { submissionId: id, userId } }, data: { notifiedAt: new Date(), inviteToken: token } });
   logEvent("collaborator.invite_resent", { submissionId: id, userId });
   return { ok: true };
@@ -373,7 +373,7 @@ export async function respondToInviteAction(input: { submissionId: string } | { 
       : session?.user
         ? await db.submissionCollaborator.findUnique({ where: { submissionId_userId: { submissionId: input.submissionId, userId: session.user.id } }, include: { user: true, submission: { include: { user: true } } } })
         : null;
-  if (!row || !row.user || !row.userId) return { ok: false, error: "This invitation is no longer valid — it may have been withdrawn or already answered." };
+  if (!row || !row.user || !row.userId) return { ok: false, error: "This invitation is no longer valid; it may have been withdrawn or already answered." };
   // Only the invited person may answer — the owner is CC'd on the e-mail and must not be able to accept on their behalf.
   if (!session?.user) return { ok: false, error: "Sign in as the invited person to respond." };
   if (session.user.id !== row.userId) return { ok: false, error: `This invitation is addressed to ${row.user.name}, not to your account.` };
