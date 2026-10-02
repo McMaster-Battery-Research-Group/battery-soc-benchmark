@@ -119,15 +119,16 @@ const toDockerPath = (p: string) => path.resolve(p).replace(/\\/g, "/");
  * long-lived *identity token* obtained by the one-time interactive login (socbench-internal/docs/drac-migration.md →
  * "MATLAB on the VM"): { identity_token, source_id, entitlement_id }. Before each MATLAB
  * evaluation the worker exchanges it for a short-lived (24 h, "MWAS") *access token* — the same
- * call matlab-proxy makes — and passes only that into the container as MLM_WEB_USER_CRED. The
- * identity token never enters the sandbox, so a malicious submission can at most read a token
- * that expires within a day and only licenses MATLAB.
+ * call matlab-proxy makes. This returns the MLM_WEB_* vars, which the caller sends to the
+ * evaluator over stdin; the evaluator injects them only into the matlab child's environment (as
+ * matlab-proxy does), never via `docker run -e`. So the token is NOT in PID 1's /proc/1/environ,
+ * and the identity token never enters the sandbox at all — a malicious submission can read neither.
  */
 type Mhlm = { identity_token: string; source_id: string; entitlement_id: string };
 let mhlmCache: { token: string; expiresAt: number } | null = null;
-export async function mhlmLicenseEnv(log?: (l: string) => Promise<void> | void): Promise<string[]> {
+export async function mhlmLicenseEnv(log?: (l: string) => Promise<void> | void): Promise<Record<string, string>> {
   const file = process.env.EVAL_MATLAB_MHLM_FILE;
-  if (!file) return [];
+  if (!file) return {};
   if (!mhlmCache || Date.now() > mhlmCache.expiresAt) {
     let cfg: Mhlm;
     try {
@@ -150,10 +151,10 @@ export async function mhlmLicenseEnv(log?: (l: string) => Promise<void> | void):
     // MWAS tokens last 24 h; refresh well before that so a long evaluation never starts with a stale one
     mhlmCache = { token: data.accessTokenString, expiresAt: Date.now() + 12 * 3600_000 };
     await log?.(`[eval] MATLAB licence: online licensing access token obtained (entitlement ${cfg.entitlement_id})`);
-    return ["-e", "MLM_WEB_LICENSE=true", "-e", `MLM_WEB_USER_CRED=${mhlmCache.token}`, "-e", `MLM_WEB_ID=${cfg.entitlement_id}`, "-e", "MHLM_CONTEXT=MATLAB_JAVASCRIPT_DESKTOP"];
+    return { MLM_WEB_LICENSE: "true", MLM_WEB_USER_CRED: mhlmCache.token, MLM_WEB_ID: cfg.entitlement_id, MHLM_CONTEXT: "MATLAB_JAVASCRIPT_DESKTOP" };
   }
   const cfg = JSON.parse(await readFile(file, "utf8")) as Mhlm;
-  return ["-e", "MLM_WEB_LICENSE=true", "-e", `MLM_WEB_USER_CRED=${mhlmCache.token}`, "-e", `MLM_WEB_ID=${cfg.entitlement_id}`, "-e", "MHLM_CONTEXT=MATLAB_JAVASCRIPT_DESKTOP"];
+  return { MLM_WEB_LICENSE: "true", MLM_WEB_USER_CRED: mhlmCache.token, MLM_WEB_ID: cfg.entitlement_id, MHLM_CONTEXT: "MATLAB_JAVASCRIPT_DESKTOP" };
 }
 
 function packageRuntime(filePath: string): "python" | "matlab" | "unknown" {
@@ -209,6 +210,15 @@ export class PythonEvaluator implements Evaluator {
     let args: string[];
     let env: Record<string, string>;
     let container: string | undefined;
+    // MATLAB licence vars (incl. the MathWorks token). Handed to the evaluator over STDIN and
+    // injected only into the `matlab` child's environment — never via `docker run -e`, so the token
+    // is absent from PID 1's /proc/1/environ where an untrusted Model.m could read it.
+    let matlabLicenseEnv: Record<string, string> = {};
+    if (runtime === "matlab") {
+      matlabLicenseEnv = process.env.EVAL_MATLAB_LICENSE
+        ? { MLM_LICENSE_FILE: process.env.EVAL_MATLAB_LICENSE }
+        : await mhlmLicenseEnv(input.log);
+    }
     if (useDocker) {
       container = `socbench-${input.submissionId.slice(-8)}-${Date.now().toString(36)}`;
       await chmod(outDir, 0o777).catch(() => {}); // the container user (uid 1000) must be able to write results here
@@ -237,9 +247,7 @@ export class PythonEvaluator implements Evaluator {
         ...(data && !dry ? ["-v", `${toDockerPath(data)}:/data/blind_data.mat:ro`] : []),
         ...["SOCBENCH_CAL_PYTHON", "SOCBENCH_CAL_MATLAB"].flatMap((k) => (process.env[k] ? ["-e", `${k}=${process.env[k]}`] : [])),
         "-e", `SOCBENCH_TIMEOUT_MIN=${timeoutMin}`, // the evaluator's inner limit matches the container kill timer
-        "-i", // keep stdin open so we can hand the evaluator the result nonce (NOT via env/argv — see below)
-        ...(runtime === "matlab" && process.env.EVAL_MATLAB_LICENSE ? ["-e", `MLM_LICENSE_FILE=${process.env.EVAL_MATLAB_LICENSE}`] : []),
-        ...(runtime === "matlab" && !process.env.EVAL_MATLAB_LICENSE ? await mhlmLicenseEnv(input.log) : []),
+        "-i", // keep stdin open so we can hand the evaluator the nonce + MATLAB licence (NOT via env/argv — see below)
         image,
         "/in/package.zip", "/out", ...(data && !dry ? ["--data", "/data/blind_data.mat"] : []), ...(dry ? ["--dry-run"] : []),
       ];
@@ -272,12 +280,14 @@ export class PythonEvaluator implements Evaluator {
           windowsHide: true,
           detached: process.platform !== "win32", // own process group on POSIX so killTree can take MATLAB with it
         });
-        // Hand the evaluator the anti-forgery nonce on stdin (never env/argv, so no process in the
-        // container can read it from /proc/1/environ or /proc/1/cmdline), then close stdin.
+        // Hand the evaluator the anti-forgery nonce and the MATLAB licence vars on stdin as one JSON
+        // line (never env/argv, so no process in the container can read them from /proc/1/environ or
+        // /proc/1/cmdline), then close stdin. The evaluator injects the licence vars only into the
+        // matlab child's env; the token is never in PID 1's environment.
         try {
-          child.stdin?.write(resultNonce + "\n");
+          child.stdin?.write(JSON.stringify({ nonce: resultNonce, matlabLicenseEnv }) + "\n");
           child.stdin?.end();
-        } catch { /* a closed stdin just means no nonce — the result is then rejected below */ }
+        } catch { /* a closed stdin just means no secrets — the result is then rejected below */ }
         const timer = setTimeout(() => {
           killTree(child, container);
           reject(new EvaluationError(`Evaluation exceeded the ${timeoutMs / 60_000} minute limit.`, true));

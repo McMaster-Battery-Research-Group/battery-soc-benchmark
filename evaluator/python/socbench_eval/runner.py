@@ -177,12 +177,17 @@ def _toolbox_hint(err: str) -> str:
 class MatlabBackend(Backend):
     name = "matlab"
 
-    def __init__(self, pkg_dir: Path, matlab_bin: str | None = None, timeout_min: float = 360):
+    def __init__(self, pkg_dir: Path, matlab_bin: str | None = None, timeout_min: float = 360, license_env: dict[str, str] | None = None):
         if not ((pkg_dir / "Model.m").is_file() or (pkg_dir / "Model.p").is_file()):
             raise ModelError("Model.m or Model.p not found at the top level of the package.")
         self.pkg_dir = pkg_dir
         self.matlab = matlab_bin or os.environ.get("MATLAB_BIN", "matlab")
         self.timeout = timeout_min * 60
+        # MATLAB online-licensing vars (MLM_WEB_*). They are injected ONLY into the matlab child's
+        # environment here — never into os.environ — so the untrusted model cannot read the
+        # MathWorks token from /proc/1/environ. This mirrors matlab-proxy, which hands the same
+        # vars to MATLAB via the subprocess env and nowhere else.
+        self.license_env = license_env or {}
         # matlab/Run_Model.m: next to the repo checkout, or wherever the sandbox image put it
         self.script_dir = Path(os.environ.get("SOCBENCH_MATLAB_SCRIPTS") or (Path(__file__).resolve().parents[3] / "matlab"))
 
@@ -194,7 +199,12 @@ class MatlabBackend(Backend):
                 cell[i] = j.X
             savemat(inp, {"X": cell}, do_compression=False)
             q = lambda p: str(p).replace("\\", "/").replace("'", "''")  # noqa: E731
-            cmd = f"addpath('{q(self.script_dir)}'); Run_Model('{q(self.pkg_dir)}','{q(inp)}','{q(outp)}')"
+            # Defense-in-depth: by the time -batch runs, licence activation is already done at MATLAB
+            # startup, so clear the licence vars from MATLAB's own environment before any user code
+            # (Run_Model -> Model) can getenv() them. The load-bearing control is still that these
+            # vars are only in the matlab child's env, never in os.environ / PID 1 (see child_env).
+            scrub = "".join(f"setenv('{k}','');" for k in self.license_env)
+            cmd = f"{scrub}addpath('{q(self.script_dir)}'); Run_Model('{q(self.pkg_dir)}','{q(inp)}','{q(outp)}')"
             log(f"matlab -batch (1 session, {len(jobs)} input matrices)")
             # Stream MATLAB's output as it happens so the site can show live progress:
             # Run_Model.m prints "[Run_Model] k/n done ..." after every input matrix, which we
@@ -217,8 +227,10 @@ class MatlabBackend(Backend):
                 else:
                     log(line)
 
+            # MATLAB child env = this process's env plus the licence vars (which are NOT in our env).
+            matlab_env = {**os.environ, **self.license_env}
             try:
-                proc = subprocess.Popen([self.matlab, "-batch", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, encoding="utf-8", errors="replace")
+                proc = subprocess.Popen([self.matlab, "-batch", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, encoding="utf-8", errors="replace", env=matlab_env)
             except FileNotFoundError as e:
                 raise ModelError(f"Could not start MATLAB ({e}). Set MATLAB_BIN.") from e
             deadline = time.monotonic() + self.timeout

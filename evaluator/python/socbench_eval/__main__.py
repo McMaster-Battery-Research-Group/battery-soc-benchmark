@@ -80,17 +80,30 @@ def main(argv=None) -> None:
     ap.add_argument("--dry-run", action="store_true", help="validate + one OPEN-data cycle; no blinded data, no scores")
     args = ap.parse_args(argv)
 
-    # Anti-forgery nonce: the worker passes a secret per-run value and trusts a results.json
-    # only if it carries it back. It arrives on STDIN (not env or argv) so no process in the
-    # container — not even one reading /proc/1/environ or /proc/1/cmdline — can recover it; the
-    # submitted model also runs in a separate child process (see runner.PythonBackend). We read
-    # and discard it here, before anything else. See src/evaluator/python-evaluator.ts.
+    # Secrets arrive on STDIN (not env or argv) so no process in the container — not even one
+    # reading /proc/1/environ or /proc/1/cmdline — can recover them. One JSON line:
+    #   {"nonce": "...", "matlabLicenseEnv": {"MLM_WEB_USER_CRED": "...", ...}}
+    #   - nonce: the anti-forgery token stamped into results.json (see parseResultsJson in the
+    #     worker). The submitted Python model also runs in a separate child (runner.PythonBackend).
+    #   - matlabLicenseEnv: the MATLAB online-licensing vars. We keep them in this local ONLY and
+    #     inject them into the `matlab -batch` child's environment (as matlab-proxy does) — they are
+    #     never placed in os.environ, so an untrusted Model.m cannot read the MathWorks token from
+    #     /proc/1/environ. See src/evaluator/python-evaluator.ts.
     result_nonce = ""
+    matlab_license_env: dict[str, str] = {}
     try:
         if not sys.stdin.isatty():
-            result_nonce = (sys.stdin.readline() or "").strip()
+            line = (sys.stdin.readline() or "").strip()
+            if line.startswith("{"):
+                payload = json.loads(line)
+                result_nonce = str(payload.get("nonce", ""))
+                mle = payload.get("matlabLicenseEnv") or {}
+                matlab_license_env = {str(k): str(v) for k, v in mle.items()}
+            else:
+                result_nonce = line  # backward-compatible: a bare nonce line
     except Exception:
         result_nonce = ""
+        matlab_license_env = {}
 
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -120,7 +133,7 @@ def main(argv=None) -> None:
 
         log(f"runtime: {runtime}")
         try:
-            backend = PythonBackend(work) if runtime == "python" else MatlabBackend(work, args.matlab, args.timeout_min)
+            backend = PythonBackend(work) if runtime == "python" else MatlabBackend(work, args.matlab, args.timeout_min, matlab_license_env)
         except ModelError as e:
             fail(out, "FORMAT", str(e))
 
