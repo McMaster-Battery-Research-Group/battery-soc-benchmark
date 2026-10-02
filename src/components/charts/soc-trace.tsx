@@ -248,11 +248,19 @@ export function SocTrace({
 
   if (!ref) return null;
 
+  // A blinded cell (m448) ships only the error curve — its true SOC is the answer key, so there is
+  // no actual/estimated line to draw, only the error plot.
+  const blinded = !!ref.blinded;
   const data = ref.t.map((t, i) => {
-    const row: Record<string, number> = { i, t, actual: ref.actual[i] };
+    const row: Record<string, number> = { i, t };
+    if (!blinded && ref.actual) row.actual = ref.actual[i];
     traces.forEach((tr, k) => {
-      row[`est${k}`] = tr.estimated[i];
-      row[`err${k}`] = tr.estimated[i] - tr.actual[i];
+      if (tr.blinded) {
+        row[`err${k}`] = tr.error?.[i] ?? 0;
+      } else if (tr.estimated && tr.actual) {
+        row[`est${k}`] = tr.estimated[i];
+        row[`err${k}`] = tr.estimated[i] - tr.actual[i];
+      }
     });
     return row;
   });
@@ -270,14 +278,17 @@ export function SocTrace({
   });
   const errMax = Math.max(0.5, ...stats.map((s) => s.maxAbs)) * 1.15;
   const errDomain: [number, number] = yZoom.err ?? (errScale === "fixed" ? [-20, 20] : [-round2(errMax), round2(errMax)]);
-  const socMin = Math.min(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
-  const socMax = Math.max(...view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]));
+  const socVals = blinded ? [] : view.flatMap((r) => [r.actual, ...traces.map((_, k) => r[`est${k}`])]).filter((v) => Number.isFinite(v));
+  const socMin = socVals.length ? Math.min(...socVals) : 0;
+  const socMax = socVals.length ? Math.max(...socVals) : 100;
   // Fit = data extent with 2 % padding, then expanded to the nearest "nice" tick (1-2-5 steps, as MATLAB does), so labels are round.
   const socDomain: [number, number] = yZoom.soc ?? (fitSoc ? niceDomain(Math.max(0, socMin - 2), Math.min(100, socMax + 2)) : [0, 100]);
   const socTicks = niceTicks(socDomain[0], socDomain[1]);
   const errTicks = niceTicks(errDomain[0], errDomain[1]);
   domainsRef.current = { soc: socDomain, err: errDomain };
-  const legend = [{ label: "Actual SOC", color: CHART.actual }, ...traces.map((_, k) => ({ label: names[k] ?? `Model ${k + 1}`, color: color(k) }))];
+  const legend = blinded
+    ? traces.map((_, k) => ({ label: `${names[k] ?? `Model ${k + 1}`} error`, color: color(k) }))
+    : [{ label: "Actual SOC", color: CHART.actual }, ...traces.map((_, k) => ({ label: names[k] ?? `Model ${k + 1}`, color: color(k) }))];
   const tFmt = (v: number) => `${Number(v).toFixed(view.length < 60 ? 2 : 1)}h`;
   const cursor = mode === "pan" ? "cursor-grab active:cursor-grabbing" : mode === "x" ? "cursor-ew-resize" : mode === "y" ? "cursor-ns-resize" : "cursor-crosshair";
 
@@ -384,7 +395,13 @@ export function SocTrace({
         </div>
 
         <div ref={wrapRef}>
-          {/* SOC */}
+          {blinded ? (
+            <p className="mb-2 px-1 text-xs text-grey-600">
+              This is the blinded cell — its reference SOC is never released, so only the estimation <em>error</em> is shown.
+            </p>
+          ) : null}
+          {/* SOC — hidden for the blinded cell (no reference to plot against) */}
+          {blinded ? null : (
           <div onWheel={onWheel("soc")} {...pointerHandlers("soc")} className={cn("relative select-none touch-none", cursor)}>
             {selBox("soc")}
             <ResponsiveContainer width="100%" height={PLOT.soc.height}>
@@ -400,6 +417,7 @@ export function SocTrace({
               </LineChart>
             </ResponsiveContainer>
           </div>
+          )}
 
           {/* Error */}
           <div onWheel={onWheel("err")} {...pointerHandlers("err")} className={cn("relative select-none touch-none", cursor)}>

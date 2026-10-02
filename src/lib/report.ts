@@ -205,13 +205,14 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
 
     // ---------- page 3: time-domain traces
     doc.addPage();
-    sectionTitle(doc, "Time-domain results", "Estimated vs. reference SOC on representative blinded cycles (down-sampled). One hour of padding precedes every cycle and is excluded from the metrics.", X0, 48);
+    sectionTitle(doc, "Time-domain results", "Estimated vs. reference SOC on representative cycles (down-sampled). For the blinded cell (m448) the reference SOC is never released, so its panel shows the estimation error instead. One hour of padding precedes every cycle and is excluded from the metrics.", X0, 48);
     // shared legend
     {
       const ly = doc.y + 4;
       doc.fontSize(7);
       doc.rect(X0, ly + 3, 10, 1.6).fill(INK).fillColor(GREY).text("Reference SOC", X0 + 14, ly, { lineBreak: false });
       doc.rect(X0 + 80, ly + 3, 10, 1.6).fill(SERIES[0]).fillColor(GREY).text("Estimated SOC", X0 + 94, ly, { lineBreak: false });
+      doc.fillColor(GREY).text("(blinded cell: estimation error only)", X0 + 170, ly, { lineBreak: false });
       doc.y = ly + 10;
     }
     y = doc.y + 8;
@@ -322,26 +323,45 @@ function barChart(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: n
 
 function lineChart(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, tr: TimeSeriesTrace) {
   const padL = 30, padB = 16, padT = 16;
-  const rmse = Math.sqrt(tr.estimated.reduce((a, e, i) => a + (e - tr.actual[i]) ** 2, 0) / tr.estimated.length);
+  // A blinded cell (m448) ships only the error curve — its true SOC is the answer key, so the report
+  // plots error (estimated − actual) against a signed axis instead of the actual/estimated lines.
+  const blinded = !!tr.blinded;
+  const err = blinded ? (tr.error ?? []) : (tr.estimated ?? []).map((e, i) => e - (tr.actual?.[i] ?? 0));
+  const rmse = err.length ? Math.sqrt(err.reduce((a, e) => a + e * e, 0) / err.length) : 0;
   // Title row: label on the left, RMSE on the right. The legend is shared (section subtitle).
   doc.fillColor(INK).font("Helvetica-Bold").fontSize(8.5).text(tr.label, x, y, { width: w - 66, height: 12, lineBreak: false, ellipsis: true });
   doc.fillColor(GREY).font("Helvetica").fontSize(7).text(`RMSE ${rmse.toFixed(2)} %`, x + w - 60, y + 1, { width: 60, align: "right" });
   const py = y + padT, plotH = h - padT - padB, plotW = w - padL;
   const tMax = tr.t[tr.t.length - 1] || 1;
-  for (let i = 0; i <= 4; i++) {
-    const gy = py + plotH - (plotH * i) / 4;
-    doc.moveTo(x + padL, gy).lineTo(x + w, gy).lineWidth(0.4).strokeColor("#E8EAEB").stroke();
-    doc.fillColor(GREY).fontSize(6.5).text(`${i * 25}%`, x, gy - 3.5, { width: padL - 4, align: "right" });
-  }
   const px = (t: number) => x + padL + (t / tMax) * plotW;
-  const pyv = (v: number) => py + plotH - (Math.max(0, Math.min(100, v)) / 100) * plotH;
-  const draw = (vals: number[], color: string, width: number) => {
-    doc.moveTo(px(tr.t[0]), pyv(vals[0]));
-    for (let i = 1; i < vals.length; i++) doc.lineTo(px(tr.t[i]), pyv(vals[i]));
-    doc.lineWidth(width).strokeColor(color).stroke();
-  };
-  draw(tr.actual, INK, 1.1);
-  draw(tr.estimated, SERIES[0], 0.9);
+  if (blinded) {
+    // signed error axis, auto-scaled and symmetric around zero
+    const m = Math.max(0.5, ...err.map((e) => Math.abs(e))) * 1.15;
+    for (let i = 0; i <= 4; i++) {
+      const gy = py + (plotH * i) / 4;
+      const v = m - (2 * m * i) / 4;
+      doc.moveTo(x + padL, gy).lineTo(x + w, gy).lineWidth(0.4).strokeColor(v === 0 ? "#C9CDCF" : "#E8EAEB").stroke();
+      doc.fillColor(GREY).fontSize(6.5).text(`${v >= 0 ? "+" : ""}${v.toFixed(1)}%`, x, gy - 3.5, { width: padL - 4, align: "right" });
+    }
+    const pye = (v: number) => py + plotH / 2 - (Math.max(-m, Math.min(m, v)) / m) * (plotH / 2);
+    doc.moveTo(px(tr.t[0]), pye(err[0] ?? 0));
+    for (let i = 1; i < err.length; i++) doc.lineTo(px(tr.t[i]), pye(err[i]));
+    doc.lineWidth(1).strokeColor(SERIES[0]).stroke();
+  } else {
+    const pyv = (v: number) => py + plotH - (Math.max(0, Math.min(100, v)) / 100) * plotH;
+    for (let i = 0; i <= 4; i++) {
+      const gy = py + plotH - (plotH * i) / 4;
+      doc.moveTo(x + padL, gy).lineTo(x + w, gy).lineWidth(0.4).strokeColor("#E8EAEB").stroke();
+      doc.fillColor(GREY).fontSize(6.5).text(`${i * 25}%`, x, gy - 3.5, { width: padL - 4, align: "right" });
+    }
+    const draw = (vals: number[], color: string, width: number) => {
+      doc.moveTo(px(tr.t[0]), pyv(vals[0]));
+      for (let i = 1; i < vals.length; i++) doc.lineTo(px(tr.t[i]), pyv(vals[i]));
+      doc.lineWidth(width).strokeColor(color).stroke();
+    };
+    draw(tr.actual ?? [], INK, 1.1);
+    draw(tr.estimated ?? [], SERIES[0], 0.9);
+  }
   doc.fillColor(GREY).fontSize(6.5).text("0h", x + padL, py + plotH + 4).text(`${tMax.toFixed(1)}h`, x + w - 30, py + plotH + 4, { width: 30, align: "right" });
   void G; void SOFT;
 }

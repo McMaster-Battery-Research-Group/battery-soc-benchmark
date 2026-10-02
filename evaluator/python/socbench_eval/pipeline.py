@@ -14,7 +14,7 @@ from typing import Callable
 
 import numpy as np
 
-from .data import CELL_KEYS, CELL_LABELS, BlindData, Cycle, family
+from .data import BLINDED_CELLS, CELL_KEYS, CELL_LABELS, BlindData, Cycle, family
 from .runner import PAD_SAMPLES, Backend, Job, Prediction, build_input
 
 WEIGHTS = np.array([0, 1 / 10, 1 / 10, 1 / 10, 1 / 30, 2 / 30, 2 / 30, 1 / 30, 1 / 10, 1 / 10, 1 / 60, 1 / 60, 1 / 60, 1 / 60, 1 / 60, 1 / 60, 1 / 10, 1 / 10])
@@ -233,15 +233,24 @@ def display_indices(actual: np.ndarray, pred: np.ndarray, points: int = 240) -> 
     return np.unique(np.array(keep, dtype=int))
 
 
-def _trace(key: str, label: str, cell: str, cycle: str, temp_c: float, actual: np.ndarray, pred: np.ndarray, group: str, note: str = "") -> dict:
-    """Down-sampled SOC trace for the site (~240 points, peak-preserving — see display_indices)."""
+def _trace(key: str, label: str, cell: str, cycle: str, temp_c: float, actual: np.ndarray, pred: np.ndarray, group: str, note: str = "", blinded: bool = False) -> dict:
+    """Down-sampled SOC trace for the site (~240 points, peak-preserving — see display_indices).
+
+    A blinded cell's true SOC is the answer key, so a blinded trace carries ONLY the error curve
+    (estimated − actual) — never actual or estimated, which together would reconstruct actual.
+    """
     idx = display_indices(actual, pred)
-    return {
+    t = {
         "key": key, "label": label, "cell": cell, "cycle": cycle, "temperatureC": temp_c, "group": group, "note": note,
         "t": [round(float(i) / 3600, 3) for i in idx],
-        "actual": [round(float(100 * actual[i]), 2) for i in idx],
-        "estimated": [round(float(100 * pred[i]), 2) for i in idx],
     }
+    if blinded:
+        t["blinded"] = True
+        t["error"] = [round(float(100 * (pred[i] - actual[i])), 2) for i in idx]
+    else:
+        t["actual"] = [round(float(100 * actual[i]), 2) for i in idx]
+        t["estimated"] = [round(float(100 * pred[i]), 2) for i in idx]
+    return t
 
 
 def robustness_traces(data: BlindData, preds: dict[str, Prediction]) -> list[dict]:
@@ -279,15 +288,11 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
             if not r.is_charge:
                 rows.append({"cell": label, "cycle": base, "temperatureC": r.temp_c, "rmse": round(r.rmse, 3), "mae": round(r.mae, 3), "maxErr": round(r.maxe, 3), "durationH": round(len(r.actual) / 3600, 2)})
             if (k, base, int(r.temp_c)) in TRACES:
-                idx = display_indices(r.actual, r.pred)
-                traces.append({
-                    "key": f"{label}-{base}-{int(r.temp_c)}", "label": f"{label} {base} at {int(r.temp_c)} °C",
-                    "cell": label, "cycle": base, "temperatureC": r.temp_c,
-                    "group": "cycle", "note": CYCLE_NOTES.get((k, base, int(r.temp_c)), ""),
-                    "t": [round(float(i) / 3600, 3) for i in idx],
-                    "actual": [round(float(100 * r.actual[i]), 2) for i in idx],
-                    "estimated": [round(float(100 * r.pred[i]), 2) for i in idx],
-                })
+                traces.append(_trace(
+                    f"{label}-{base}-{int(r.temp_c)}", f"{label} {base} at {int(r.temp_c)} °C",
+                    label, base, r.temp_c, r.actual, r.pred, "cycle",
+                    CYCLE_NOTES.get((k, base, int(r.temp_c)), ""), blinded=k in BLINDED_CELLS,
+                ))
     # the model's own worst case: whichever cycle produced the largest instantaneous error gets a trace,
     # so the headline max error is always visible in a plot (the fixed TRACES set rarely contains it)
     test_rows = [r for k in CELL_KEYS for r in per_cell[k]]
@@ -297,12 +302,12 @@ def per_cycle_rows(per_cell: dict[str, list[CycleResult]]) -> tuple[list[dict], 
         label = CELL_LABELS[w.cell]
         if (w.cell, base, int(w.temp_c)) not in TRACES:
             traces.append(_trace(f"worst-{label}-{base}-{int(w.temp_c)}", f"Worst case — {label} {base} at {int(w.temp_c)} °C", label, base, w.temp_c, w.actual, w.pred, "cycle",
-                                 f"The cycle where this model made its largest instantaneous error ({w.maxe:.1f} % SOC) — the \"max error\" number on the scorecard comes from here."))
+                                 f"The cycle where this model made its largest instantaneous error ({w.maxe:.1f} % SOC) — the \"max error\" number on the scorecard comes from here.", blinded=w.cell in BLINDED_CELLS))
     for r in per_cell.get("_charge", []):  # charge cycles: traced when listed (test 4 plot), never in the per-cycle table
         base = family(r.name)
         if (r.cell, base, int(r.temp_c)) in TRACES:
             label = CELL_LABELS[r.cell]
-            traces.append(_trace(f"{label}-{base}-{int(r.temp_c)}", f"{label} {base} at {int(r.temp_c)} °C", label, base, r.temp_c, r.actual, r.pred, "cycle", CYCLE_NOTES.get((r.cell, base, int(r.temp_c)), "")))
+            traces.append(_trace(f"{label}-{base}-{int(r.temp_c)}", f"{label} {base} at {int(r.temp_c)} °C", label, base, r.temp_c, r.actual, r.pred, "cycle", CYCLE_NOTES.get((r.cell, base, int(r.temp_c)), ""), blinded=r.cell in BLINDED_CELLS))
     return rows, traces
 
 
@@ -315,14 +320,20 @@ def write_full_traces(out_dir, data: BlindData, preds: dict[str, Prediction], pe
     (0.01 % SOC resolution; ~6 MB per evaluation vs ~20 MB as float32). Returns bytes written."""
     from scipy.io import savemat
     names, cells, cycles, temps, groups, act, est = [], [], [], [], [], [], []
-    def add(name, cell, cycle, temp, group, a, p):
-        names.append(name); cells.append(cell); cycles.append(cycle); temps.append(float(temp)); groups.append(group)
-        act.append(np.clip(np.round(10000 * a), -32768, 32767).astype(np.int16).reshape(-1, 1)); est.append(np.clip(np.round(10000 * p), -32768, 32767).astype(np.int16).reshape(-1, 1))
+    def i16(a):
+        return np.clip(np.round(10000 * a), -32768, 32767).astype(np.int16).reshape(-1, 1)
+    def add(name, cell_key, cycle, temp, group, a, p):
+        # The true SOC of a blinded cell is the benchmark's answer key: never export it. The
+        # model's own estimate (soc_est) is not secret and is kept, so the run is still listed.
+        actual = np.empty((0, 1), dtype=np.int16) if cell_key in BLINDED_CELLS else i16(a)
+        names.append(name); cells.append(CELL_LABELS.get(cell_key, cell_key)); cycles.append(cycle)
+        temps.append(float(temp)); groups.append(group)
+        act.append(actual); est.append(i16(p))
     for k in CELL_KEYS:
         for r in per_cell[k]:
-            add(f"{CELL_LABELS[k]} {r.name} {int(r.temp_c)}C", CELL_LABELS[k], r.name, r.temp_c, "cycle", r.actual, r.pred)
+            add(f"{CELL_LABELS[k]} {r.name} {int(r.temp_c)}C", k, r.name, r.temp_c, "cycle", r.actual, r.pred)
     for r in per_cell.get("_charge", []):
-        add(f"{CELL_LABELS[r.cell]} {r.name} {int(r.temp_c)}C", CELL_LABELS[r.cell], r.name, r.temp_c, "charge", r.actual, r.pred)
+        add(f"{CELL_LABELS[r.cell]} {r.name} {int(r.temp_c)}C", r.cell, r.name, r.temp_c, "charge", r.actual, r.pred)
     for b, (base, temp) in enumerate(ISOC_CYCLES):
         _, cyc = _find_cycle(data.cells["m80"], base, temp)
         for q, target in enumerate(ISOCS):
@@ -333,9 +344,11 @@ def write_full_traces(out_dir, data: BlindData, preds: dict[str, Prediction], pe
         for j, off in enumerate(OFFSETS):
             add(f"m1000 {base} {int(temp)}C offset {off:+.2f}A", "m1000", base, temp, "offset", cyc.SOC, preds[f"offset:{b}:{j}"].soc)
     obj = lambda xs: np.array(xs, dtype=object).reshape(-1, 1)  # noqa: E731 — cell arrays in MATLAB
+    blinded = ", ".join(sorted(CELL_LABELS.get(c, c) for c in BLINDED_CELLS))
     path = out_dir / "traces.mat"
     savemat(str(path), {
-        "readme": "Battery SOC Benchmark - every evaluation run at 1 Hz, padding removed. soc_actual / soc_est are int16 in hundredths of a percent: SOC_percent = double(x) / 100. Time is 0:numel(x)-1 seconds. group: cycle | charge | initialSoc | offset. Cell array index i matches name{i}, cell{i}, cycle{i}, tempC(i), group{i}.",
+        "readme": "Battery SOC Benchmark - every evaluation run at 1 Hz, padding removed. soc_actual / soc_est are int16 in hundredths of a percent: SOC_percent = double(x) / 100. Time is 0:numel(x)-1 seconds. group: cycle | charge | initialSoc | offset. Cell array index i matches name{i}, cell{i}, cycle{i}, tempC(i), group{i}. "
+                  f"soc_actual is EMPTY for the blinded cell ({blinded}) whose ground truth is never released; soc_est is provided for every run.",
         "name": obj(names), "cell": obj(cells), "cycle": obj(cycles), "tempC": np.array(temps, dtype=float).reshape(-1, 1), "group": obj(groups),
         "soc_actual": obj(act), "soc_est": obj(est),
     }, do_compression=True)

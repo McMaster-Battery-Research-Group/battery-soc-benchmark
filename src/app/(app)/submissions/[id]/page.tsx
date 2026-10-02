@@ -214,13 +214,13 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               <h2 className="font-heading font-semibold text-ink">Downloads</h2>
               <p className="text-sm text-grey-700">
                 PDF report (summary, every test case with the arithmetic, key plots, per-cycle table) · results as JSON ·{" "}
-                {r.tracesKey ? "full 1 Hz traces of all 195 runs as a MATLAB v7 file (0.01 % SOC steps; readable with scipy.io.loadmat, see the readme variable inside)" : "full-resolution traces are stored for evaluations from 2026-08-30 onward — submit a new version to get them"}.
+                {r.tracesKey && canSee ? "full 1 Hz traces of all 195 runs as a MATLAB v7 file (0.01 % SOC steps; readable with scipy.io.loadmat, see the readme variable inside; the blinded cell's reference SOC is withheld)" : "full-resolution traces are available to the submission's authors"}.
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> PDF report</a></Button>
               <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> JSON</a></Button>
-              {r.tracesKey ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/traces`} download><Download /> Traces (.mat)</a></Button> : null}
+              {r.tracesKey && canSee ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/traces`} download><Download /> Traces (.mat)</a></Button> : null}
             </div>
           </section>
         </div>

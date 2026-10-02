@@ -69,3 +69,6 @@ worker.log
 # OpenStack credentials (Arbutus RC file — holds project/user identity, prompts for the password)
 *openrc*.sh
 *-openrc*
+
+# Local-only pre-launch security testing (not for the public repo)
+security-tests/

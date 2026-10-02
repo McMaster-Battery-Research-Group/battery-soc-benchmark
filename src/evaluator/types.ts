@@ -20,11 +20,20 @@ export interface TimeSeriesTrace {
   group?: "cycle" | "initialSoc" | "offset";
   /** why this case is shown */
   note?: string;
+  /**
+   * True when this is a blinded cell (m448). Its ground-truth SOC is the benchmark's answer key, so
+   * a blinded trace ships ONLY `error` (estimated − actual) — never `actual` or `estimated`, which
+   * would let actual be reconstructed. Non-blinded traces ship `actual` + `estimated` as before.
+   */
+  blinded?: boolean;
   /** hours */
   t: number[];
-  /** % SOC */
-  actual: number[];
-  estimated: number[];
+  /** % SOC — present only on non-blinded traces */
+  actual?: number[];
+  /** % SOC — present only on non-blinded traces */
+  estimated?: number[];
+  /** % SOC error (estimated − actual) — present only on blinded traces */
+  error?: number[];
 }
 
 export interface EvaluationOutput extends MetricValues {

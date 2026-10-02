@@ -8,6 +8,9 @@ from scipy.io import loadmat
 
 CELL_KEYS = ["m80", "m448", "m448N", "m1000"]
 CELL_LABELS = {"m80": "m80", "m448": "m448", "m448N": "m448-N", "m1000": "m1000"}
+# Cells whose ground-truth SOC was never released — the benchmark's answer key. Their
+# true SOC must never leave the evaluator (e.g. it is stripped from the traces download).
+BLINDED_CELLS = {"m448"}
 INPUT_ORDER = ("I", "V", "T")  # column order the model receives: Current, Voltage, Temperature
 FAMILIES = ("UDDS", "HWFET", "LA92", "US06", "HWCUST", "HWGRADE", "REORDERED", "CC_CV_charge", "Other")
 

@@ -111,6 +111,19 @@ export function canViewSubmission(sub: { userId: string; isPrivate: boolean; isH
   return !sub.isPrivate && !sub.isHidden;
 }
 
+/**
+ * Who may download the full-resolution traces (.mat). Unlike the results PAGE, these are NOT
+ * public: the file carries every run at 1 Hz, and even with the blinded cell's answer key stripped
+ * it is a heavier export than a public leaderboard entry should hand to anonymous visitors. Limited
+ * to the owner, accepted collaborators (co-authors, who share the submission) and admins.
+ */
+export function canDownloadTraces(sub: { userId: string; collaborators?: { userId: string | null }[] }, viewer?: { id: string; role: string } | null) {
+  if (!viewer) return false;
+  if (viewer.role === "ADMIN") return true;
+  if (viewer.id === sub.userId) return true;
+  return !!sub.collaborators?.some((c) => c.userId === viewer.id);
+}
+
 export async function getSiteStats() {
   const [submissions, users, affiliations, best, contest] = await Promise.all([
     db.submission.count({ where: { status: "COMPLETED", isPrivate: false, isHidden: false } }),
