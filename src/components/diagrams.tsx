@@ -80,9 +80,10 @@ export function PipelineDiagram({ className }: { className?: string }) {
             </g>
           );
         })}
-        {/* blinded lock hint */}
-        <text x="390" y="140" textAnchor="middle" fontSize="11" fill={GREY} style={body}>The dashed line is what you never see: the blinded data stays inside the evaluator.</text>
-        <line x1="380" y1="20" x2="380" y2="126" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
+        {/* blinded-boundary line: flush to the left edge of the Blinded evaluator box (x=390) so it
+            marks where the blinded zone begins without crossing the Step 2→3 arrow (ends at x=388). */}
+        <line x1="390" y1="22" x2="390" y2="124" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
+        <text x="470" y="140" textAnchor="middle" fontSize="11" fill={GREY} style={body}>The dashed line is what you never see: the blinded data stays inside the evaluator.</text>
       </svg>
     </figure>
   );
