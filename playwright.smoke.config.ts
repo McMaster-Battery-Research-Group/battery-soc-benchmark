@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test";
  * Render smoke test: catches what tsc/eslint cannot — client-side crashes (missing context
  * providers, hydration failures), 5xx pages, "Application error" screens. Run with `npm run smoke`
  * (builds first) or let the pre-push hook do it when UI files changed. Uses the production build
- * and the production env (read-only page loads; nothing is submitted or mutated).
+ * against the local dev database in .env (read-only page loads; nothing is submitted or mutated).
  */
 export default defineConfig({
   testDir: "tests/smoke",

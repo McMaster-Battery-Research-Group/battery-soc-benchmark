@@ -1,6 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
-import { LOGOS } from "@/lib/logos";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
 import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
