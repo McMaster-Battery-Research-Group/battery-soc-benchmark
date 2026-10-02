@@ -10,6 +10,7 @@ export const ADMIN_NOTIFY_KINDS = [
   { key: "roles", label: "Administrator changes", desc: "Admin access is granted or revoked (sent to the person, all admins in CC)." },
   { key: "deletions", label: "Submission deletions", desc: "A submission is deleted, by its owner or by an administrator." },
   { key: "workers", label: "Worker outages", desc: "Evaluation workers stop reporting in, or queued work has no compatible worker — and the all-clear when service recovers." },
+  { key: "security", label: "Security alerts", desc: "A submission trips a security guard during evaluation (e.g. a forged result rejected, a model that tries to exit abnormally, or a run flagged suspicious)." },
 ] as const;
 export type AdminNotifyKind = (typeof ADMIN_NOTIFY_KINDS)[number]["key"];
 export type AdminNotifyPrefs = Partial<Record<AdminNotifyKind, boolean>>;

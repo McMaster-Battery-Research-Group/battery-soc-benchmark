@@ -98,7 +98,12 @@ export interface Evaluator {
 }
 
 export class EvaluationError extends Error {
-  constructor(message: string, public readonly userFacing = true) {
+  /**
+   * @param userFacing whether `message` is safe to show the submitter.
+   * @param security   set when the failure is a tripped security guard (e.g. a forged result
+   *                   rejected by the integrity check) — the worker then alerts admins.
+   */
+  constructor(message: string, public readonly userFacing = true, public readonly security = false) {
     super(message);
     this.name = "EvaluationError";
   }

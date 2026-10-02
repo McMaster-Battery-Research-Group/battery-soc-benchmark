@@ -80,6 +80,18 @@ def main(argv=None) -> None:
     ap.add_argument("--dry-run", action="store_true", help="validate + one OPEN-data cycle; no blinded data, no scores")
     args = ap.parse_args(argv)
 
+    # Anti-forgery nonce: the worker passes a secret per-run value and trusts a results.json
+    # only if it carries it back. It arrives on STDIN (not env or argv) so no process in the
+    # container — not even one reading /proc/1/environ or /proc/1/cmdline — can recover it; the
+    # submitted model also runs in a separate child process (see runner.PythonBackend). We read
+    # and discard it here, before anything else. See src/evaluator/python-evaluator.ts.
+    result_nonce = ""
+    try:
+        if not sys.stdin.isatty():
+            result_nonce = (sys.stdin.readline() or "").strip()
+    except Exception:
+        result_nonce = ""
+
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "error.json").unlink(missing_ok=True)
@@ -113,7 +125,7 @@ def main(argv=None) -> None:
             fail(out, "FORMAT", str(e))
 
         if args.dry_run:
-            dry_run(args, out, backend, runtime, calibration, t0)
+            dry_run(args, out, backend, runtime, calibration, t0, result_nonce)
             return
 
         log("loading blinded data")
@@ -154,6 +166,7 @@ def main(argv=None) -> None:
             "perCycle": rows,
             "timeSeries": traces,
             "elapsedSec": round(time.perf_counter() - t0),
+            "nonce": result_nonce,  # proves this file came from the evaluator, not a submitted model
         }
         (out / "results.json").write_text(json.dumps(result), encoding="utf-8")
         try:
@@ -166,7 +179,7 @@ def main(argv=None) -> None:
         shutil.rmtree(work, ignore_errors=True)
 
 
-def dry_run(args, out: Path, backend, runtime: str, calibration: dict, t0: float) -> None:
+def dry_run(args, out: Path, backend, runtime: str, calibration: dict, t0: float, result_nonce: str = "") -> None:
     """Pre-submission check on OPEN data: does the package run, what error does it make on
     one public cycle, how expensive is it. Mirrors the real pipeline (offset validation, then
     a padded cycle) so a package that passes here will run on the blinded data."""
@@ -204,6 +217,7 @@ def dry_run(args, out: Path, backend, runtime: str, calibration: dict, t0: float
         "secondsPerSample": t_sample, "complexity": max(1, min(10, cat)),
         "trace": {"t": [round(float(i) / 3600, 3) for i in idx], "actual": [round(float(100 * a[i]), 2) for i in idx], "estimated": [round(float(100 * p.soc[i]), 2) for i in idx]},
         "elapsedSec": round(time.perf_counter() - t0),
+        "nonce": result_nonce,  # see main(): proves the evaluator wrote this, not a submitted model
     }
     (out / "results.json").write_text(json.dumps(result), encoding="utf-8")
     log(f"dry run OK in {result['elapsedSec']} s — RMSE {result['rmse']:.3f} % on open data")

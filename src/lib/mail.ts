@@ -413,3 +413,37 @@ export async function workerAlertEmail(subject: string, lines: string[]) {
   const html = layout(subject, `${lines.map((l) => `<p>${esc(l)}</p>`).join("")}${button(`${site()}/admin/workers`, "Open evaluation workers")}`);
   await Promise.all(targets.map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html, text: lines.join("\n") })));
 }
+
+/**
+ * Tell admins a submission tripped a security guard during evaluation. Carries only metadata —
+ * who (submitter), what (submission + model), how (the signal and our best-guess interpretation).
+ * NEVER the submitted code: packages are deleted right after evaluation and are never attached or
+ * quoted here, per policy. `facts` is a label→value table; `assessment` is our best-guess read.
+ */
+export async function securityAlertEmail(opts: {
+  signal: string;                       // short machine-ish label, e.g. "result nonce mismatch"
+  submissionId?: string | null;
+  seq?: number | null;
+  facts: [string, string][];            // who/what/when — metadata only
+  assessment: string;                   // best-guess "how", in plain words
+}) {
+  const { adminNotifyTargets } = await import("@/lib/admin-notify");
+  const targets = await adminNotifyTargets("security");
+  if (!targets.length) return;
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const subject = `Security alert: ${opts.signal}`;
+  const link = opts.submissionId ? button(`${site()}/submissions/${opts.submissionId}`, "Open the submission") : "";
+  const table = `<table style="border-collapse:collapse;font-size:14px">${opts.facts.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#6d7a84;vertical-align:top">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`).join("")}</table>`;
+  const body =
+    `<p><strong>A submission tripped a security guard during evaluation.</strong></p>` +
+    table +
+    `<p><strong>Best-guess assessment:</strong> ${esc(opts.assessment)}</p>` +
+    `<p style="color:#6b7280;font-size:13px">The submitted package is not attached or quoted — evaluated packages are deleted immediately and never retained.</p>` +
+    link;
+  const text =
+    `A submission tripped a security guard during evaluation.\n\n` +
+    opts.facts.map(([k, v]) => `${k}: ${v}`).join("\n") +
+    `\n\nBest-guess assessment: ${opts.assessment}\n\n(The submitted package is not retained.)` +
+    (opts.submissionId ? `\n\n${site()}/submissions/${opts.submissionId}` : "");
+  await Promise.all(targets.map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html: layout(subject, body), text })));
+}

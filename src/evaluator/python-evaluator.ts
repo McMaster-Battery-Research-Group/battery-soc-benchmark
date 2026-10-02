@@ -1,4 +1,5 @@
 import { spawn, execFile, execFileSync, type ChildProcess } from "child_process";
+import { randomBytes } from "crypto";
 import { probeContainer, memLimitMb, type ResourceUsage } from "./resource-probe";
 import { mkdtemp, readFile, rm, chmod } from "fs/promises";
 import os from "os";
@@ -186,6 +187,11 @@ export class PythonEvaluator implements Evaluator {
   private async spawn(input: EvaluationInput, dry: boolean): Promise<{ text: string; traces?: Buffer; usage?: ResourceUsage }> {
     const data = process.env.SOCBENCH_BLIND_DATA;
     if (!data && !dry) throw new EvaluationError("SOCBENCH_BLIND_DATA is not set on the evaluation host.", false);
+    // Anti-forgery nonce: the evaluator stamps this into results.json and the submitted model
+    // (which runs in the evaluator's own process) cannot read it — the evaluator pops it from the
+    // environment before importing the model. A results.json without the right nonce is a forgery
+    // (e.g. a model that wrote /out/results.json and called os._exit(0)) and is rejected below.
+    const resultNonce = randomBytes(24).toString("hex");
     const outDir = await mkdtemp(path.join(os.tmpdir(), "socbench-pyeval-"));
     const settings = await getEvalSettings();
     const timeoutMin = dry ? settings.dryRunTimeoutMin : settings.evalTimeoutMin;
@@ -231,6 +237,7 @@ export class PythonEvaluator implements Evaluator {
         ...(data && !dry ? ["-v", `${toDockerPath(data)}:/data/blind_data.mat:ro`] : []),
         ...["SOCBENCH_CAL_PYTHON", "SOCBENCH_CAL_MATLAB"].flatMap((k) => (process.env[k] ? ["-e", `${k}=${process.env[k]}`] : [])),
         "-e", `SOCBENCH_TIMEOUT_MIN=${timeoutMin}`, // the evaluator's inner limit matches the container kill timer
+        "-i", // keep stdin open so we can hand the evaluator the result nonce (NOT via env/argv — see below)
         ...(runtime === "matlab" && process.env.EVAL_MATLAB_LICENSE ? ["-e", `MLM_LICENSE_FILE=${process.env.EVAL_MATLAB_LICENSE}`] : []),
         ...(runtime === "matlab" && !process.env.EVAL_MATLAB_LICENSE ? await mhlmLicenseEnv(input.log) : []),
         image,
@@ -265,6 +272,12 @@ export class PythonEvaluator implements Evaluator {
           windowsHide: true,
           detached: process.platform !== "win32", // own process group on POSIX so killTree can take MATLAB with it
         });
+        // Hand the evaluator the anti-forgery nonce on stdin (never env/argv, so no process in the
+        // container can read it from /proc/1/environ or /proc/1/cmdline), then close stdin.
+        try {
+          child.stdin?.write(resultNonce + "\n");
+          child.stdin?.end();
+        } catch { /* a closed stdin just means no nonce — the result is then rejected below */ }
         const timer = setTimeout(() => {
           killTree(child, container);
           reject(new EvaluationError(`Evaluation exceeded the ${timeoutMs / 60_000} minute limit.`, true));
@@ -309,6 +322,20 @@ export class PythonEvaluator implements Evaluator {
         );
       }
       const text = await readFile(path.join(outDir, "results.json"), "utf8");
+      // Reject a forged results.json: it must carry the per-run nonce the evaluator stamped. A
+      // submitted model cannot read the nonce (the evaluator pops it from the env before importing
+      // the model), so a file written by the model — e.g. via os._exit(0) after forging scores —
+      // fails this check. A real evaluator run always includes it.
+      let parsedNonce: unknown;
+      try {
+        parsedNonce = (JSON.parse(text) as { nonce?: unknown }).nonce;
+      } catch {
+        throw new EvaluationError("The evaluator produced an unreadable results.json.", false);
+      }
+      if (parsedNonce !== resultNonce) {
+        await input.log("[eval] SECURITY: results.json nonce mismatch — the result was not produced by the evaluator; rejecting it.");
+        throw new EvaluationError("The evaluation result failed its integrity check and was rejected.", false, true);
+      }
       const traces = dry ? undefined : await readFile(path.join(outDir, "traces.mat")).catch(() => undefined);
       return { text, traces, usage };
     } finally {

@@ -10,17 +10,14 @@ backends implement the same interface:
 """
 from __future__ import annotations
 
-import importlib.util
 import os
 import re
-import traceback
 import subprocess
 import sys
 import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from types import ModuleType
 from typing import Callable
 
 import numpy as np
@@ -78,21 +75,59 @@ class Backend:
 # ---------------------------------------------------------------- Python
 
 class PythonBackend(Backend):
+    """Runs the submitted model in a SEPARATE child process.
+
+    The model is untrusted and must not share the scorer's process: in-process it could
+    monkeypatch the scorer, write the canonical results.json and os._exit(0), or read the
+    anti-forgery nonce out of /proc/self/environ. The child (socbench_eval.model_child) is
+    spawned with the nonce stripped from its environment, only ever returns prediction arrays,
+    and cannot terminate or alter this (the parent/scorer) process. See SECURITY note in
+    model_child.py.
+    """
     name = "python"
 
     def __init__(self, pkg_dir: Path):
-        self.model = _load_py_model(pkg_dir)
+        self.pkg_dir = Path(pkg_dir)
+        # fail fast on an obviously-broken package (missing Model.py / not importable) so the
+        # error is the same as before; the real run still happens in the child.
+        if not (self.pkg_dir / "Model.py").is_file():
+            raise ModelError("Model.py not found at the top level of the package.")
 
     def run(self, jobs: list[Job], log: Callable[[str], None]) -> list[Prediction]:
-        out = []
-        # progress is weighted by samples (work), not by matrix count — long cycles count more
-        cum = _cumulative_samples(jobs)
-        for i, j in enumerate(jobs):
-            t0 = time.perf_counter()
-            raw = _iterate_py(self.model, j.X)
-            out.append(_finish(j.key, raw, j.pad, time.perf_counter() - t0))
-            log(f"{cum[i]:5.1f}% | {j.key}")
-        return out
+        with tempfile.TemporaryDirectory(prefix="socbench-child-") as td:
+            tdp = Path(td)
+            jobs_path, out_path = tdp / "jobs.npz", tdp / "out.npz"
+            arrays = {f"X{i}": j.X for i, j in enumerate(jobs)}
+            arrays["n"] = np.array([len(jobs)])
+            np.savez(jobs_path, **arrays)
+
+            # strip the result nonce (and nothing else) so the model process can never read it,
+            # including via /proc/self/environ — os.environ.pop in the parent would NOT remove it
+            # from an already-exec'd process, so it must be absent at spawn time.
+            child_env = dict(os.environ)
+            child_env.pop("SOCBENCH_RESULT_NONCE", None)
+
+            proc = subprocess.run(
+                [sys.executable, "-m", "socbench_eval.model_child", str(self.pkg_dir), str(jobs_path), str(out_path)],
+                env=child_env, capture_output=True, text=True,
+            )
+            err_file = out_path.with_suffix(".error.txt")
+            if err_file.is_file():
+                raise ModelError(err_file.read_text(encoding="utf-8", errors="replace"))
+            if proc.returncode != 0 or not out_path.is_file():
+                tail = (proc.stderr or proc.stdout or "")[-500:]
+                raise ModelError(f"The model process exited abnormally (code {proc.returncode}). {tail}")
+
+            data = np.load(out_path, allow_pickle=False)
+            if int(data.get("ok", np.array([0]))[0]) != 1:
+                raise ModelError("The model process did not complete.")
+            out, cum = [], _cumulative_samples(jobs)
+            for i, j in enumerate(jobs):
+                raw = data[f"y{i}"]
+                secs = float(data[f"secs{i}"][0])
+                out.append(_finish(j.key, raw, j.pad, secs))
+                log(f"{cum[i]:5.1f}% | {j.key}")
+            return out
 
 
 def _cumulative_samples(jobs: list[Job]) -> list[float]:
@@ -106,62 +141,9 @@ def _cumulative_samples(jobs: list[Job]) -> list[float]:
     return out
 
 
-def _load_py_model(pkg_dir: Path) -> ModuleType:
-    model_file = pkg_dir / "Model.py"
-    if not model_file.is_file():
-        raise ModelError("Model.py not found at the top level of the package.")
-    if str(pkg_dir) not in sys.path:
-        sys.path.insert(0, str(pkg_dir))
-    spec = importlib.util.spec_from_file_location("submitted_model", model_file)
-    if spec is None or spec.loader is None:
-        raise ModelError("Could not import Model.py.")
-    mod = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(mod)
-    except Exception as e:  # noqa: BLE001
-        raise ModelError(f"Model.py failed to import: {type(e).__name__}: {e}\n{_user_frames()}") from e
-    if not callable(getattr(mod, "Model", None)):
-        raise ModelError("Model.py must define a callable named Model(X, z).")
-    return mod
-
-
-def _scalar(y) -> float:
-    a = np.asarray(y, dtype=float).reshape(-1)
-    if a.size != 1:
-        raise ModelError("Model must return exactly one SOC value per sample.")
-    v = float(a[0])
-    if not np.isfinite(v):
-        raise ModelError("Model returned NaN or Inf.")
-    return v
-
-
-def _iterate_py(model: ModuleType, X: np.ndarray) -> np.ndarray:
-    n = X.shape[0]
-    out = np.zeros(n)
-    try:
-        res = model.Model(X[0, :].copy())
-        if not (isinstance(res, tuple) and len(res) == 2):
-            raise ModelError("Model must return a tuple (Y_est, z).")
-        y, z = res
-        out[0] = _scalar(y)
-        for i in range(1, n):
-            res = model.Model(X[i, :].copy(), z)
-            if not (isinstance(res, tuple) and len(res) == 2):
-                raise ModelError("Model must return a tuple (Y_est, z).")
-            y, z = res
-            out[i] = _scalar(y)
-    except ModelError:
-        raise
-    except Exception as e:  # noqa: BLE001
-        raise ModelError(f"Model raised {type(e).__name__}: {e}\n{_user_frames()}") from e
-    return out
-
-
-def _user_frames(limit: int = 6) -> str:
-    """Traceback frames from the submitted code only (evaluator internals filtered out)."""
-    frames = [f for f in traceback.extract_tb(sys.exc_info()[2]) if "socbench_eval" not in f.filename.replace("\\", "/")]
-    lines = [f'  File "{Path(f.filename).name}", line {f.lineno}, in {f.name}\n    {f.line}' for f in frames[-limit:]]
-    return "Traceback (most recent call last):\n" + "\n".join(lines) if lines else ""
+# NOTE: Python model execution (import Model.py, iterate Model(X, z), per-sample scalar checks,
+# and user-only tracebacks) now lives in socbench_eval/model_child.py, which runs in a separate
+# process so untrusted model code cannot touch the scorer. See PythonBackend above.
 
 
 # ---------------------------------------------------------------- MATLAB

@@ -6,7 +6,8 @@
 import { hostname } from "os";
 import { db } from "@/lib/db";
 import { storage } from "@/lib/storage";
-import { evaluationCompleteEmail } from "@/lib/mail";
+import { evaluationCompleteEmail, securityAlertEmail } from "@/lib/mail";
+import { recordAdminEvent } from "@/lib/admin-notify";
 import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getEvaluator } from "./index";
 import { pushConsole } from "./console-ring";
@@ -231,6 +232,33 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     await db.submission.update({ where: { id: sub.id }, data: { status: "FAILED", failureMessage: message, completedAt: new Date() } });
     await recordRevision({ submissionId: sub.id, kind: "failure", evaluatorVersion: evaluator.name, note: `attempt ${job.attempts}: ${message}`, by: workerId() });
     await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, attempts: MAX_ATTEMPTS } });
+    // A tripped security guard (e.g. a forged result rejected by the integrity check): alert admins
+    // with metadata only — the package is already deleted and is never retained or quoted.
+    if (err instanceof EvaluationError && err.security) {
+      try {
+        await recordAdminEvent("security", `Security guard tripped on submission #${sub.seq} "${sub.modelName}" (${sub.user.email}): ${err.message}`);
+        await securityAlertEmail({
+          signal: "forged result rejected (integrity check)",
+          submissionId: sub.id, seq: sub.seq,
+          facts: [
+            ["Submission", `#${sub.seq} "${sub.modelName}" (${sub.modelType.replace(/_/g, " ").toLowerCase()})`],
+            ["Submitter", `${sub.user.name} <${sub.user.email}>`],
+            ["Runtime", sub.fileType ?? "unknown"],
+            ["Attempt", String(job.attempts)],
+            ["Signal", err.message],
+            ["When", new Date().toISOString()],
+          ],
+          assessment:
+            "The evaluation result did not carry the evaluator's per-run integrity nonce, which means a " +
+            "results file was produced by something other than the evaluator — most likely the submitted model " +
+            "writing /out/results.json to forge its own score. The forged result was rejected and the run failed; " +
+            "no score was recorded. Worth reviewing the submitter's other submissions.",
+        });
+        await log("security alert sent to administrators (metadata only; package not retained)");
+      } catch (e) {
+        await log(`security alert NOT sent: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
     for (const r of await recipients()) {
       const sent = await evaluationCompleteEmail(r.email, r.name, sub.modelName, sub.id, false, message);
       await log(sent ? `failure email sent to ${r.email}` : `failure email to ${r.email} FAILED — check SMTP_* settings on the worker host`);
