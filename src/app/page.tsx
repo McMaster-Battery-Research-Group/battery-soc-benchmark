@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { LOGOS } from "@/lib/logos";
-import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3, Gauge, ThermometerSnowflake, FileCode2, Target } from "lucide-react";
+import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
 import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
@@ -31,13 +31,13 @@ export default async function HomePage() {
               The standardized benchmark for battery state-of-charge estimation.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
-              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles from −20 °C to 40 °C plus robustness tests — wrong initial SOC, current-sensor offsets, charging — the same test for every algorithm, from coulomb counting to transformers.
+              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles from −20 °C to 40 °C plus robustness tests — wrong initial SOC, current-sensor offsets, charging.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild variant="gold" size="lg"><Link href="/submit">Submit a model <ArrowRight /></Link></Button>
               <Button asChild size="lg" className="border border-white/40 bg-transparent text-white hover:bg-white hover:text-maroon"><Link href="/leaderboard">View leaderboard</Link></Button>
             </div>
-            <p className="mt-6 text-sm text-white/75">Free for academic and industry use · CC-BY 4.0 dataset · blinded evaluation, results in minutes</p>
+            <p className="mt-6 text-sm text-white/75">Free for academic and industry use · CC-BY 4.0 dataset · blinded evaluation</p>
           </div>
           <div className="md:col-span-5">
             <div className="relative rounded-brand border border-white/20 bg-maroon-800/95 p-5 shadow-xl">
@@ -86,30 +86,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Newcomer explainer — one compact card */}
-      <section className="container-site pt-16">
-        <div className="card grid gap-6 p-6 md:grid-cols-[1fr_2fr] md:p-8">
-          <div>
-            <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">New to battery SOC?</p>
-            <h2 className="mt-2 font-heading text-2xl font-bold">The problem in four lines</h2>
-            <Button asChild variant="secondary" className="mt-5"><Link href="/getting-started">Read the get-started guide <ArrowRight /></Link></Button>
-          </div>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {[
-              { icon: Gauge, t: "State of charge", d: "How full the battery is. It can't be measured — only estimated from current, voltage and temperature." },
-              { icon: ThermometerSnowflake, t: "Why it's hard", d: "Flat voltage curves, 10× resistance at −20 °C, unknown starting charge, drifting sensors." },
-              { icon: FileCode2, t: "A submission", d: "One function, MATLAB or Python: it gets one sample per second and returns SOC." },
-              { icon: Target, t: "The score", d: "Weighted error in % SOC over hidden cycles at six temperatures. Lower is better; the best are near 3 %." },
-            ].map((c) => (
-              <li key={c.t} className="flex gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-brand bg-maroon-100 text-maroon"><c.icon className="size-4" /></span>
-                <span><span className="block font-heading text-sm font-semibold text-ink">{c.t}</span><span className="block text-sm leading-relaxed text-grey-700">{c.d}</span></span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
       {/* How it works */}
       <section className="container-site py-20">
         <div className="max-w-2xl">
@@ -119,7 +95,7 @@ export default async function HomePage() {
         <PipelineDiagram className="mt-8 hidden md:block" />
         <ol className="mt-8 grid gap-6 md:grid-cols-3">
           {[
-            { icon: Download, t: "Download the open data", d: "Characterization tests (HPPC, C/20, C/3, C/2, 1C) and reordered drive cycles for three cells at six temperatures. Everything you need to parameterize a filter or train a network.", href: "/dataset", cta: "Get the dataset" },
+            { icon: Download, t: "Download the open data", d: "Characterization tests (HPPC, C/20, C/3, C/2, 1C) and reordered drive cycles for three cells at six temperatures.", href: "/dataset", cta: "Get the dataset" },
             { icon: FlaskConical, t: "Build your estimator", d: "Any method: coulomb counting, Kalman filters, physics-based models, neural networks. Package it as Model.m, Model.p or Model.py, then test it on the site before submitting.", href: "/docs#submission-format", cta: "Submission format" },
             { icon: UploadCloud, t: "Submit for blinded evaluation", d: "Your model runs against cycles and a cell you have never seen, plus robustness cases with initial-SOC and current-sensor errors. Results land on the leaderboard with full time-domain plots.", href: "/submit", cta: "Submit a model" },
           ].map((s, i) => (
