@@ -181,17 +181,17 @@ export function LeaderboardTable({
           <>
             {/* Desktop table */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-sm">
+              <table className="w-full border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-10 bg-grey-100">
                   {table.getHeaderGroups().map((hg) => (
-                    <tr key={hg.id} className="border-b border-border">
+                    <tr key={hg.id}>
                       {hg.headers.map((h) => {
                         const meta = (h.column.columnDef.meta ?? {}) as { align?: "right"; tooltip?: string };
                         const sorted = h.column.getIsSorted();
                         return (
                           <th
                             key={h.id}
-                            className={cn("h-11 whitespace-nowrap px-3 font-heading text-xs font-semibold uppercase tracking-wide text-grey-800", meta.align === "right" ? "text-right" : "text-left", h.column.id === "modelName" && "sticky left-0 z-20 bg-grey-100")}
+                            className={cn("h-11 whitespace-nowrap border-b border-border px-3 font-heading text-xs font-semibold uppercase tracking-wide text-grey-800", meta.align === "right" ? "text-right" : "text-left", h.column.id === "modelName" && "sticky left-0 z-20 bg-grey-100")}
                             aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
                           >
                             {h.column.getCanSort() ? (
@@ -221,15 +221,15 @@ export function LeaderboardTable({
                         router.push(`/submissions/${row.original.id}`);
                       }}
                       className={cn(
-                        "cursor-pointer border-b border-border transition-colors hover:bg-maroon-100/50",
-                        row.original.isPrivate ? "border-l-4 border-l-gold-400 bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-[#fffbf5]",
+                        "cursor-pointer transition-colors hover:bg-maroon-100/50",
+                        row.original.isPrivate ? "bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-[#fffbf5]",
                       )}
                       title={row.original.isPrivate ? "Private; visible only to you, not on the public leaderboard" : undefined}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
-                          <td key={cell.id} className={cn("px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : row.original.userId === viewerId ? "bg-[#fffbf5]" : "bg-white"))}>
+                          <td key={cell.id} className={cn("border-b border-border px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "rank" && row.original.isPrivate && "border-l-4 border-l-gold-400", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : row.original.userId === viewerId ? "bg-[#fffbf5]" : "bg-white"))}>
                             {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} unranked={rankById.get(row.original.id)!.unranked} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
