@@ -29,8 +29,20 @@ USER root
 RUN if ! python3 -c "import numpy, scipy" 2>/dev/null; then \
       apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && rm -rf /var/lib/apt/lists/* \
       && pip3 install --no-cache-dir --break-system-packages "numpy>=1.26" "scipy>=1.11"; fi
-# Remap the image's user to the worker's service account (see above). No-op when already matching.
-RUN ["/bin/bash", "-c", "if [ \"$(id -u matlab)\" != \"${MATLAB_UID}\" ] || [ \"$(id -g matlab)\" != \"${MATLAB_GID}\" ]; then groupmod -o -g ${MATLAB_GID} matlab && usermod -o -u ${MATLAB_UID} -g ${MATLAB_GID} matlab && chown -R matlab:matlab /home/matlab; fi"]
+# Make the `matlab` user's uid/gid match the worker's service account (see above). We do NOT use
+# `usermod -u`: changing an existing user's uid makes usermod rewrite ownership across the image
+# (traversing the 13 GB /opt/matlab tree), which on Arbutus rbd storage takes 30-45 min. Instead we
+# recreate the user/group directly at the target id and chown only /home/matlab (~1 GB). /opt/matlab
+# stays owned by the original uid, which is fine — MATLAB's install is world-readable, so the matlab
+# user can still run it; it only needs to OWN its home and the work dirs.
+RUN ["/bin/bash", "-c", "set -e; \
+  if [ \"$(id -u matlab)\" != \"${MATLAB_UID}\" ] || [ \"$(id -g matlab)\" != \"${MATLAB_GID}\" ]; then \
+    old_home=$(getent passwd matlab | cut -d: -f6); old_shell=$(getent passwd matlab | cut -d: -f7); \
+    userdel matlab; getent group matlab && groupdel matlab || true; \
+    groupadd -o -g ${MATLAB_GID} matlab; \
+    useradd -o -u ${MATLAB_UID} -g ${MATLAB_GID} -d \"${old_home:-/home/matlab}\" -s \"${old_shell:-/bin/bash}\" -M matlab; \
+    chown -R ${MATLAB_UID}:${MATLAB_GID} \"${old_home:-/home/matlab}\"; \
+  fi"]
 
 RUN mkdir -p /work /out /in /data /app && chown matlab /work /out
 COPY evaluator/python/socbench_eval /app/socbench_eval
