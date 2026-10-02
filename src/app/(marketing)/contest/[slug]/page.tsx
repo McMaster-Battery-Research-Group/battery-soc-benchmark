@@ -19,8 +19,9 @@ import { RegisterButton } from "./register-button";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const c = await db.contest.findUnique({ where: { slug: (await params).slug } });
-  return { title: c?.title ?? "Contest" };
+  const c = await db.contest.findUnique({ where: { slug: (await params).slug }, select: { title: true, status: true } });
+  // drafts 404 for the public, so their title must not leak through the page metadata either
+  return { title: c && c.status !== "DRAFT" ? c.title : "Contest" };
 }
 
 export default async function ContestPage({ params }: { params: Promise<{ slug: string }> }) {
