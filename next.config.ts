@@ -38,6 +38,9 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: `${Number(process.env.MAX_UPLOAD_MB ?? 50) + 2}mb` },
   },
   poweredByHeader: false,
+  // scripts/web-update.sh builds into a side directory (NEXT_DIST_DIR=.next-build) and swaps it in once the
+  // build succeeds, so the live site never serves a half-written .next
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
