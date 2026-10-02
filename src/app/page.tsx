@@ -29,7 +29,7 @@ export default async function HomePage() {
               The standardized benchmark for battery state-of-charge estimation.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
-              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles from −20 °C to 40 °C plus robustness tests: wrong initial SOC, current-sensor offsets, charging.
+              Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles from −20 °C to 40 °C.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild variant="gold" size="lg"><Link href="/submit">Submit a model <ArrowRight /></Link></Button>
