@@ -10,27 +10,27 @@ export const metadata: Metadata = { title: "Get started" };
 
 const STEPS = [
   {
-    icon: BookOpen, title: "Understand the problem (10 min)",
+    icon: BookOpen, title: "Understand the problem",
     body: <>A battery&apos;s <Term k="soc" /> can&apos;t be measured directly: a <Term k="bms" /> only sees current, voltage and temperature and has to <em>estimate</em> how full the pack is. That estimate is hard when it is cold (internal resistance rises ~10×), when the vehicle is heavily loaded, or when the starting SOC is unknown. This benchmark measures how well an <Term k="estimator" /> copes with all of that on real Tesla cells.</>,
     links: [{ href: "/glossary", label: "Read the glossary" }, { href: "/docs#overview", label: "Why a blinded benchmark" }],
   },
   {
-    icon: Download, title: "Get the open data (30 min)",
+    icon: Download, title: "Get the open data",
     body: <>Download <em>1-Open Data.zip</em> from Borealis. It contains, for three cells at six temperatures, the characterization tests (<Term k="hppc" />, C/20, C/3, C/2, 1C; use these to build an <Term k="ecm" /> or an <Term k="ocv" /> curve) and eight &ldquo;reordered&rdquo; <Term k="drive-cycle">drive cycles</Term> per temperature (use these to train or validate). Files load in MATLAB as a struct <code className="rounded bg-grey-100 px-1">meas</code> with time, voltage, current, temperature and reference SOC. If you don&apos;t have MATLAB, SciPy&apos;s <code className="rounded bg-grey-100 px-1">loadmat</code> reads them too.</>,
     links: [{ href: "/dataset", label: "What's in the dataset" }],
   },
   {
-    icon: FlaskConical, title: "Build your first estimator (1–2 h)",
+    icon: FlaskConical, title: "Build your first estimator",
     body: <>Start from the examples in <em>4-SOC estimation Model Examples.zip</em>. The <Term k="coulomb-counting">coulomb counting</Term> example is 20 lines and is the best way to learn the interface: your function is called once per second with <code className="rounded bg-grey-100 px-1">X = [current, voltage, temperature]</code>, returns SOC in 0–1, and can carry any memory it likes in <code className="rounded bg-grey-100 px-1">z</code>. Then move up to the <Term k="ekf" /> example (uses HPPC parameters) or the LSTM example (trained with the scripts in <em>3-Neural Network Training Example.zip</em>).</>,
     links: [{ href: "/examples", label: "Walk through the four example models" }, { href: "/docs#submission-format", label: "Submission format" }],
   },
   {
-    icon: CheckCircle2, title: "Test it on the site (2 min)",
+    icon: CheckCircle2, title: "Test it on the site",
     body: <>Zip <code className="rounded bg-grey-100 px-1">Model.m</code>/<code className="rounded bg-grey-100 px-1">Model.py</code> and any parameter files (no folders, no spreadsheet needed), then use <strong>Test your package first</strong> on the Submit page. It runs your model through the real evaluator on one public drive cycle and tells you exactly what to fix. No MATLAB or local tooling needed, and nothing is scored or recorded.</>,
     links: [{ href: "/docs#test-tool", label: "How the test run works" }],
   },
   {
-    icon: UploadCloud, title: "Submit and read your results (10 min)",
+    icon: UploadCloud, title: "Submit and read your results",
     body: <>Create an account, upload the zip, and wait for the email. Your submission page shows the <Term k="weighted-error" /> (the leaderboard score), the <Term k="rmse" /> of every <Term k="test-case" />, the worst-case <Term k="maxe">max error</Term>, and charts of estimated vs. true SOC on individual cycles. Look at <strong>−20 °C</strong> and <strong>HWGRADE</strong> first; that&apos;s where most models struggle. Use <Link href="/compare" className="text-maroon underline">Compare</Link> to put your model next to the leaders.</>,
     links: [{ href: "/submit", label: "Submit a model" }, { href: "/leaderboard", label: "See the leaderboard" }],
   },
@@ -44,7 +44,7 @@ const STEPS = [
 export default function GettingStartedPage() {
   return (
     <>
-      <PageHeader eyebrow="New here?" title="Get started with the benchmark" description="A guided path from zero to your first score on the leaderboard, written for students and engineers who are new to battery state-of-charge estimation. Budget an afternoon." actions={<Button asChild><Link href="/register">Create a free account</Link></Button>} />
+      <PageHeader eyebrow="New here?" title="Get started with the benchmark" description="A guided path from zero to your first score on the leaderboard, written for students and engineers who are new to battery state-of-charge estimation." actions={<Button asChild><Link href="/register">Create a free account</Link></Button>} />
       <div className="container-site max-w-3xl py-10">
         <PipelineDiagram className="mb-8 hidden sm:block" />
         <div className="card mb-8 p-5 text-[15px] leading-relaxed text-grey-800">
