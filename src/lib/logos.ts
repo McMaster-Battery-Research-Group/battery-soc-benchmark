@@ -9,9 +9,11 @@ import path from "path";
  *   public/logos/mcmaster.svg   public/logos/mcmaster.png
  *   public/logos/nserc.svg      public/logos/nserc.png
  *
- * Until the official assets are supplied the SVGs are text-only wordmarks and
- * the PNGs are absent — PDF and e-mails then fall back to a text
- * acknowledgement. Nothing else changes when the files are dropped in.
+ * nserc.svg/png are NSERC's official *symbol* (the red NSERC/CRSNG block), which NSERC's
+ * acknowledgement guidelines allow where the full signature would be too small; the PNG is
+ * rendered from the SVG. mcmaster.svg is still a text-only placeholder until Brand Marketing
+ * supplies the official files; while a PNG is absent the PDF and e-mails fall back to a text
+ * acknowledgement for that logo.
  */
 export const LOGOS = {
   mcmaster: { svg: "/logos/mcmaster.svg", png: "/logos/mcmaster.png", alt: "McMaster University", href: "https://www.mcmaster.ca" },

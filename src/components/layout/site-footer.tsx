@@ -49,7 +49,7 @@ export function SiteFooter() {
               <Image src="/logos/mcmaster.svg" alt="McMaster University" width={200} height={56} className="h-9 w-auto" />
             </a>
             <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" aria-label="NSERC / CRSNG" className="shrink-0">
-              <Image src="/logos/nserc.svg" alt="Natural Sciences and Engineering Research Council of Canada" width={200} height={56} className="h-9 w-auto" />
+              <Image src="/logos/nserc.svg" alt="NSERC / CRSNG" width={83} height={40} className="h-9 w-auto" />
             </a>
           </div>
         </div>

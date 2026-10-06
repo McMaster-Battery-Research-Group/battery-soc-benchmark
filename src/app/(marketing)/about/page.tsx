@@ -54,7 +54,7 @@ export default function AboutPage() {
           <p className="mt-2 text-sm text-grey-600" lang="fr">Nous remercions le Conseil de recherches en sciences naturelles et en génie du Canada (CRSNG) de son soutien.</p>
           <div className="mt-5 flex flex-wrap items-center gap-8">
             <Image src="/logos/mcmaster.svg" alt="McMaster University" width={220} height={60} className="h-14 w-auto" />
-            <Image src="/logos/nserc.svg" alt="NSERC / CRSNG" width={220} height={60} className="h-14 w-auto" />
+            <Image src="/logos/nserc.svg" alt="NSERC / CRSNG" width={116} height={56} className="h-14 w-auto" />
           </div>
         </section>
       </div>
