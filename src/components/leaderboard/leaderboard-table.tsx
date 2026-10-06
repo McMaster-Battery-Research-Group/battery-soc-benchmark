@@ -25,6 +25,7 @@ import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/misc";
 import { buildColumns, DEFAULT_HIDDEN } from "./columns";
 import { RankBadge } from "./rank-badge";
+import { TopScrollbar } from "@/components/ui/top-scrollbar";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 
 const STORAGE_KEY = "socbench.leaderboard.columns";
@@ -180,7 +181,7 @@ export function LeaderboardTable({
         ) : (
           <>
             {/* Desktop table */}
-            <div className="hidden overflow-x-auto md:block">
+            <TopScrollbar className="hidden md:block">
               <table className="w-full border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-10 bg-grey-100">
                   {table.getHeaderGroups().map((hg) => (
@@ -238,7 +239,7 @@ export function LeaderboardTable({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TopScrollbar>
 
             {/* Mobile cards */}
             <ul className="divide-y divide-border md:hidden">
