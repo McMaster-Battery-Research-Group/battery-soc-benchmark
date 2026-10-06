@@ -2,7 +2,7 @@ import { contestPhase } from "@/lib/contest";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Lock, ArrowLeft, Trophy, Download, FileText, Settings2, ChevronDown } from "lucide-react";
+import { Lock, ArrowLeft, Trophy, Download, FileText, Settings2, ChevronDown, Table2, Crosshair, BarChart3, ListOrdered, History, Info } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getSubmissionDetail, canViewSubmission, publicRankOf } from "@/lib/queries";
 import { getActiveWeights } from "@/lib/scoring-config";
@@ -16,6 +16,8 @@ import { Avatar } from "@/components/avatar";
 import { CopyLink } from "@/components/copy-link";
 import { Scorecard } from "@/components/scorecard";
 import { ResultInsights } from "@/components/result-insights";
+import { ResultSummary } from "@/components/result-summary";
+import { ResultTabs } from "@/components/result-tabs";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
 import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { SocTracePicker } from "@/components/charts/soc-trace";
@@ -67,6 +69,24 @@ export default async function SubmissionPage({ params, searchParams }: { params:
   const perCycle = (r?.perCycle ?? []) as unknown as PerCycleRow[];
   const worstRow = perCycle.length ? perCycle.reduce((m, x) => (x.maxErr > m.maxErr ? x : m)) : null;
 
+  const aboutSection = (
+      <section className="card p-5">
+        <h2 className="font-heading font-semibold text-ink">About this submission</h2>
+        <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
+        <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+          {sub.fileName && sub.fileSize !== null ? (
+            <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}), deleted after evaluation`} />
+          ) : (
+            <Row k="Package" v="None; this is a carried-over record, not a run of this evaluator" />
+          )}
+          <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
+          {r ? <Row k="Evaluator" v={`${r.evaluatorVersion}${legacy ? ` (legacy; current benchmark is ${BENCHMARK_VERSION}. Kept for reference, unranked until a new version is submitted.)` : ""}`} /> : null}
+          {sub.completedAt ? <Row k="Completed" v={fmtDateTime(sub.completedAt)} /> : null}
+          <Row k="Submission ID" v={sub.id} />
+        </dl>
+      </section>
+  );
+
   return (
     <div className="container-site py-8">
       <Link href={isOwner ? "/submissions" : "/leaderboard"} className="inline-flex items-center gap-1 text-sm text-maroon hover:underline">
@@ -84,17 +104,6 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             {sub.contest ? <Badge variant="gold"><Trophy className="size-3" /> {sub.contest.title}</Badge> : null}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-grey-700">
-            {r ? (
-              <span className="inline-flex items-baseline gap-1.5">
-                <span className="font-heading text-2xl font-bold tabular text-ink">{fmtPct(r.weightedError)} %</span>
-                <span>weighted error</span>
-              </span>
-            ) : null}
-            {rank ? (
-              <Link href="/leaderboard" className="inline-flex items-center gap-1.5 rounded-full border border-gold-400 bg-gold-100 px-2.5 py-0.5 font-heading text-sm font-semibold text-ink hover:bg-gold-200" title="Current position on the public leaderboard (by weighted error)">
-                <Trophy className="size-3.5 text-maroon" /> Rank #{rank}
-              </Link>
-            ) : null}
             <span>#{sub.seq}{sub.version > 1 ? ` · v${sub.version}` : ""} · {MODEL_TYPE_LABELS[sub.modelType]} · {fmtDateTime(sub.submittedAt)}</span>
             <CopyLink path={`/submissions/${sub.id}`} />
           </div>
@@ -132,7 +141,14 @@ export default async function SubmissionPage({ params, searchParams }: { params:
           </div>
         </div>
 
-        {canManage ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {r ? (
+            <>
+              <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> PDF report</a></Button>
+              <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> JSON</a></Button>
+            </>
+          ) : null}
+          {canManage ? (
           <details className="group relative shrink-0">
             <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-brand border border-border bg-white px-3 py-2 font-heading text-sm font-medium text-grey-900 hover:bg-grey-100 [&::-webkit-details-marker]:hidden">
               <Settings2 className="size-4" /> Manage <ChevronDown className="size-4 text-grey-500 transition-transform group-open:rotate-180" />
@@ -149,6 +165,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             </div>
           </details>
         ) : null}
+        </div>
       </header>
 
       {/* ---------- transient states */}
@@ -169,92 +186,109 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
       {r && values ? (
         <div className="mt-6 space-y-6">
-          {/* 1. what you got — and what it means */}
+          <ResultSummary values={values} weightedError={r.weightedError} rank={rank} legacy={legacy} />
           <ResultInsights values={values} weights={weights} />
-          <Scorecard values={values} weights={weights} weightedError={r.weightedError} complexity={r.complexity} complexityUncertainty={r.complexityUncertainty} maxError={r.maxError} worstCase={worstRow ? `${worstRow.cell} ${worstRow.cycle} at ${worstRow.temperatureC} °C` : undefined} />
-
-          {/* 2. why */}
-          <section>
-            <h2 className="font-heading text-lg font-semibold text-ink">Key cases</h2>
-            <p className="mb-3 mt-1 text-sm text-grey-700">The runs that separate estimators: cold and hot cycles, the blinded cell, wrong initial SOC, a biased current sensor. Each plot says why it is there.</p>
-            <KeyCases traces={traces} modelName={sub.modelName} robustness={r.robustness as { initialSocRmse: number[]; currentOffsetRmse: number[] } | null} perCycle={perCycle} />
-          </section>
-
-          {/* 3. the rest, collapsed */}
-          <Fold id="charts" title="Test-case charts" sub="The scorecard as bar charts: tests 1–8, and RMSE against temperature (test 9).">
-            <div className="grid gap-6 xl:grid-cols-5">
-              <div className="xl:col-span-3"><TestCaseBars series={[{ name: sub.modelName, values }]} /></div>
-              <div className="xl:col-span-2"><TemperatureBars series={[{ name: sub.modelName, values }]} /></div>
-            </div>
-          </Fold>
-          <Fold id="all-cycles" title="All 144 cycles" sub="Every blinded drive cycle: per-cycle errors, and any of the plotted cycles in the time domain.">
-            <PerCycleTable rows={perCycle} modelName={sub.modelName} />
-            <div className="mt-6">
-              <SocTracePicker tracesByModel={[traces.filter((t) => (t.group ?? "cycle") === "cycle")]} names={[sub.modelName]} />
-              <p className="mt-3 text-xs text-grey-600">One hour of padded data precedes every cycle in the evaluator and is excluded from the error metrics. Charts are down-sampled for display (peaks preserved); the full 1 Hz data is in the traces download below.</p>
-            </div>
-          </Fold>
-          {history.length ? (
-            <Fold id="score-history" title="Score history" sub="Every evaluation attempt and every change to how this submission is scored; the current score is the last row.">
-              <ol className="divide-y divide-border text-sm">
-                {history.map((h, i) => {
-                  const prev = history.slice(0, i).reverse().find((p) => p.weightedError !== null)?.weightedError ?? null;
-                  const delta = h.weightedError !== null && prev !== null ? h.weightedError - prev : null;
-                  return (
-                    <li key={h.id} className="grid gap-1 py-2 sm:grid-cols-[170px_1fr_140px]">
-                      <span className="text-grey-700">{fmtDateTime(h.createdAt)}</span>
-                      <span>
-                        <span className="font-heading font-medium text-ink">{KIND_LABEL[h.kind as RevisionKind] ?? h.kind}</span>
-                        <span className="text-grey-600"> · {h.evaluatorVersion.split("/")[0]}</span>
-                        {h.note ? <span className="block text-xs text-grey-600">{h.note}</span> : null}
-                      </span>
-                      <span className="tabular sm:text-right">
-                        {h.weightedError === null ? <span className="text-danger">failed</span> : <><span className="font-heading font-semibold text-ink">{fmtPct(h.weightedError)} %</span>{delta !== null && Math.abs(delta) > 0.0005 ? <span className={`ml-1 text-xs ${delta < 0 ? "text-forest" : "text-danger"}`}>({delta > 0 ? "+" : ""}{delta.toFixed(3)})</span> : null}</>}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ol>
-            </Fold>
-          ) : null}
-          <Fold title={`How a ${MODEL_TYPE_LABELS[sub.modelType].toLowerCase()} works`} sub="The canonical structure for this model family; the author's description below gives the specific architecture.">
-            <ModelSchematic spec={specForModelType(sub.modelType)} title={`${MODEL_TYPE_LABELS[sub.modelType]}: standardized view`} />
-          </Fold>
-
-          {/* 4. downloads, once */}
-          <section className="card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-heading font-semibold text-ink">Downloads</h2>
-              <p className="text-sm text-grey-700">
-                PDF report (summary, every test case with the arithmetic, key plots, per-cycle table) · results as JSON ·{" "}
-                {r.tracesKey && canSee ? "full 1 Hz traces of all 195 runs as a MATLAB v7 file (0.01 % SOC steps; readable with scipy.io.loadmat, see the readme variable inside; the blinded cell's reference SOC is withheld)" : "full-resolution traces are available to the submission's authors"}.
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> PDF report</a></Button>
-              <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> JSON</a></Button>
-              {r.tracesKey && canSee ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/traces`} download><Download /> Traces (.mat)</a></Button> : null}
-            </div>
-          </section>
+          <ResultTabs
+            tabs={[
+              {
+                id: "scorecard", label: "Scorecard", icon: <Table2 />,
+                content: <Scorecard values={values} weights={weights} weightedError={r.weightedError} complexity={r.complexity} complexityUncertainty={r.complexityUncertainty} maxError={r.maxError} worstCase={worstRow ? `${worstRow.cell} ${worstRow.cycle} at ${worstRow.temperatureC} °C` : undefined} />,
+              },
+              {
+                id: "key-cases", label: "Key cases", icon: <Crosshair />,
+                content: (
+                  <>
+                    <p className="mb-4 text-sm text-grey-700">The runs that separate estimators: cold and hot cycles, the blinded cell, a wrong initial SOC, a biased current sensor. Each plot says why it is there.</p>
+                    <KeyCases traces={traces} modelName={sub.modelName} robustness={r.robustness as { initialSocRmse: number[]; currentOffsetRmse: number[] } | null} perCycle={perCycle} />
+                  </>
+                ),
+              },
+              {
+                id: "charts", label: "Charts", icon: <BarChart3 />,
+                content: (
+                  <>
+                    <p className="mb-4 text-sm text-grey-700">The scorecard as bar charts: tests 1 to 8, and RMSE against temperature (test 9).</p>
+                    <div className="grid gap-6 xl:grid-cols-5">
+                      <div className="xl:col-span-3"><TestCaseBars series={[{ name: sub.modelName, values }]} /></div>
+                      <div className="xl:col-span-2"><TemperatureBars series={[{ name: sub.modelName, values }]} /></div>
+                    </div>
+                  </>
+                ),
+              },
+              {
+                id: "all-cycles", label: "All 144 cycles", icon: <ListOrdered />,
+                content: (
+                  <>
+                    <p className="mb-4 text-sm text-grey-700">Every blinded drive cycle: per-cycle errors, and any of the plotted cycles in the time domain.</p>
+                    <PerCycleTable rows={perCycle} modelName={sub.modelName} />
+                    <div className="mt-6">
+                      <SocTracePicker tracesByModel={[traces.filter((t) => (t.group ?? "cycle") === "cycle")]} names={[sub.modelName]} />
+                      <p className="mt-3 text-xs text-grey-600">One hour of padded data precedes every cycle in the evaluator and is excluded from the error metrics. Charts are down-sampled for display (peaks preserved); the full 1 Hz data is in the traces download.</p>
+                    </div>
+                  </>
+                ),
+              },
+              ...(history.length
+                ? [{
+                    id: "score-history", label: "History", icon: <History />, count: String(history.length),
+                    content: (
+                      <>
+                        <p className="mb-2 text-sm text-grey-700">Every evaluation attempt and every change to how this submission is scored; the current score is the last row.</p>
+                        <ol className="divide-y divide-border text-sm">
+                          {history.map((h, i) => {
+                            const prev = history.slice(0, i).reverse().find((p) => p.weightedError !== null)?.weightedError ?? null;
+                            const delta = h.weightedError !== null && prev !== null ? h.weightedError - prev : null;
+                            return (
+                              <li key={h.id} className="grid gap-1 py-2 sm:grid-cols-[170px_1fr_140px]">
+                                <span className="text-grey-700">{fmtDateTime(h.createdAt)}</span>
+                                <span>
+                                  <span className="font-heading font-medium text-ink">{KIND_LABEL[h.kind as RevisionKind] ?? h.kind}</span>
+                                  <span className="text-grey-600"> · {h.evaluatorVersion.split("/")[0]}</span>
+                                  {h.note ? <span className="block text-xs text-grey-600">{h.note}</span> : null}
+                                </span>
+                                <span className="tabular sm:text-right">
+                                  {h.weightedError === null ? <span className="text-danger">failed</span> : <><span className="font-heading font-semibold text-ink">{fmtPct(h.weightedError)} %</span>{delta !== null && Math.abs(delta) > 0.0005 ? <span className={`ml-2 text-xs ${delta < 0 ? "text-forest" : "text-danger"}`}>{delta < 0 ? "" : "+"}{fmtPct(delta)}</span> : null}</>}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </>
+                    ),
+                  }]
+                : []),
+              {
+                id: "details", label: "Details", icon: <Info />,
+                content: (
+                  <div className="space-y-5">
+                    {aboutSection}
+                    <section className="card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="font-heading font-semibold text-ink">Downloads</h2>
+                        <p className="text-sm text-grey-700">
+                          PDF report (summary, every test case with the arithmetic, key plots, per-cycle table) · results as JSON ·{" "}
+                          {r.tracesKey && canSee ? "full 1 Hz traces of all 195 runs as a MATLAB v7 file (0.01 % SOC steps; readable with scipy.io.loadmat, see the readme variable inside; the blinded cell's reference SOC is withheld)" : "full-resolution traces are available to the submission's authors"}.
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/report.pdf`} target="_blank" rel="noreferrer"><FileText /> PDF report</a></Button>
+                        <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> JSON</a></Button>
+                        {r.tracesKey && canSee ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/traces`} download><Download /> Traces (.mat)</a></Button> : null}
+                      </div>
+                    </section>
+                    <Fold title={`How a ${MODEL_TYPE_LABELS[sub.modelType].replace(/^([A-Z])(?=[a-z])/, (c) => c.toLowerCase())} works`} sub="The canonical structure for this model family; the description above gives the specific architecture.">
+                      <ModelSchematic spec={specForModelType(sub.modelType)} title={`${MODEL_TYPE_LABELS[sub.modelType]}: standardized view`} />
+                    </Fold>
+                  </div>
+                ),
+              },
+            ]}
+          />
         </div>
       ) : null}
 
       {/* 5. housekeeping */}
-      <section className="mt-6 card p-5">
-        <h2 className="font-heading font-semibold text-ink">About this submission</h2>
-        <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
-        <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-          {sub.fileName && sub.fileSize !== null ? (
-            <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}), deleted after evaluation`} />
-          ) : (
-            <Row k="Package" v="None; this is a carried-over record, not a run of this evaluator" />
-          )}
-          <Row k="Visibility" v={sub.isPrivate ? "Private (owner only)" : "Public"} />
-          {r ? <Row k="Evaluator" v={`${r.evaluatorVersion}${legacy ? ` (legacy; current benchmark is ${BENCHMARK_VERSION}. Kept for reference, unranked until a new version is submitted.)` : ""}`} /> : null}
-          {sub.completedAt ? <Row k="Completed" v={fmtDateTime(sub.completedAt)} /> : null}
-          <Row k="Submission ID" v={sub.id} />
-        </dl>
-      </section>
+      {!(r && values) ? <div className="mt-6">{aboutSection}</div> : null}
       {isAdmin && sub.result?.resourceUsage ? <ResourceChart usage={sub.result.resourceUsage as unknown as ResourceSeries} /> : null}
 
       <Collaborators submissionId={sub.id} owner={toPerson(sub.user)} /* the owner's panel drives the invitation flow, so it lists account-linked co-authors only; administrator credits are managed in the admin panel */
