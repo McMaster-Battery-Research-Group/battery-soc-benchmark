@@ -24,34 +24,6 @@ function clean(s: string, max: number) {
   return s.trim().replace(/\s+/g, " ").slice(0, max);
 }
 
-/** Show this submission as someone else's work. Pass an empty name to clear the credit. */
-export async function setSubmissionCreditAction(id: string, name: string, affiliation: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
-  const admin = await requireAdmin();
-  const who = clean(name, 120);
-  const where = clean(affiliation, 160);
-
-  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, modelName: true, creditName: true, user: { select: { name: true } } } });
-  if (!sub) return { ok: false, error: "Submission not found." };
-
-  if (!who) {
-    if (!sub.creditName) return { ok: false, error: "This entry has no credit to clear." };
-    await db.submission.update({ where: { id }, data: { creditName: null, creditAffiliation: null } });
-    logEvent("admin.credit_cleared", { id, seq: sub.seq, by: admin.id });
-    await recordAdminEvent("deletions", `${admin.name} cleared the display credit on #${sub.seq} "${sub.modelName}"; it is shown as ${sub.user.name}'s work again`);
-  } else {
-    if (who.length < 2) return { ok: false, error: "Enter the person's full name." };
-    await db.submission.update({ where: { id }, data: { creditName: who, creditAffiliation: where || null } });
-    logEvent("admin.credit_set", { id, seq: sub.seq, by: admin.id, name: who });
-    await recordAdminEvent("deletions", `${admin.name} credited #${sub.seq} "${sub.modelName}" to ${who}${where ? ` (${where})` : ""}; the owner account is unchanged`);
-  }
-
-  revalidatePath("/leaderboard");
-  revalidatePath(`/submissions/${id}`);
-  revalidatePath("/submissions");
-  revalidatePath("/admin/submissions");
-  return { ok: true, message: who ? `Credited to ${who}` : "Credit cleared" };
-}
-
 export type LegacyEntry = {
   modelName: string;
   creditName: string;
@@ -123,28 +95,65 @@ export async function createLegacyEntryAction(input: LegacyEntry): Promise<{ ok:
   return { ok: true, seq: sub.seq };
 }
 
+/** One person in the authorship editor. `owner` is the account that uploaded / controls the submission. */
+export type AuthorDraft =
+  | { kind: "owner"; key: string }
+  | { kind: "account"; key: string; userId: string }
+  | { kind: "guest"; key: string; name: string; affiliation: string };
+
 /**
- * The usual fix for an entry filed on someone else's behalf: show it as the work of a co-author who
- * has no account, instead of the account that uploaded it. Their name and affiliation become the
- * display credit and their co-author row is removed so they are not listed twice. The owner account
- * keeps control of the submission but is no longer shown anywhere.
+ * Save the whole author list in one go (admin authorship editor). `people` is the public list in
+ * order, minus anyone removed; `lead` is the key of the person shown first.
+ *  - lead = owner account: no display credit; the owner is shown first.
+ *  - lead = someone without an account: they become the display credit; the owner keeps control but is not shown.
+ *  - lead = another account: that account becomes the owner; the former owner stays only if still listed.
+ * Nobody is e-mailed. Account co-authors keep their invitation state; new ones are listed as accepted.
  */
-export async function creditCoAuthorAsAuthorAction(id: string, name: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+export async function saveAuthorsAction(id: string, people: AuthorDraft[], lead: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const admin = await requireAdmin();
-  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, modelName: true, creditName: true, user: { select: { name: true } } } });
+  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, modelName: true, userId: true, user: { select: { name: true } }, collaborators: { select: { id: true, userId: true } } } });
   if (!sub) return { ok: false, error: "Submission not found." };
-  const row = await db.submissionCollaborator.findFirst({ where: { submissionId: id, userId: null, name } });
-  if (!row) return { ok: false, error: "That co-author is no longer listed." };
+  const leader = people.find((p) => p.key === lead);
+  if (!leader) return { ok: false, error: "Choose who is shown as the lead author." };
+
+  const guests = people.filter((p): p is Extract<AuthorDraft, { kind: "guest" }> => p.kind === "guest").map((g) => ({ ...g, name: clean(g.name, 120), affiliation: clean(g.affiliation, 160) }));
+  if (guests.some((g) => g.name.length < 2)) return { ok: false, error: "Every person without an account needs a full name." };
+  const accountIds = people.flatMap((p) => (p.kind === "account" ? [p.userId] : []));
+  if (new Set(accountIds).size !== accountIds.length || accountIds.includes(sub.userId)) return { ok: false, error: "The same account is listed twice." };
+  const ownerListed = people.some((p) => p.kind === "owner");
+  if (leader.kind === "guest" && ownerListed) return { ok: false, error: "When someone without an account is the lead, the uploading account cannot also be listed." };
+
+  const newOwnerId = leader.kind === "account" ? leader.userId : sub.userId;
+  if (leader.kind === "account" && !(await db.user.findUnique({ where: { id: newOwnerId }, select: { id: true } }))) return { ok: false, error: "That account no longer exists." };
+  // co-authors = everyone listed except the lead and whoever ends up owning it
+  const coAccounts = [...accountIds.filter((u) => u !== newOwnerId), ...(leader.kind === "account" && ownerListed ? [sub.userId] : [])];
+  const coGuests = guests.filter((g) => g.key !== lead);
+  if (coAccounts.length + coGuests.length > 10) return { ok: false, error: "A submission can have at most 10 co-authors." };
+  const lg = leader.kind === "guest" ? guests.find((g) => g.key === lead)! : null;
+
+  const now = new Date();
   await db.$transaction([
-    db.submission.update({ where: { id }, data: { creditName: row.name, creditAffiliation: row.affiliation } }),
-    db.submissionCollaborator.delete({ where: { id: row.id } }),
+    db.submission.update({ where: { id }, data: { userId: newOwnerId, creditName: lg?.name ?? null, creditAffiliation: lg ? lg.affiliation || null : null } }),
+    // account co-authors: drop the ones no longer listed, keep the invitation state of the rest
+    db.submissionCollaborator.deleteMany({ where: { submissionId: id, userId: { not: null, notIn: coAccounts } } }),
+    ...coAccounts.map((userId) =>
+      db.submissionCollaborator.upsert({ where: { submissionId_userId: { submissionId: id, userId } }, create: { submissionId: id, userId, acceptedAt: now, notifiedAt: now }, update: {} }),
+    ),
+    // people without an account have no state worth keeping: rewrite them in the given order
+    db.submissionCollaborator.deleteMany({ where: { submissionId: id, userId: null } }),
+    ...coGuests.map((g, i) => db.submissionCollaborator.create({ data: { submissionId: id, name: g.name, affiliation: g.affiliation || null, acceptedAt: now, notifiedAt: now, addedAt: new Date(now.getTime() + i) } })),
   ]);
-  logEvent("admin.credit_set", { id, seq: sub.seq, by: admin.id, name, from: "co-author" });
-  await recordAdminEvent("deletions", `${admin.name} credited #${sub.seq} "${sub.modelName}" to its co-author ${name}${sub.creditName ? ` (was credited to ${sub.creditName})` : ""}; ${sub.user.name} still owns it but is no longer shown`);
+
+  const leadName = lg?.name ?? (leader.kind === "account" ? (await db.user.findUnique({ where: { id: newOwnerId }, select: { name: true } }))?.name : sub.user.name) ?? "?";
+  logEvent("admin.authors_saved", { id, seq: sub.seq, by: admin.id, lead: leadName, owner: newOwnerId, coAccounts: coAccounts.length, coGuests: coGuests.length });
+  await recordAdminEvent(
+    "deletions",
+    `${admin.name} set the authors of #${sub.seq} "${sub.modelName}": ${[leadName, ...coGuests.map((g) => g.name)].join(", ")}${coAccounts.length ? ` + ${coAccounts.length} account co-author${coAccounts.length === 1 ? "" : "s"}` : ""}${newOwnerId !== sub.userId ? `; ownership moved from ${sub.user.name}` : ""}`,
+  );
   revalidatePath("/leaderboard");
   revalidatePath("/");
   revalidatePath(`/submissions/${id}`);
   revalidatePath("/submissions");
   revalidatePath("/admin/submissions");
-  return { ok: true, message: `Now shown as ${name}'s work` };
+  return { ok: true, message: "Authors saved" };
 }

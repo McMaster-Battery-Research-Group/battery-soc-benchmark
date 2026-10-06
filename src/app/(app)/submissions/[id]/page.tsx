@@ -127,9 +127,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 id={sub.id}
                 seq={sub.seq}
                 modelName={sub.modelName}
-                owner={{ id: sub.user.id, name: sub.user.name, email: sub.user.email, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null }}
+                owner={{ id: sub.user.id, name: sub.user.name, email: sub.user.email, affiliation: sub.user.affiliation, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null }}
                 credit={{ name: sub.creditName, affiliation: sub.creditAffiliation }}
-                coAuthors={sub.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
+                coAuthors={sub.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.user?.affiliation ?? c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
               />
             ) : null}
           </div>

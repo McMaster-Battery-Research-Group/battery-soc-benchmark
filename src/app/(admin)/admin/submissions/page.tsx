@@ -26,8 +26,8 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
     orderBy: { submittedAt: "desc" },
     take: 200,
     include: {
-      user: { select: { id: true, name: true, email: true, avatarUpdatedAt: true } },
-      collaborators: { include: { user: { select: { id: true, name: true, email: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
+      user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } },
+      collaborators: { include: { user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
       result: { select: { weightedError: true, evaluatorVersion: true } },
       job: { select: { log: true } },
       contest: { select: { title: true } },
@@ -116,9 +116,9 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                       id={s.id}
                       seq={s.seq}
                       modelName={s.modelName}
-                      owner={{ id: s.user.id, name: s.user.name, email: s.user.email, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null }}
+                      owner={{ id: s.user.id, name: s.user.name, email: s.user.email, affiliation: s.user.affiliation, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null }}
                       credit={{ name: s.creditName, affiliation: s.creditAffiliation }}
-                      coAuthors={s.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
+                      coAuthors={s.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.user?.affiliation ?? c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
                     />
                   </td>
                   <td className="px-3 py-2.5">

@@ -2,183 +2,167 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Users, Crown, X, UserPlus } from "lucide-react";
+import { Users, X, UserPlus, UserRoundPlus, Eye, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
-import { Hint, Input, Label } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
-import { adminSetSubmissionOwnerAction, adminAddCoAuthorAction, adminRemoveCoAuthorAction, adminAddCreditAction, adminRemoveCreditAction } from "../actions";
-import { setSubmissionCreditAction, creditCoAuthorAsAuthorAction } from "./credit-actions";
+import { saveAuthorsAction, type AuthorDraft } from "./credit-actions";
+import { cn } from "@/lib/utils";
 
 /** `id` is null and `email` empty for a co-author an administrator credited without an account. */
 export type AuthorRow = { id: string | null; name: string; email: string; affiliation?: string; avatarVersion: number | null };
 
+type Person = { key: string; kind: AuthorDraft["kind"]; userId?: string; name: string; affiliation: string; email?: string; avatarVersion: number | null };
+
+function initialPeople(owner: AuthorRow & { id: string }, coAuthors: AuthorRow[], credit?: { name: string | null; affiliation: string | null }) {
+  const ownerRow: Person = { key: "owner", kind: "owner", userId: owner.id, name: owner.name, affiliation: owner.affiliation ?? "", email: owner.email, avatarVersion: owner.avatarVersion };
+  const co: Person[] = coAuthors.map((c, i) =>
+    c.id
+      ? { key: `a-${c.id}`, kind: "account", userId: c.id, name: c.name, affiliation: c.affiliation ?? "", email: c.email, avatarVersion: c.avatarVersion }
+      : { key: `g-${i}`, kind: "guest", name: c.name, affiliation: c.affiliation ?? "", avatarVersion: null },
+  );
+  // a display credit is shown in the owner's place, so the owner is not in the public list
+  const people = credit?.name ? [{ key: "credit", kind: "guest", name: credit.name, affiliation: credit.affiliation ?? "", avatarVersion: null } as Person, ...co] : [ownerRow, ...co];
+  return { ownerRow, people, lead: people[0].key };
+}
+
 /**
- * Administrator authorship editor: change who owns a submission and who is credited
- * alongside them. For correcting entries created on someone's behalf or carried over
- * from the previous platform — no invitation e-mails are sent, people are simply listed.
+ * Administrator authorship editor. One list of the people credited publicly, in order; the lead is
+ * shown first. Changes are drafted here and applied together on Save. Nobody is e-mailed.
  */
 export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }: { id: string; seq: number; modelName: string; owner: AuthorRow & { id: string }; coAuthors: AuthorRow[]; credit?: { name: string | null; affiliation: string | null } }) {
   const router = useRouter();
   const { push } = useToast();
+  const init = React.useMemo(() => initialPeople(owner, coAuthors, credit), [owner, coAuthors, credit]);
   const [open, setOpen] = React.useState(false);
+  const [people, setPeople] = React.useState(init.people);
+  const [lead, setLead] = React.useState(init.lead);
+  const [error, setError] = React.useState("");
   const [pending, start] = React.useTransition();
-  const [keepFormerOwner, setKeepFormerOwner] = React.useState(true);
-  const [creditName, setCreditName] = React.useState("");
-  const [creditAffil, setCreditAffil] = React.useState("");
-  const [showAs, setShowAs] = React.useState(credit?.name ?? "");
-  const [showAsAffil, setShowAsAffil] = React.useState(credit?.affiliation ?? "");
+  const nextGuest = React.useRef(0);
 
-  const run = (fn: () => Promise<{ ok: true; message: string } | { ok: false; error: string }>, failTitle: string) =>
+  const reset = () => { setPeople(init.people); setLead(init.lead); setError(""); };
+  const leader = people.find((p) => p.key === lead) ?? people[0];
+  const ownerListed = people.some((p) => p.kind === "owner");
+  const dirty = JSON.stringify([people, lead]) !== JSON.stringify([init.people, init.lead]);
+  const controller = leader?.kind === "account" ? leader : init.ownerRow;
+
+  const makeLead = (key: string) => {
+    const p = people.find((x) => x.key === key)!;
+    setLead(key);
+    // someone without an account takes the owner's place; the owner cannot be listed beside them
+    if (p.kind === "guest") setPeople((ps) => ps.filter((x) => x.kind !== "owner"));
+  };
+  const remove = (key: string) => {
+    const rest = people.filter((p) => p.key !== key);
+    setPeople(rest);
+    if (key === lead && rest[0]) makeLeadIn(rest, rest[0].key);
+  };
+  const makeLeadIn = (list: Person[], key: string) => {
+    setLead(key);
+    if (list.find((x) => x.key === key)?.kind === "guest") setPeople(list.filter((x) => x.kind !== "owner"));
+  };
+  const edit = (key: string, patch: Partial<Person>) => setPeople((ps) => ps.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+  const addGuest = () => {
+    const key = `new-${nextGuest.current++}`;
+    setPeople((ps) => [...ps, { key, kind: "guest", name: "", affiliation: "", avatarVersion: null }]);
+    setTimeout(() => document.getElementById(`an-${id}-${key}`)?.focus(), 0);
+  };
+  const showOwnerAgain = () => { setPeople((ps) => [init.ownerRow, ...ps]); setLead("owner"); };
+
+  const save = () => {
+    setError("");
+    const draft: AuthorDraft[] = people.map((p) =>
+      p.kind === "owner" ? { kind: "owner", key: p.key } : p.kind === "account" ? { kind: "account", key: p.key, userId: p.userId! } : { kind: "guest", key: p.key, name: p.name, affiliation: p.affiliation },
+    );
     start(async () => {
-      const res = await fn();
-      if (!res.ok) return push({ kind: "error", title: failTitle, description: res.error });
+      const res = await saveAuthorsAction(id, draft, lead);
+      if (!res.ok) return setError(res.error);
       push({ kind: "success", title: res.message });
+      setOpen(false);
       router.refresh();
     });
+  };
 
-  const everyone = [owner.id, ...coAuthors.flatMap((c) => (c.id ? [c.id] : []))];
+  const ordered = leader ? [leader, ...people.filter((p) => p.key !== leader.key)] : people;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) reset(); }}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="mt-1 h-auto px-1.5 py-0.5 text-xs text-grey-600" title="Edit authorship">
           <Users className="size-3.5" /> Edit authors
         </Button>
       </DialogTrigger>
-      <DialogContent title={`Authorship of #${seq}`} description={modelName} size="sm">
-        <p className="text-sm text-grey-700">
-          Corrects who is credited. The owner controls the submission and appears first everywhere; co-authors are shown beside them. Nobody is e-mailed.
-          For an entry filed on someone else&apos;s behalf, use <strong>Make author</strong> on that person below.
+      <DialogContent title={`Authors of #${seq}`} description={modelName} size="lg">
+        {/* what the public will see */}
+        <div className="rounded-brand border border-border bg-grey-100/70 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-grey-600"><Eye className="size-3.5" /> Shown on the site as</p>
+          <p className="mt-1 text-[15px] text-ink">
+            {ordered.length ? ordered.map((p, i) => (
+              <React.Fragment key={p.key}>{i ? ", " : ""}<span className={i === 0 ? "font-semibold" : undefined}>{p.name || "(name needed)"}</span></React.Fragment>
+            )) : <span className="text-danger">Nobody. Add at least one person.</span>}
+            {ordered.length === 1 && leader?.affiliation ? <span className="text-grey-700"> · {leader.affiliation}</span> : null}
+          </p>
+        </div>
+
+        <ul className="mt-4 space-y-2">
+          {ordered.map((p) => {
+            const isLead = p.key === lead;
+            return (
+              <li key={p.key} className={cn("rounded-brand border px-3 py-2.5", isLead ? "border-maroon bg-maroon-100/40" : "border-border")}>
+                <div className="flex items-center gap-3">
+                  <Avatar userId={p.userId ?? ""} name={p.name || "?"} hasAvatar={p.avatarVersion !== null} version={p.avatarVersion} size={32} />
+                  <div className="min-w-0 flex-1">
+                    {p.kind === "guest" ? (
+                      <div className="grid gap-1.5 sm:grid-cols-2">
+                        <Input id={`an-${id}-${p.key}`} aria-label="Full name" value={p.name} placeholder="Full name" className="h-9" onChange={(e) => edit(p.key, { name: e.currentTarget.value })} />
+                        <Input aria-label="Affiliation" value={p.affiliation} placeholder="Affiliation (optional)" className="h-9" onChange={(e) => edit(p.key, { affiliation: e.currentTarget.value })} />
+                      </div>
+                    ) : (
+                      <>
+                        <p className="truncate text-sm font-semibold text-ink">{p.name}</p>
+                        <p className="truncate text-xs text-grey-600">{[p.affiliation, p.email].filter(Boolean).join(" · ")}</p>
+                      </>
+                    )}
+                    <p className="mt-1 text-xs text-grey-600">{p.kind === "owner" ? "Uploaded this submission" : p.kind === "account" ? "Has an account" : "No account; listed by name only"}</p>
+                  </div>
+                  <label className={cn("flex shrink-0 cursor-pointer items-center gap-1.5 rounded-brand px-2 py-1 text-xs font-semibold", isLead ? "text-maroon" : "text-grey-700 hover:bg-grey-100")}>
+                    <input type="radio" name={`lead-${id}`} className="size-4 accent-[#7a003c]" checked={isLead} onChange={() => makeLead(p.key)} />
+                    Lead author
+                  </label>
+                  <Button variant="ghost" size="sm" className="shrink-0" aria-label={`Remove ${p.name || "this person"}`} title="Remove from the authors" disabled={people.length === 1} onClick={() => remove(p.key)}><X /></Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <UserPickerDialog
+            exclude={[init.ownerRow.userId!, ...people.flatMap((p) => (p.userId ? [p.userId] : []))]}
+            title="Add someone with an account"
+            trigger={<Button variant="outline" size="sm"><UserPlus /> Add someone with an account</Button>}
+            onAdd={async (u) => setPeople((ps) => [...ps, { key: `a-${u.id}`, kind: "account", userId: u.id, name: u.name, affiliation: u.affiliation, avatarVersion: u.avatarVersion }])}
+          />
+          <Button variant="outline" size="sm" onClick={addGuest}><UserRoundPlus /> Add someone without an account</Button>
+          {!ownerListed ? <Button variant="tertiary" size="sm" onClick={showOwnerAgain}>Show {init.ownerRow.name} again</Button> : null}
+        </div>
+
+        <p className="mt-4 flex items-start gap-2 rounded-brand bg-grey-100/70 px-3 py-2 text-sm text-grey-800">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-maroon" />
+          <span>
+            <strong>{controller.name}</strong> controls this submission (edits, new versions, deletion){!ownerListed && leader?.kind === "guest" ? ", but is not shown as an author" : ""}.
+            {leader?.kind === "account" ? <> Ownership moves from {init.ownerRow.name} to {leader.name} when you save.</> : null}
+          </span>
         </p>
 
-        <h4 className="mt-4 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Shown as</h4>
-        <Hint>Who the public sees as the author. Leave empty to show the owner account below. Setting this does not change who controls the submission.</Hint>
-        <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
-          <span>
-            <Label htmlFor={`sa-${id}`}>Credited name</Label>
-            <Input id={`sa-${id}`} value={showAs} onChange={(e) => setShowAs(e.target.value)} placeholder={owner.name} />
-          </span>
-          <span>
-            <Label htmlFor={`saa-${id}`}>Affiliation</Label>
-            <Input id={`saa-${id}`} value={showAsAffil} onChange={(e) => setShowAsAffil(e.target.value)} placeholder="McMaster University" />
-          </span>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mt-2"
-          disabled={pending}
-          onClick={() => run(() => setSubmissionCreditAction(id, showAs, showAsAffil), "Could not change the credit")}
-        >
-          <Crown /> {showAs.trim() ? "Credit to this person" : "Clear the credit"}
-        </Button>
-
-        <h4 className="mt-5 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Owner account</h4>
-        <div className="mt-1.5 flex items-center gap-2.5 rounded-brand border border-border px-3 py-2">
-          <Avatar userId={owner.id} name={owner.name} hasAvatar={owner.avatarVersion !== null} version={owner.avatarVersion} size={30} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm text-grey-900">{owner.name}</span>
-            <span className="block truncate text-xs text-grey-600">{owner.email}</span>
-          </span>
-          <UserPickerDialog
-            exclude={[owner.id]}
-            title="Choose the new owner"
-            trigger={<Button variant="outline" size="sm" disabled={pending}><Crown /> Change</Button>}
-            onAdd={async (u) => {
-              run(() => adminSetSubmissionOwnerAction(id, u.id, keepFormerOwner), "Could not change the owner");
-            }}
-          />
-        </div>
-        <label className="mt-2 flex items-start gap-2 text-sm text-grey-700">
-          <input type="checkbox" className="mt-0.5" checked={keepFormerOwner} onChange={(e) => setKeepFormerOwner(e.target.checked)} />
-          <span>Keep the former owner as a co-author</span>
-        </label>
-        <Hint>Leave this on unless the submission was filed under the wrong person entirely.</Hint>
-
-        <h4 className="mt-5 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Co-authors</h4>
-        {coAuthors.length ? (
-          <ul className="mt-1.5 divide-y divide-border rounded-brand border border-border">
-            {coAuthors.map((c) => (
-              <li key={c.id ?? `x${c.name}`} className="flex items-center gap-2.5 px-3 py-2">
-                <Avatar userId={c.id ?? ""} name={c.name} hasAvatar={c.avatarVersion !== null} version={c.avatarVersion} size={26} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-grey-900">{c.name}</span>
-                  <span className="block truncate text-xs text-grey-600">{c.email || c.affiliation || "no account, credited by an administrator"}</span>
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  title={c.id ? `Make ${c.name} the owner; ${owner.name} is no longer listed` : `Show this entry as ${c.name}'s work; ${owner.name} is no longer listed`}
-                  onClick={() => {
-                    if (!window.confirm(c.id ? `Make ${c.name} the owner of #${seq}? They take control of it and ${owner.name} is removed from the credits.` : `Show #${seq} as ${c.name}'s work? ${owner.name} keeps control but is no longer shown.`)) return;
-                    run(async () => {
-                      if (!c.id) return creditCoAuthorAsAuthorAction(id, c.name);
-                      const res = await adminSetSubmissionOwnerAction(id, c.id, false);
-                      // an old display credit would otherwise still hide the new owner
-                      if (res.ok && credit?.name) await setSubmissionCreditAction(id, "", "");
-                      return res;
-                    }, "Could not change the author");
-                  }}
-                >
-                  <Crown /> Make author
-                </Button>
-                <Button variant="ghost" size="sm" disabled={pending} title={`Remove ${c.name}`} onClick={() => run(() => (c.id ? adminRemoveCoAuthorAction(id, c.id) : adminRemoveCreditAction(id, c.name)), "Could not remove the co-author")}>
-                  <X />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-1.5 text-sm text-grey-600">None listed.</p>
-        )}
-        <div className="mt-2">
-          <UserPickerDialog
-            exclude={everyone}
-            title="Add a co-author"
-            trigger={<Button variant="secondary" size="sm" disabled={pending}><UserPlus /> Add co-author with an account</Button>}
-            onAdd={async (u) => {
-              run(() => adminAddCoAuthorAction(id, u.id), "Could not add the co-author");
-            }}
-          />
-        </div>
-
-        <h4 className="mt-5 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Credit someone without an account</h4>
-        <Hint>For co-authors who will never use the platform, or entries carried over from the previous system. They are listed but get no profile page and no e-mail.</Hint>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <span>
-            <Label htmlFor={`cn-${id}`}>Full name</Label>
-            <Input id={`cn-${id}`} value={creditName} onChange={(e) => setCreditName(e.target.value)} placeholder="Jane Smith" />
-          </span>
-          <span>
-            <Label htmlFor={`ca-${id}`}>Affiliation (optional)</Label>
-            <Input id={`ca-${id}`} value={creditAffil} onChange={(e) => setCreditAffil(e.target.value)} placeholder="McMaster University" />
-          </span>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mt-2"
-          disabled={pending || creditName.trim().length < 2}
-          onClick={() =>
-            run(async () => {
-              const res = await adminAddCreditAction(id, creditName, creditAffil);
-              if (res.ok) {
-                setCreditName("");
-                setCreditAffil("");
-              }
-              return res;
-            }, "Could not add the credit")
-          }
-        >
-          <UserPlus /> Add credit
-        </Button>
-
+        {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         <DialogFooter>
-          <DialogClose asChild><Button variant="secondary">Done</Button></DialogClose>
+          <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+          <Button onClick={save} loading={pending} disabled={!dirty || !people.length}>Save changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
