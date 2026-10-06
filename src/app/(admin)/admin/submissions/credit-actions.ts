@@ -122,3 +122,29 @@ export async function createLegacyEntryAction(input: LegacyEntry): Promise<{ ok:
   revalidatePath("/admin/submissions");
   return { ok: true, seq: sub.seq };
 }
+
+/**
+ * The usual fix for an entry filed on someone else's behalf: show it as the work of a co-author who
+ * has no account, instead of the account that uploaded it. Their name and affiliation become the
+ * display credit and their co-author row is removed so they are not listed twice. The owner account
+ * keeps control of the submission but is no longer shown anywhere.
+ */
+export async function creditCoAuthorAsAuthorAction(id: string, name: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, modelName: true, creditName: true, user: { select: { name: true } } } });
+  if (!sub) return { ok: false, error: "Submission not found." };
+  const row = await db.submissionCollaborator.findFirst({ where: { submissionId: id, userId: null, name } });
+  if (!row) return { ok: false, error: "That co-author is no longer listed." };
+  await db.$transaction([
+    db.submission.update({ where: { id }, data: { creditName: row.name, creditAffiliation: row.affiliation } }),
+    db.submissionCollaborator.delete({ where: { id: row.id } }),
+  ]);
+  logEvent("admin.credit_set", { id, seq: sub.seq, by: admin.id, name, from: "co-author" });
+  await recordAdminEvent("deletions", `${admin.name} credited #${sub.seq} "${sub.modelName}" to its co-author ${name}${sub.creditName ? ` (was credited to ${sub.creditName})` : ""}; ${sub.user.name} still owns it but is no longer shown`);
+  revalidatePath("/leaderboard");
+  revalidatePath("/");
+  revalidatePath(`/submissions/${id}`);
+  revalidatePath("/submissions");
+  revalidatePath("/admin/submissions");
+  return { ok: true, message: `Now shown as ${name}'s work` };
+}

@@ -23,7 +23,7 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
         {show ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ fontSize: 58, fontWeight: 700, lineHeight: 1.1 }}>{sub.modelName}</div>
-            <div style={{ fontSize: 30, color: "#fff", opacity: 0.9 }}>by {sub.user.name}</div>
+            <div style={{ fontSize: 30, color: "#fff", opacity: 0.9 }}>by {sub.creditName ?? sub.user.name}</div>
             {sub.result ? <div style={{ fontSize: 40, color: "#fdbf57", fontWeight: 700 }}>{sub.result.weightedError.toFixed(3)} % weighted error</div> : <div style={{ fontSize: 30, color: "#fdbf57" }}>Blinded evaluation in progress</div>}
           </div>
         ) : (

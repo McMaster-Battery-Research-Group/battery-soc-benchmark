@@ -10,7 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
 import { adminSetSubmissionOwnerAction, adminAddCoAuthorAction, adminRemoveCoAuthorAction, adminAddCreditAction, adminRemoveCreditAction } from "../actions";
-import { setSubmissionCreditAction } from "./credit-actions";
+import { setSubmissionCreditAction, creditCoAuthorAsAuthorAction } from "./credit-actions";
 
 /** `id` is null and `email` empty for a co-author an administrator credited without an account. */
 export type AuthorRow = { id: string | null; name: string; email: string; affiliation?: string; avatarVersion: number | null };
@@ -51,6 +51,7 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
       <DialogContent title={`Authorship of #${seq}`} description={modelName} size="sm">
         <p className="text-sm text-grey-700">
           Corrects who is credited. The owner controls the submission and appears first everywhere; co-authors are shown beside them. Nobody is e-mailed.
+          For an entry filed on someone else&apos;s behalf, use <strong>Make author</strong> on that person below.
         </p>
 
         <h4 className="mt-4 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Shown as</h4>
@@ -107,6 +108,24 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
                   <span className="block truncate text-sm text-grey-900">{c.name}</span>
                   <span className="block truncate text-xs text-grey-600">{c.email || c.affiliation || "no account, credited by an administrator"}</span>
                 </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  title={c.id ? `Make ${c.name} the owner; ${owner.name} is no longer listed` : `Show this entry as ${c.name}'s work; ${owner.name} is no longer listed`}
+                  onClick={() => {
+                    if (!window.confirm(c.id ? `Make ${c.name} the owner of #${seq}? They take control of it and ${owner.name} is removed from the credits.` : `Show #${seq} as ${c.name}'s work? ${owner.name} keeps control but is no longer shown.`)) return;
+                    run(async () => {
+                      if (!c.id) return creditCoAuthorAsAuthorAction(id, c.name);
+                      const res = await adminSetSubmissionOwnerAction(id, c.id, false);
+                      // an old display credit would otherwise still hide the new owner
+                      if (res.ok && credit?.name) await setSubmissionCreditAction(id, "", "");
+                      return res;
+                    }, "Could not change the author");
+                  }}
+                >
+                  <Crown /> Make author
+                </Button>
                 <Button variant="ghost" size="sm" disabled={pending} title={`Remove ${c.name}`} onClick={() => run(() => (c.id ? adminRemoveCoAuthorAction(id, c.id) : adminRemoveCreditAction(id, c.name)), "Could not remove the co-author")}>
                   <X />
                 </Button>

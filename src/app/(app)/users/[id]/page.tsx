@@ -36,7 +36,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
     where: { OR: [{ userId: user.id }, { collaborators: { some: { userId: user.id, ...(isSelf || isAdmin ? {} : { acceptedAt: { not: null } }) } } }], status: "COMPLETED", result: { isNot: null }, ...(isSelf || isAdmin ? {} : { isPrivate: false, isHidden: false }) },
     include: { result: { select: { weightedError: true, allCells: true } }, contest: { select: { title: true } }, user: { select: { name: true } } },
     orderBy: { submittedAt: "desc" },
-  });
+  }).then((rows) => rows.filter((s) => !(s.userId === user.id && s.creditName) || isSelf || isAdmin));
 
   const links = [
     user.orcid ? { icon: OrcidIcon, label: "ORCID", text: user.orcid, href: `https://orcid.org/${user.orcid}` } : null,
@@ -95,7 +95,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                     <Link href={`/submissions/${s.id}`} className="font-heading font-medium text-ink hover:text-maroon hover:underline">{s.modelName}</Link>
                     {s.contest ? <Badge variant="gold" className="ml-2"><Trophy className="size-3" /> {s.contest.title}</Badge> : null}
                     {s.isPrivate ? <Badge variant="neutral" className="ml-2">Private</Badge> : null}
-                    {s.userId !== user.id ? <span className="ml-2 text-xs text-grey-600">with {s.user.name}</span> : null}
+                    {s.userId !== user.id ? <span className="ml-2 text-xs text-grey-600">with {s.creditName ?? s.user.name}</span> : s.creditName ? <span className="ml-2 text-xs text-grey-600">shown publicly as {s.creditName}&apos;s work</span> : null}
                   </td>
                   <td className="px-3 py-2 text-grey-700">{MODEL_TYPE_LABELS[s.modelType] ?? s.modelType}</td>
                   <td className="px-3 py-2 text-right font-heading font-semibold tabular">{fmtPct(s.result!.weightedError)} %</td>

@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const r = sub.result;
   const weights = await getActiveWeights();
   const body = {
-    submission: { id: sub.id, seq: sub.seq, modelName: sub.modelName, modelType: sub.modelType, author: sub.user.name, affiliation: sub.user.affiliation, submittedAt: sub.submittedAt, completedAt: sub.completedAt },
+    submission: { id: sub.id, seq: sub.seq, modelName: sub.modelName, modelType: sub.modelType, author: sub.creditName ?? sub.user.name, affiliation: sub.creditName ? (sub.creditAffiliation ?? "") : sub.user.affiliation, submittedAt: sub.submittedAt, completedAt: sub.completedAt },
     leaderboard: { weightedError: r.weightedError, complexity: r.complexity, complexityUncertainty: r.complexityUncertainty, maxError: r.maxError },
     testCases: TEST_CASES.map((t) => ({ test: t.test, key: t.key, label: t.label, weight: weights[t.key] ?? t.weight, rmse: r[t.key as keyof typeof r] })),
     perCycle: r.perCycle,

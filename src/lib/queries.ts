@@ -95,8 +95,8 @@ export async function getSubmissionDetail(id: string) {
   return db.submission.findUnique({
     where: { id },
     include: {
-      user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } },
-      collaborators: { orderBy: { addedAt: "asc" }, select: { userId: true, name: true, affiliation: true, notifiedAt: true, acceptedAt: true, user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } } },
+      user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } },
+      collaborators: { orderBy: { addedAt: "asc" }, select: { userId: true, name: true, affiliation: true, notifiedAt: true, acceptedAt: true, user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } } } },
       result: true,
       job: { select: { log: true, attempts: true, cancelRequestedAt: true } },
       contest: { select: { id: true, slug: true, title: true, status: true, startsAt: true, endsAt: true } },

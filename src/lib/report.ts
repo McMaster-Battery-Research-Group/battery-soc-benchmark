@@ -12,7 +12,7 @@ const M = "#7A003C", G = "#FDBF57", GREY = "#495965", LINE = "#DBDBDD", INK = "#
 const SERIES = ["#8f2555", "#1f7fb5", "#c98a2e", "#6b62b8"];
 
 export interface ReportInput {
-  submission: { id: string; seq: number; version?: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean };
+  submission: { id: string; seq: number; version?: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean; creditName?: string | null; creditAffiliation?: string | null };
   user: { name: string; affiliation: string };
   collaborators?: { name: string; affiliation: string }[];
   /** score history (append-only); rendered after the test-case table when it has more than one entry */
@@ -25,7 +25,9 @@ export interface ReportInput {
 
 export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const { submission: s, user, result: r, siteUrl } = input;
+    const { submission: s, result: r, siteUrl } = input;
+    // an administrator-set credit replaces the owner as the author shown
+    const user = s.creditName ? { name: s.creditName, affiliation: s.creditAffiliation ?? "" } : input.user;
     const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true, info: { Title: `${s.modelName}: Battery SOC Benchmark report`, Author: "Battery SOC Benchmark, McMaster University" } });
     // The standard Helvetica fonts only cover WinAnsi: map typographic characters
     // that would otherwise print as garbage (− Σ ⱼ … → ≥ ≤).

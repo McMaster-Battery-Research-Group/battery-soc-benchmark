@@ -27,6 +27,7 @@ import { StatusPoller } from "./status-poller";
 import { Celebration } from "@/components/celebration";
 import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
+import { EditAuthorship } from "@/app/(admin)/admin/submissions/authorship";
 import { ResourceChart, type ResourceSeries } from "./resource-chart";
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 import { getHistory, KIND_LABEL, type RevisionKind } from "@/lib/history";
@@ -60,7 +61,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
     c.user ? { id: c.user.id as string | null, name: c.user.name, affiliation: c.user.affiliation, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null } : { id: null as string | null, name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "", avatarVersion: null };
   const r = sub.result;
   const values = r ? (Object.fromEntries(TEST_CASES.map((t) => [t.key, r[t.key as keyof typeof r] as number])) as Record<MetricKey, number>) : null;
-  const authors = [{ id: sub.user.id as string | null, name: sub.user.name, affiliation: sub.user.affiliation, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null }, ...sub.collaborators.filter((c) => c.acceptedAt).map(toAuthor)];
+  // an administrator-set credit replaces the owner everywhere the entry is shown (as on the leaderboard)
+  const firstAuthor = sub.creditName
+    ? { id: null as string | null, name: sub.creditName, affiliation: sub.creditAffiliation ?? "", avatarVersion: null }
+    : { id: sub.user.id as string | null, name: sub.user.name, affiliation: sub.user.affiliation, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null };
+  const authors = [firstAuthor, ...sub.collaborators.filter((c) => c.acceptedAt).map(toAuthor)];
   const legacy = r ? !isCurrentBenchmark(r.evaluatorVersion) : false;
   const traces = (r?.timeSeries ?? []) as unknown as TimeSeriesTrace[];
   const perCycle = (r?.perCycle ?? []) as unknown as PerCycleRow[];
@@ -115,8 +120,18 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               {authors.map((u, i) => (
                 <React.Fragment key={u.id ?? `x${i}`}>{i ? ", " : ""}{u.id ? <Link href={`/users/${u.id}`} className="text-ink hover:text-maroon hover:underline">{u.name}</Link> : <span className="text-ink">{u.name}</span>}</React.Fragment>
               ))}
-              {authors.length === 1 ? ` · ${sub.user.affiliation}` : ""}
+              {authors.length === 1 && firstAuthor.affiliation ? ` · ${firstAuthor.affiliation}` : ""}
             </span>
+            {isAdmin ? (
+              <EditAuthorship
+                id={sub.id}
+                seq={sub.seq}
+                modelName={sub.modelName}
+                owner={{ id: sub.user.id, name: sub.user.name, email: sub.user.email, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null }}
+                credit={{ name: sub.creditName, affiliation: sub.creditAffiliation }}
+                coAuthors={sub.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
+              />
+            ) : null}
           </div>
         </div>
 
