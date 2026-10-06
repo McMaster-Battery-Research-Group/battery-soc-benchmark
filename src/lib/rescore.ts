@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getPublicAuthors } from "@/lib/queries";
 import { weightedError } from "@/lib/scoring";
 import { METRIC_KEYS, type MetricKey } from "@/lib/test-cases";
 import { recordRevision, getHistory } from "@/lib/history";
@@ -37,7 +38,7 @@ export async function rescoreAll(opts: { apply: boolean; notify: boolean; note: 
       const freshResult = await db.evaluationResult.findUnique({ where: { id: r.id } });
       let report: Buffer | undefined;
       try {
-        report = await buildSubmissionReport({ submission: s, user: s.user, collaborators: s.collaborators.map((c) => (c.user ? { name: c.user.name, affiliation: c.user.affiliation } : { name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "" })), result: freshResult as unknown as ReportInput["result"], history: await getHistory(s.id), weights, siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
+        report = await buildSubmissionReport({ submission: s, authors: await getPublicAuthors(s.id), result: freshResult as unknown as ReportInput["result"], history: await getHistory(s.id), weights, siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" });
       } catch (e) {
         log(`  PDF failed for #${s.seq}: ${e instanceof Error ? e.message : e}`);
       }

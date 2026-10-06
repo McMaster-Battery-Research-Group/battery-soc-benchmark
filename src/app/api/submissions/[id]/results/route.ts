@@ -2,7 +2,7 @@ import { getActiveWeights } from "@/lib/scoring-config";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canViewSubmission } from "@/lib/queries";
+import { canViewSubmission, getPublicAuthors } from "@/lib/queries";
 import { TEST_CASES } from "@/lib/test-cases";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,8 +12,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!sub || !canViewSubmission(sub, session?.user) || !sub.result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const r = sub.result;
   const weights = await getActiveWeights();
+  const authors = await getPublicAuthors(sub.id);
   const body = {
-    submission: { id: sub.id, seq: sub.seq, modelName: sub.modelName, modelType: sub.modelType, author: sub.creditName ?? sub.user.name, affiliation: sub.creditName ? (sub.creditAffiliation ?? "") : sub.user.affiliation, submittedAt: sub.submittedAt, completedAt: sub.completedAt },
+    submission: { id: sub.id, seq: sub.seq, modelName: sub.modelName, modelType: sub.modelType, author: authors[0]?.name ?? "", affiliation: authors[0]?.affiliation ?? "", authors: authors.map((a) => ({ name: a.name, affiliation: a.affiliation })), submittedAt: sub.submittedAt, completedAt: sub.completedAt },
     leaderboard: { weightedError: r.weightedError, complexity: r.complexity, complexityUncertainty: r.complexityUncertainty, maxError: r.maxError },
     testCases: TEST_CASES.map((t) => ({ test: t.test, key: t.key, label: t.label, weight: weights[t.key] ?? t.weight, rmse: r[t.key as keyof typeof r] })),
     perCycle: r.perCycle,

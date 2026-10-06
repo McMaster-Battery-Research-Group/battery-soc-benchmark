@@ -131,6 +131,13 @@ model Submission {
   /// deletion. Used to credit work to someone who has no account, or whose account is not the author.
   creditName        String?
   creditAffiliation String?
+  /// photo of the credited author (no account): small JPEG, resized in the browser
+  creditAvatar      Bytes?
+  creditAvatarAt    DateTime?
+  /// Where the owner (uploader) appears in the public author list: "lead" | "coauthor" (after the
+  /// others) | "hidden". null = the original rule: hidden when creditName is set, otherwise lead.
+  /// See publicAuthors() in src/lib/authors.ts.
+  ownerDisplay      String?
 
   /// A score carried over from before this platform existed: no package, no re-evaluation, and only
   /// the headline figures. Shown with a badge so it is never mistaken for a run of this evaluator.
@@ -191,6 +198,9 @@ model SubmissionCollaborator {
   /// Only for unregistered co-authors (userId = null); otherwise read them off `user`.
   name         String?
   affiliation  String?
+  /// photo for an unregistered co-author (small JPEG); account co-authors use their profile picture
+  avatar       Bytes?
+  avatarAt     DateTime?
   addedAt      DateTime   @default(now())
   /// Set once the owner confirmed and the "you were added" e-mail went out.
   /// Unconfirmed collaborators are listed but receive no e-mails.

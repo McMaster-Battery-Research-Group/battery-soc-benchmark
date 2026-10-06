@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage, runtimeOf } from "@/lib/package-check";
 import { contestPhase, runtimeAllowed, RUNTIME_LABEL } from "@/lib/contest";
+import { parseAvatarDataUrl, type OwnerDisplay } from "@/lib/authors";
 import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail, submissionDeletedEmail } from "@/lib/mail";
 import { recordRevision } from "@/lib/history";
@@ -98,6 +99,28 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     return reject("Collaborator list could not be read.");
   }
 
+  // Submitting on someone else's behalf: they are the author. With an account they are invited like
+  // any co-author and shown first once they accept; without one they are a named credit (optionally
+  // with a photo). The uploader is listed after them, or not at all (src/lib/authors.ts).
+  const onBehalf = fd.get("onBehalf") === "on";
+  let behalfAccount: { id: string; email: string; name: string } | null = null;
+  let credit: { name: string; affiliation: string | null; avatar: Buffer | null } | null = null;
+  if (onBehalf) {
+    if (fd.get("behalfKind") === "account") {
+      const uid = String(fd.get("behalfUserId") ?? "");
+      behalfAccount = uid && uid !== session.user.id ? await db.user.findUnique({ where: { id: uid, emailVerified: { not: null } }, select: { id: true, email: true, name: true } }) : null;
+      if (!behalfAccount) return reject("Choose the author's account.");
+      collaborators = collaborators.filter((c) => c.id !== behalfAccount!.id);
+    } else {
+      const name = String(fd.get("behalfName") ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+      if (name.length < 2) return reject("Enter the author's full name.");
+      const photo = parseAvatarDataUrl(String(fd.get("behalfPhoto") ?? ""));
+      if (photo && "error" in photo) return reject(photo.error);
+      credit = { name, affiliation: String(fd.get("behalfAffiliation") ?? "").trim().slice(0, 160) || null, avatar: photo?.bytes ?? null };
+    }
+  }
+  const ownerDisplay = onBehalf ? (fd.get("showMe") === "on" ? "coauthor" : "hidden") : null;
+
   // Contest checks
   let contestId: string | null = null;
   if (parsed.data.contestId) {
@@ -138,12 +161,18 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
       fileType: "ZIP",
       fileSize,
       contestId,
+      ownerDisplay,
+      creditName: credit?.name ?? null,
+      creditAffiliation: credit?.affiliation ?? null,
+      creditAvatar: credit?.avatar ? new Uint8Array(credit.avatar) : null,
+      creditAvatarAt: credit?.avatar ? new Date() : null,
       job: { create: {} },
-      collaborators: { create: collaborators.map((c) => ({ userId: c.id })) },
+      // the on-behalf author with an account is first in the list, so they lead once they accept
+      collaborators: { create: [...(behalfAccount ? [{ userId: behalfAccount.id }] : []), ...collaborators.map((c) => ({ userId: c.id }))] },
     },
   });
   // Collaborators start as pending; the owner confirms the e-mails on the submission page.
-  logEvent("submission.created", { seq: sub.seq, id: sub.id, userId: session.user.id, modelType: parsed.data.modelType, fileKB: Math.round(fileSize / 1024), contestId, collaborators: collaborators.length });
+  logEvent("submission.created", { seq: sub.seq, id: sub.id, userId: session.user.id, modelType: parsed.data.modelType, fileKB: Math.round(fileSize / 1024), contestId, collaborators: collaborators.length, onBehalf: onBehalf ? (credit ? "guest" : "account") : undefined, ownerDisplay });
   revalidatePath("/submissions");
   redirect(`/submissions/${sub.id}?new=1`);
 }
@@ -155,6 +184,25 @@ async function ownedSubmission(id: string) {
   if (!sub) throw new Error("Submission not found");
   if (sub.userId !== session.user.id && session.user.role !== "ADMIN") throw new Error("Forbidden");
   return { sub, session };
+}
+
+/**
+ * Owner/admin: whether the uploading account is listed publicly as an author ("lead", "coauthor" or
+ * "hidden"). Hiding needs another public author to stand behind: an entry always shows someone.
+ */
+export async function setOwnerDisplayAction(id: string, display: OwnerDisplay): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { sub } = await ownedSubmission(id);
+  if (!["lead", "coauthor", "hidden"].includes(display)) return { ok: false, error: "Unknown option." };
+  if (display !== "lead") {
+    const others = (await db.submissionCollaborator.count({ where: { submissionId: id, acceptedAt: { not: null } } })) + (sub.creditName ? 1 : 0);
+    if (!others) return { ok: false, error: "Add a co-author first: an entry always shows at least one author." };
+  }
+  await db.submission.update({ where: { id }, data: { ownerDisplay: display } });
+  revalidatePath("/leaderboard");
+  revalidatePath("/");
+  revalidatePath(`/submissions/${id}`);
+  revalidatePath("/submissions");
+  return { ok: true };
 }
 
 export async function togglePrivateAction(id: string, isPrivate: boolean) {

@@ -120,7 +120,7 @@ export function LeaderboardTable({
     URL.revokeObjectURL(a.href);
   };
 
-  const hasPrivate = viewerId ? rows.some((r) => r.isPrivate && r.userId === viewerId) : false;
+  const hasPrivate = viewerId ? rows.some((r) => r.isPrivate && r.ownerId === viewerId) : false;
   const legacyCount = rows.filter((r) => !isCurrentBenchmark(r.evaluatorVersion)).length;
   const modelTypes = Array.from(new Set(rows.map((r) => r.modelType)));
 
@@ -222,14 +222,14 @@ export function LeaderboardTable({
                       }}
                       className={cn(
                         "cursor-pointer transition-colors hover:bg-maroon-100/50",
-                        row.original.isPrivate ? "bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.userId === viewerId && "bg-[#fffbf5]",
+                        row.original.isPrivate ? "bg-[repeating-linear-gradient(135deg,#fdf6e3_0_10px,#fbf0d4_10px_20px)]" : row.original.ownerId === viewerId && "bg-[#fffbf5]",
                       )}
                       title={row.original.isPrivate ? "Private; visible only to you, not on the public leaderboard" : undefined}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
-                          <td key={cell.id} className={cn("border-b border-border px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "rank" && row.original.isPrivate && "border-l-4 border-l-gold-400", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : row.original.userId === viewerId ? "bg-[#fffbf5]" : "bg-white"))}>
+                          <td key={cell.id} className={cn("border-b border-border px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "rank" && row.original.isPrivate && "border-l-4 border-l-gold-400", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : row.original.ownerId === viewerId ? "bg-[#fffbf5]" : "bg-white"))}>
                             {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} unranked={rankById.get(row.original.id)!.unranked} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );

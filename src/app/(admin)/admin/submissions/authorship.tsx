@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Users, X, UserPlus, UserRoundPlus, Eye, ShieldCheck } from "lucide-react";
+import { Users, X, UserPlus, UserRoundPlus, Eye, ShieldCheck, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,33 +10,58 @@ import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
 import { saveAuthorsAction, type AuthorDraft } from "./credit-actions";
+import { ownerDisplayOf } from "@/lib/authors";
+import { resizeAvatar } from "@/lib/avatar-client";
 import { cn } from "@/lib/utils";
 
-/** `id` is null and `email` empty for a co-author an administrator credited without an account. */
-export type AuthorRow = { id: string | null; name: string; email: string; affiliation?: string; avatarVersion: number | null };
+/** `id` is null and `email` empty for a co-author without an account; `rowId` is their co-author row, `avatarSrc` their picture. */
+export type AuthorRow = { id: string | null; rowId?: string; name: string; email: string; affiliation?: string; avatarVersion: number | null; avatarSrc?: string | null };
 
-type Person = { key: string; kind: AuthorDraft["kind"]; userId?: string; name: string; affiliation: string; email?: string; avatarVersion: number | null };
+type Person = {
+  key: string;
+  kind: AuthorDraft["kind"];
+  userId?: string;
+  name: string;
+  affiliation: string;
+  email?: string;
+  avatarVersion: number | null;
+  avatarSrc: string | null;
+  /** existing picture location (co-author row id or "credit") */
+  from?: string;
+  /** undefined = keep picture, null = remove, string = new data URL */
+  photo?: string | null;
+};
 
-function initialPeople(owner: AuthorRow & { id: string }, coAuthors: AuthorRow[], credit?: { name: string | null; affiliation: string | null }) {
-  const ownerRow: Person = { key: "owner", kind: "owner", userId: owner.id, name: owner.name, affiliation: owner.affiliation ?? "", email: owner.email, avatarVersion: owner.avatarVersion };
+type Credit = { name: string | null; affiliation: string | null; avatarSrc?: string | null };
+
+function initialPeople(owner: AuthorRow & { id: string }, coAuthors: AuthorRow[], credit: Credit | undefined, ownerDisplay: string | null | undefined) {
+  const ownerRow: Person = { key: "owner", kind: "owner", userId: owner.id, name: owner.name, affiliation: owner.affiliation ?? "", email: owner.email, avatarVersion: owner.avatarVersion, avatarSrc: null };
+  const display = ownerDisplayOf({ creditName: credit?.name ?? null, ownerDisplay });
   const co: Person[] = coAuthors.map((c, i) =>
     c.id
-      ? { key: `a-${c.id}`, kind: "account", userId: c.id, name: c.name, affiliation: c.affiliation ?? "", email: c.email, avatarVersion: c.avatarVersion }
-      : { key: `g-${i}`, kind: "guest", name: c.name, affiliation: c.affiliation ?? "", avatarVersion: null },
+      ? { key: `a-${c.id}`, kind: "account", userId: c.id, name: c.name, affiliation: c.affiliation ?? "", email: c.email, avatarVersion: c.avatarVersion, avatarSrc: null }
+      : { key: `g-${c.rowId ?? i}`, kind: "guest", name: c.name, affiliation: c.affiliation ?? "", avatarVersion: null, avatarSrc: c.avatarSrc ?? null, from: c.rowId },
   );
-  // a display credit is shown in the owner's place, so the owner is not in the public list
-  const people = credit?.name ? [{ key: "credit", kind: "guest", name: credit.name, affiliation: credit.affiliation ?? "", avatarVersion: null } as Person, ...co] : [ownerRow, ...co];
+  // same order as the public list (src/lib/authors.ts)
+  let people: Person[] = [
+    ...(credit?.name ? [{ key: "credit", kind: "guest", name: credit.name, affiliation: credit.affiliation ?? "", avatarVersion: null, avatarSrc: credit.avatarSrc ?? null, from: "credit" } as Person] : []),
+    ...(display === "lead" ? [ownerRow] : []),
+    ...co,
+    ...(display === "coauthor" ? [ownerRow] : []),
+  ];
+  if (!people.length) people = [ownerRow];
   return { ownerRow, people, lead: people[0].key };
 }
 
 /**
  * Administrator authorship editor. One list of the people credited publicly, in order; the lead is
- * shown first. Changes are drafted here and applied together on Save. Nobody is e-mailed.
+ * shown first. The uploading account can sit anywhere in the list or be left off it. Changes are
+ * drafted here and applied together on Save. Nobody is e-mailed.
  */
-export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }: { id: string; seq: number; modelName: string; owner: AuthorRow & { id: string }; coAuthors: AuthorRow[]; credit?: { name: string | null; affiliation: string | null } }) {
+export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit, ownerDisplay }: { id: string; seq: number; modelName: string; owner: AuthorRow & { id: string }; coAuthors: AuthorRow[]; credit?: Credit; ownerDisplay?: string | null }) {
   const router = useRouter();
   const { push } = useToast();
-  const init = React.useMemo(() => initialPeople(owner, coAuthors, credit), [owner, coAuthors, credit]);
+  const init = React.useMemo(() => initialPeople(owner, coAuthors, credit, ownerDisplay), [owner, coAuthors, credit, ownerDisplay]);
   const [open, setOpen] = React.useState(false);
   const [people, setPeople] = React.useState(init.people);
   const [lead, setLead] = React.useState(init.lead);
@@ -49,34 +74,31 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
   const ownerListed = people.some((p) => p.kind === "owner");
   const dirty = JSON.stringify([people, lead]) !== JSON.stringify([init.people, init.lead]);
   const controller = leader?.kind === "account" ? leader : init.ownerRow;
+  // the uploading account, when not the lead, is shown after everyone else
+  const ordered = leader ? [leader, ...people.filter((p) => p.key !== leader.key && p.kind !== "owner"), ...people.filter((p) => p.key !== leader.key && p.kind === "owner")] : people;
 
-  const makeLead = (key: string) => {
-    const p = people.find((x) => x.key === key)!;
-    setLead(key);
-    // someone without an account takes the owner's place; the owner cannot be listed beside them
-    if (p.kind === "guest") setPeople((ps) => ps.filter((x) => x.kind !== "owner"));
-  };
   const remove = (key: string) => {
     const rest = people.filter((p) => p.key !== key);
     setPeople(rest);
-    if (key === lead && rest[0]) makeLeadIn(rest, rest[0].key);
-  };
-  const makeLeadIn = (list: Person[], key: string) => {
-    setLead(key);
-    if (list.find((x) => x.key === key)?.kind === "guest") setPeople(list.filter((x) => x.kind !== "owner"));
+    if (key === lead && rest[0]) setLead(rest[0].key);
   };
   const edit = (key: string, patch: Partial<Person>) => setPeople((ps) => ps.map((p) => (p.key === key ? { ...p, ...patch } : p)));
   const addGuest = () => {
     const key = `new-${nextGuest.current++}`;
-    setPeople((ps) => [...ps, { key, kind: "guest", name: "", affiliation: "", avatarVersion: null }]);
+    setPeople((ps) => [...ps, { key, kind: "guest", name: "", affiliation: "", avatarVersion: null, avatarSrc: null }]);
     setTimeout(() => document.getElementById(`an-${id}-${key}`)?.focus(), 0);
   };
-  const showOwnerAgain = () => { setPeople((ps) => [init.ownerRow, ...ps]); setLead("owner"); };
+  const setPhoto = async (key: string, file: File | undefined) => {
+    if (!file) return;
+    const url = await resizeAvatar(file).catch(() => null);
+    if (!url) return push({ kind: "error", title: "That picture could not be read", description: "Try a JPEG or PNG." });
+    edit(key, { photo: url, avatarSrc: url });
+  };
 
   const save = () => {
     setError("");
     const draft: AuthorDraft[] = people.map((p) =>
-      p.kind === "owner" ? { kind: "owner", key: p.key } : p.kind === "account" ? { kind: "account", key: p.key, userId: p.userId! } : { kind: "guest", key: p.key, name: p.name, affiliation: p.affiliation },
+      p.kind === "owner" ? { kind: "owner", key: p.key } : p.kind === "account" ? { kind: "account", key: p.key, userId: p.userId! } : { kind: "guest", key: p.key, name: p.name, affiliation: p.affiliation, from: p.from, photo: p.photo },
     );
     start(async () => {
       const res = await saveAuthorsAction(id, draft, lead);
@@ -86,8 +108,6 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
       router.refresh();
     });
   };
-
-  const ordered = leader ? [leader, ...people.filter((p) => p.key !== leader.key)] : people;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) reset(); }}>
@@ -114,7 +134,15 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
             return (
               <li key={p.key} className={cn("rounded-brand border px-3 py-2.5", isLead ? "border-maroon bg-maroon-100/40" : "border-border")}>
                 <div className="flex items-center gap-3">
-                  <Avatar userId={p.userId ?? ""} name={p.name || "?"} hasAvatar={p.avatarVersion !== null} version={p.avatarVersion} size={32} />
+                  {p.kind === "guest" ? (
+                    <label className="group relative shrink-0 cursor-pointer" title={p.avatarSrc ? "Change the picture" : "Add a picture"}>
+                      <Avatar userId="" name={p.name || "?"} hasAvatar={false} src={p.avatarSrc} size={40} />
+                      <span className="absolute -bottom-1 -right-1 rounded-full border border-border bg-white p-0.5 text-grey-700 shadow-sm group-hover:text-maroon"><Camera className="size-3" /></span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => setPhoto(p.key, e.currentTarget.files?.[0])} />
+                    </label>
+                  ) : (
+                    <Avatar userId={p.userId ?? ""} name={p.name} hasAvatar={p.avatarVersion !== null} version={p.avatarVersion} size={40} />
+                  )}
                   <div className="min-w-0 flex-1">
                     {p.kind === "guest" ? (
                       <div className="grid gap-1.5 sm:grid-cols-2">
@@ -127,13 +155,16 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
                         <p className="truncate text-xs text-grey-600">{[p.affiliation, p.email].filter(Boolean).join(" · ")}</p>
                       </>
                     )}
-                    <p className="mt-1 text-xs text-grey-600">{p.kind === "owner" ? "Uploaded this submission" : p.kind === "account" ? "Has an account" : "No account; listed by name only"}</p>
+                    <p className="mt-1 text-xs text-grey-600">
+                      {p.kind === "owner" ? "Uploaded this submission" : p.kind === "account" ? "Has an account" : "No account; listed by name"}
+                      {p.kind === "guest" && p.avatarSrc ? <> · <button type="button" className="text-maroon hover:underline" onClick={() => edit(p.key, { photo: null, avatarSrc: null })}>remove picture</button></> : null}
+                    </p>
                   </div>
                   <label className={cn("flex shrink-0 cursor-pointer items-center gap-1.5 rounded-brand px-2 py-1 text-xs font-semibold", isLead ? "text-maroon" : "text-grey-700 hover:bg-grey-100")}>
-                    <input type="radio" name={`lead-${id}`} className="size-4 accent-[#7a003c]" checked={isLead} onChange={() => makeLead(p.key)} />
+                    <input type="radio" name={`lead-${id}`} className="size-4 accent-[#7a003c]" checked={isLead} onChange={() => setLead(p.key)} />
                     Lead author
                   </label>
-                  <Button variant="ghost" size="sm" className="shrink-0" aria-label={`Remove ${p.name || "this person"}`} title="Remove from the authors" disabled={people.length === 1} onClick={() => remove(p.key)}><X /></Button>
+                  <Button variant="ghost" size="sm" className="shrink-0" aria-label={`Remove ${p.name || "this person"}`} title={p.kind === "owner" ? "Leave the uploader off the public authors" : "Remove from the authors"} disabled={people.length === 1} onClick={() => remove(p.key)}><X /></Button>
                 </div>
               </li>
             );
@@ -145,16 +176,16 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
             exclude={[init.ownerRow.userId!, ...people.flatMap((p) => (p.userId ? [p.userId] : []))]}
             title="Add someone with an account"
             trigger={<Button variant="outline" size="sm"><UserPlus /> Add someone with an account</Button>}
-            onAdd={async (u) => setPeople((ps) => [...ps, { key: `a-${u.id}`, kind: "account", userId: u.id, name: u.name, affiliation: u.affiliation, avatarVersion: u.avatarVersion }])}
+            onAdd={async (u) => setPeople((ps) => [...ps, { key: `a-${u.id}`, kind: "account", userId: u.id, name: u.name, affiliation: u.affiliation, avatarVersion: u.avatarVersion, avatarSrc: null }])}
           />
           <Button variant="outline" size="sm" onClick={addGuest}><UserRoundPlus /> Add someone without an account</Button>
-          {!ownerListed ? <Button variant="tertiary" size="sm" onClick={showOwnerAgain}>Show {init.ownerRow.name} again</Button> : null}
+          {!ownerListed ? <Button variant="tertiary" size="sm" onClick={() => setPeople((ps) => [...ps, init.ownerRow])}>List {init.ownerRow.name} as a co-author</Button> : null}
         </div>
 
         <p className="mt-4 flex items-start gap-2 rounded-brand bg-grey-100/70 px-3 py-2 text-sm text-grey-800">
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-maroon" />
           <span>
-            <strong>{controller.name}</strong> manages this submission (new versions, visibility, co-author invitations, deletion){!ownerListed && leader?.kind === "guest" ? ", but is not shown as an author" : ""}.
+            <strong>{controller.name}</strong> manages this submission (new versions, visibility, co-author invitations, deletion){!ownerListed && leader?.kind !== "account" ? ", but is not shown as an author" : ""}.
             {leader?.kind === "account" ? <> Ownership moves from {init.ownerRow.name} to {leader.name} when you save.</> : null}
           </span>
         </p>

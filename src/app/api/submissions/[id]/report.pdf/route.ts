@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canViewSubmission } from "@/lib/queries";
+import { canViewSubmission, getPublicAuthors } from "@/lib/queries";
 import { buildSubmissionReport, type ReportInput } from "@/lib/report";
 import { getHistory } from "@/lib/history";
 import { getActiveWeights } from "@/lib/scoring-config";
@@ -15,8 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!sub || !canViewSubmission(sub, session?.user) || !sub.result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const pdf = await buildSubmissionReport({
     submission: sub,
-    user: sub.user,
-    collaborators: sub.collaborators.map((c) => (c.user ? { name: c.user.name, affiliation: c.user.affiliation } : { name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "" })),
+    authors: await getPublicAuthors(sub.id),
     history: await getHistory(id),
     weights: await getActiveWeights(),
     result: sub.result as unknown as ReportInput["result"],

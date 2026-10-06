@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logEvent } from "@/lib/log";
 import { recordAdminEvent } from "@/lib/admin-notify";
+import { parseAvatarDataUrl } from "@/lib/authors";
 
 /**
  * Administrator credit and legacy records.
@@ -99,19 +100,32 @@ export async function createLegacyEntryAction(input: LegacyEntry): Promise<{ ok:
 export type AuthorDraft =
   | { kind: "owner"; key: string }
   | { kind: "account"; key: string; userId: string }
-  | { kind: "guest"; key: string; name: string; affiliation: string };
+  | {
+      kind: "guest";
+      key: string;
+      name: string;
+      affiliation: string;
+      /** where this person's existing picture lives: a co-author row id, or "credit"; absent for a new person */
+      from?: string;
+      /** picture: undefined = keep the existing one, null = remove it, string = new data URL (resizeAvatar) */
+      photo?: string | null;
+    };
 
 /**
  * Save the whole author list in one go (admin authorship editor). `people` is the public list in
  * order, minus anyone removed; `lead` is the key of the person shown first.
  *  - lead = owner account: no display credit; the owner is shown first.
- *  - lead = someone without an account: they become the display credit; the owner keeps control but is not shown.
+ *  - lead = someone without an account: they become the display credit (with their picture); the
+ *    owner keeps control and is listed after the others if still in the list, otherwise not at all.
  *  - lead = another account: that account becomes the owner; the former owner stays only if still listed.
  * Nobody is e-mailed. Account co-authors keep their invitation state; new ones are listed as accepted.
  */
 export async function saveAuthorsAction(id: string, people: AuthorDraft[], lead: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const admin = await requireAdmin();
-  const sub = await db.submission.findUnique({ where: { id }, select: { seq: true, modelName: true, userId: true, user: { select: { name: true } }, collaborators: { select: { id: true, userId: true } } } });
+  const sub = await db.submission.findUnique({
+    where: { id },
+    select: { seq: true, modelName: true, userId: true, creditAvatar: true, creditAvatarAt: true, user: { select: { name: true } }, collaborators: { where: { userId: null }, select: { id: true, avatar: true, avatarAt: true } } },
+  });
   if (!sub) return { ok: false, error: "Submission not found." };
   const leader = people.find((p) => p.key === lead);
   if (!leader) return { ok: false, error: "Choose who is shown as the lead author." };
@@ -121,34 +135,69 @@ export async function saveAuthorsAction(id: string, people: AuthorDraft[], lead:
   const accountIds = people.flatMap((p) => (p.kind === "account" ? [p.userId] : []));
   if (new Set(accountIds).size !== accountIds.length || accountIds.includes(sub.userId)) return { ok: false, error: "The same account is listed twice." };
   const ownerListed = people.some((p) => p.kind === "owner");
-  if (leader.kind === "guest" && ownerListed) return { ok: false, error: "When someone without an account is the lead, the uploading account cannot also be listed." };
+
+  // pictures of people without an account: kept, removed or replaced per the draft
+  const now = new Date();
+  const existing = new Map<string, { avatar: Uint8Array | null; avatarAt: Date | null }>(sub.collaborators.map((c) => [c.id, { avatar: c.avatar, avatarAt: c.avatarAt }]));
+  existing.set("credit", { avatar: sub.creditAvatar, avatarAt: sub.creditAvatarAt });
+  const pictures = new Map<string, { bytes: Uint8Array<ArrayBuffer> | null; at: Date | null }>();
+  for (const g of guests) {
+    if (g.photo === undefined) {
+      const e = g.from ? existing.get(g.from) : undefined;
+      pictures.set(g.key, { bytes: e?.avatar ? new Uint8Array(e.avatar) : null, at: e?.avatarAt ?? null });
+    } else if (g.photo === null) {
+      pictures.set(g.key, { bytes: null, at: null });
+    } else {
+      const p = parseAvatarDataUrl(g.photo);
+      if (p && "error" in p) return { ok: false, error: `${g.name}: ${p.error}` };
+      pictures.set(g.key, p ? { bytes: new Uint8Array(p.bytes), at: now } : { bytes: null, at: null });
+    }
+  }
 
   const newOwnerId = leader.kind === "account" ? leader.userId : sub.userId;
   if (leader.kind === "account" && !(await db.user.findUnique({ where: { id: newOwnerId }, select: { id: true } }))) return { ok: false, error: "That account no longer exists." };
-  // co-authors = everyone listed except the lead and whoever ends up owning it
-  const coAccounts = [...accountIds.filter((u) => u !== newOwnerId), ...(leader.kind === "account" && ownerListed ? [sub.userId] : [])];
+  // co-authors = everyone listed except the lead and whoever ends up owning it, in list order
+  const co = people.filter((p) => p.key !== lead && !(p.kind === "account" && p.userId === newOwnerId) && !(p.kind === "owner" && newOwnerId === sub.userId));
+  const coAccounts = co.flatMap((p) => (p.kind === "account" ? [p.userId] : p.kind === "owner" ? [sub.userId] : []));
   const coGuests = guests.filter((g) => g.key !== lead);
-  if (coAccounts.length + coGuests.length > 10) return { ok: false, error: "A submission can have at most 10 co-authors." };
+  if (co.length > 10) return { ok: false, error: "A submission can have at most 10 co-authors." };
   const lg = leader.kind === "guest" ? guests.find((g) => g.key === lead)! : null;
+  const lgPic = lg ? pictures.get(lg.key)! : null;
+  // where the (new) owner sits in the public list; the list order of the co-authors is kept via addedAt
+  const ownerDisplay = leader.kind !== "guest" ? "lead" : ownerListed ? "coauthor" : "hidden";
+  const order = new Map(co.map((p, i) => [p.key, new Date(now.getTime() + i)]));
 
-  const now = new Date();
   await db.$transaction([
-    db.submission.update({ where: { id }, data: { userId: newOwnerId, creditName: lg?.name ?? null, creditAffiliation: lg ? lg.affiliation || null : null } }),
+    db.submission.update({
+      where: { id },
+      data: { userId: newOwnerId, ownerDisplay, creditName: lg?.name ?? null, creditAffiliation: lg ? lg.affiliation || null : null, creditAvatar: lgPic?.bytes ?? null, creditAvatarAt: lgPic?.bytes ? (lgPic.at ?? now) : null },
+    }),
     // account co-authors: drop the ones no longer listed, keep the invitation state of the rest
     db.submissionCollaborator.deleteMany({ where: { submissionId: id, userId: { not: null, notIn: coAccounts } } }),
-    ...coAccounts.map((userId) =>
-      db.submissionCollaborator.upsert({ where: { submissionId_userId: { submissionId: id, userId } }, create: { submissionId: id, userId, acceptedAt: now, notifiedAt: now }, update: {} }),
+    ...co.flatMap((p) =>
+      p.kind === "guest"
+        ? []
+        : [
+            db.submissionCollaborator.upsert({
+              where: { submissionId_userId: { submissionId: id, userId: p.kind === "owner" ? sub.userId : p.userId } },
+              create: { submissionId: id, userId: p.kind === "owner" ? sub.userId : p.userId, acceptedAt: now, notifiedAt: now, addedAt: order.get(p.key) },
+              update: { addedAt: order.get(p.key) },
+            }),
+          ],
     ),
-    // people without an account have no state worth keeping: rewrite them in the given order
+    // people without an account have no invitation state: rewrite them, carrying their pictures
     db.submissionCollaborator.deleteMany({ where: { submissionId: id, userId: null } }),
-    ...coGuests.map((g, i) => db.submissionCollaborator.create({ data: { submissionId: id, name: g.name, affiliation: g.affiliation || null, acceptedAt: now, notifiedAt: now, addedAt: new Date(now.getTime() + i) } })),
+    ...coGuests.map((g) => {
+      const pic = pictures.get(g.key)!;
+      return db.submissionCollaborator.create({ data: { submissionId: id, name: g.name, affiliation: g.affiliation || null, avatar: pic.bytes, avatarAt: pic.bytes ? (pic.at ?? now) : null, acceptedAt: now, notifiedAt: now, addedAt: order.get(g.key) } });
+    }),
   ]);
 
   const leadName = lg?.name ?? (leader.kind === "account" ? (await db.user.findUnique({ where: { id: newOwnerId }, select: { name: true } }))?.name : sub.user.name) ?? "?";
-  logEvent("admin.authors_saved", { id, seq: sub.seq, by: admin.id, lead: leadName, owner: newOwnerId, coAccounts: coAccounts.length, coGuests: coGuests.length });
+  logEvent("admin.authors_saved", { id, seq: sub.seq, by: admin.id, lead: leadName, owner: newOwnerId, ownerDisplay, coAccounts: coAccounts.length, coGuests: coGuests.length });
   await recordAdminEvent(
     "deletions",
-    `${admin.name} set the authors of #${sub.seq} "${sub.modelName}": ${[leadName, ...coGuests.map((g) => g.name)].join(", ")}${coAccounts.length ? ` + ${coAccounts.length} account co-author${coAccounts.length === 1 ? "" : "s"}` : ""}${newOwnerId !== sub.userId ? `; ownership moved from ${sub.user.name}` : ""}`,
+    `${admin.name} set the authors of #${sub.seq} "${sub.modelName}": ${[leadName, ...coGuests.map((g) => g.name)].join(", ")}${coAccounts.length ? ` + ${coAccounts.length} account co-author${coAccounts.length === 1 ? "" : "s"}` : ""}${newOwnerId !== sub.userId ? `; ownership moved from ${sub.user.name}` : ownerDisplay === "hidden" ? `; ${sub.user.name} is not shown` : ""}`,
   );
   revalidatePath("/leaderboard");
   revalidatePath("/");

@@ -86,7 +86,7 @@ export function winnersOf(c: { winners?: unknown }): Winner[] {
   return Array.isArray(c.winners) ? (c.winners as Winner[]) : [];
 }
 
-type Rankable = { id: string; userId: string | null; submittedAt: string; weightedError: number; allCells: number; isLegacy: boolean; isHidden: boolean };
+type Rankable = { id: string; ownerId: string; submittedAt: string; weightedError: number; allCells: number; isLegacy: boolean; isHidden: boolean };
 
 /**
  * Frozen standings: entries submitted by the deadline, ranked by weighted error, then all-cells RMSE,
@@ -101,7 +101,7 @@ export function standings<T extends Rankable>(rows: T[], endsAt: Date, bestPerEn
   if (!bestPerEntrant) return ranked;
   const seen = new Set<string>();
   return ranked.filter((r) => {
-    const k = r.userId ?? r.id;
+    const k = r.ownerId;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;

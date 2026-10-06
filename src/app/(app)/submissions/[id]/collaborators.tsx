@@ -8,9 +8,11 @@ import { Avatar } from "@/components/avatar";
 import { UserPickerDialog } from "@/components/user-picker";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/misc";
+import { Switch } from "@/components/ui/checkbox";
+import type { OwnerDisplay } from "@/lib/authors";
 import { Dialog, DialogContent, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { addCollaboratorAction, removeCollaboratorAction, notifyCollaboratorsAction, respondToInviteAction, resendInviteAction } from "../../submit/actions";
+import { addCollaboratorAction, removeCollaboratorAction, notifyCollaboratorsAction, respondToInviteAction, resendInviteAction, setOwnerDisplayAction } from "../../submit/actions";
 
 export type Collaborator = { id: string; name: string; affiliation: string; avatarVersion: number | null; notified: boolean; accepted: boolean };
 type Person = Omit<Collaborator, "notified" | "accepted">;
@@ -21,7 +23,7 @@ type Person = Omit<Collaborator, "notified" | "accepted">;
  *   Invited   — owner confirmed; invitation e-mail sent; not yet public
  *   Co-author — accepted; shown on the leaderboard and researcher pages
  */
-export function Collaborators({ submissionId, owner, list, canEdit, viewerId }: { submissionId: string; owner: Person; list: Collaborator[]; canEdit: boolean; viewerId?: string }) {
+export function Collaborators({ submissionId, owner, list, canEdit, viewerId, ownerDisplay, hasCredit, othersShown }: { submissionId: string; owner: Person; list: Collaborator[]; canEdit: boolean; viewerId?: string; /** how the owner appears publicly (src/lib/authors.ts) */ ownerDisplay: OwnerDisplay; /** someone without an account is credited as the author */ hasCredit: boolean; /** public authors other than the owner */ othersShown: number }) {
   const router = useRouter();
   const { push } = useToast();
   const [pending, start] = React.useTransition();
@@ -87,6 +89,30 @@ export function Collaborators({ submissionId, owner, list, canEdit, viewerId }: 
           />
         ) : null}
       </div>
+
+      {canEdit ? (
+        <label className="mt-4 flex items-start gap-3 rounded-brand border border-border px-4 py-3">
+          <Switch
+            checked={ownerDisplay !== "hidden"}
+            disabled={pending || (ownerDisplay !== "hidden" && !othersShown)}
+            onCheckedChange={(v) => start(async () => {
+              const res = await setOwnerDisplayAction(submissionId, v ? (hasCredit ? "coauthor" : "lead") : "hidden");
+              if (!res.ok) push({ kind: "error", title: "Not changed", description: res.error });
+              router.refresh();
+            })}
+          />
+          <span className="text-sm">
+            <span className="font-heading font-medium text-ink">Show {viewerId === owner.id ? "me" : owner.name} publicly as an author</span>
+            <span className="block text-grey-700">
+              {ownerDisplay === "hidden"
+                ? `${viewerId === owner.id ? "Your" : `${owner.name}'s`} name is left off the leaderboard, this page and ${viewerId === owner.id ? "your" : "their"} profile for this entry. ${viewerId === owner.id ? "You" : "They"} still manage it and get the results e-mail.`
+                : othersShown
+                  ? "Turn off when this was submitted on someone else's behalf."
+                  : "Add a co-author first: an entry always shows at least one author."}
+            </span>
+          </span>
+        </label>
+      ) : null}
 
       {myInvite ? (
         <Alert variant="warning" className="mt-4" title={`${owner.name} listed you as a co-author`}>

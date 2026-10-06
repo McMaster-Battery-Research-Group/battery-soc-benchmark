@@ -27,6 +27,7 @@ import { StatusPoller } from "./status-poller";
 import { Celebration } from "@/components/celebration";
 import { OwnerActions } from "./owner-actions";
 import { Collaborators } from "./collaborators";
+import { publicAuthors, ownerDisplayOf, guestAvatar } from "@/lib/authors";
 import { EditAuthorship } from "@/app/(admin)/admin/submissions/authorship";
 import { ResourceChart, type ResourceSeries } from "./resource-chart";
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
@@ -56,16 +57,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
   const canSee = isOwner || isAdmin || isCollaborator; // logs, report link
   const canManage = isOwner || isAdmin;
   const toPerson = (u: { id: string; name: string; affiliation: string; avatarUpdatedAt: Date | null }) => ({ id: u.id, name: u.name, affiliation: u.affiliation, avatarVersion: u.avatarUpdatedAt?.getTime() ?? null });
-  /** Owner plus accepted co-authors; a co-author credited by an administrator has no account, so `id` is null. */
-  const toAuthor = (c: { name: string | null; affiliation: string | null; user: { id: string; name: string; affiliation: string; avatarUpdatedAt: Date | null } | null }) =>
-    c.user ? { id: c.user.id as string | null, name: c.user.name, affiliation: c.user.affiliation, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null } : { id: null as string | null, name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "", avatarVersion: null };
   const r = sub.result;
   const values = r ? (Object.fromEntries(TEST_CASES.map((t) => [t.key, r[t.key as keyof typeof r] as number])) as Record<MetricKey, number>) : null;
-  // an administrator-set credit replaces the owner everywhere the entry is shown (as on the leaderboard)
-  const firstAuthor = sub.creditName
-    ? { id: null as string | null, name: sub.creditName, affiliation: sub.creditAffiliation ?? "", avatarVersion: null }
-    : { id: sub.user.id as string | null, name: sub.user.name, affiliation: sub.user.affiliation, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null };
-  const authors = [firstAuthor, ...sub.collaborators.filter((c) => c.acceptedAt).map(toAuthor)];
+  // the public author list (src/lib/authors.ts); the owner account may not be on it
+  const authors = publicAuthors(sub);
+  const firstAuthor = authors[0];
   const legacy = r ? !isCurrentBenchmark(r.evaluatorVersion) : false;
   const traces = (r?.timeSeries ?? []) as unknown as TimeSeriesTrace[];
   const perCycle = (r?.perCycle ?? []) as unknown as PerCycleRow[];
@@ -111,7 +107,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                   </Link>
                 ) : (
                   <span key={`x${i}`} title={u.name} className="rounded-full ring-2 ring-white">
-                    <Avatar userId="" name={u.name} hasAvatar={false} size={28} />
+                    <Avatar userId="" name={u.name} hasAvatar={false} src={u.avatarSrc} size={28} />
                   </span>
                 ),
               )}
@@ -128,8 +124,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 seq={sub.seq}
                 modelName={sub.modelName}
                 owner={{ id: sub.user.id, name: sub.user.name, email: sub.user.email, affiliation: sub.user.affiliation, avatarVersion: sub.user.avatarUpdatedAt?.getTime() ?? null }}
-                credit={{ name: sub.creditName, affiliation: sub.creditAffiliation }}
-                coAuthors={sub.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.user?.affiliation ?? c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
+                credit={{ name: sub.creditName, affiliation: sub.creditAffiliation, avatarSrc: guestAvatar(sub.id, "credit", sub.creditAvatarAt, sub.creditName ?? "") }}
+                ownerDisplay={sub.ownerDisplay}
+                coAuthors={sub.collaborators.map((c) => ({ id: c.user?.id ?? null, rowId: c.id, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.user?.affiliation ?? c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null, avatarSrc: c.user ? null : guestAvatar(sub.id, c.id, c.avatarAt, c.name ?? "") }))}
               />
             ) : null}
           </div>
@@ -261,7 +258,8 @@ export default async function SubmissionPage({ params, searchParams }: { params:
       {isAdmin && sub.result?.resourceUsage ? <ResourceChart usage={sub.result.resourceUsage as unknown as ResourceSeries} /> : null}
 
       <Collaborators submissionId={sub.id} owner={toPerson(sub.user)} /* the owner's panel drives the invitation flow, so it lists account-linked co-authors only; administrator credits are managed in the admin panel */
-        list={sub.collaborators.flatMap((c) => (c.user ? [{ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }] : []))} canEdit={canManage} viewerId={session?.user?.id} />
+        list={sub.collaborators.flatMap((c) => (c.user ? [{ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }] : []))} canEdit={canManage} viewerId={session?.user?.id}
+        ownerDisplay={ownerDisplayOf(sub)} hasCredit={!!sub.creditName} othersShown={authors.filter((a) => a.id !== sub.user.id).length} />
     </div>
   );
 }

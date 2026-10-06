@@ -16,11 +16,12 @@ function PersonGlyph() {
 /**
  * Profile picture with a silhouette fallback. Pass `version` (avatarUpdatedAt
  * epoch ms) when known so the browser cache busts after a change; pass
- * `hasAvatar={false}` to skip the request entirely.
+ * `hasAvatar={false}` to skip the request entirely. `src` points at a picture stored elsewhere (a credited
+ * author without an account); it overrides the account picture.
  */
-export function Avatar({ userId, name, hasAvatar = true, version, size = 32, className }: { userId: string; name: string; hasAvatar?: boolean; version?: number | null; size?: number; className?: string }) {
+export function Avatar({ userId, name, hasAvatar = true, version, src, size = 32, className }: { userId: string; name: string; hasAvatar?: boolean; version?: number | null; src?: string | null; size?: number; className?: string }) {
   const [failed, setFailed] = React.useState(false);
-  const showImg = hasAvatar && !failed;
+  const showImg = (hasAvatar || !!src) && !failed;
   return (
     <span
       className={cn("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full", showImg ? "bg-grey-100" : "bg-grey-200 text-grey-500", className)}
@@ -29,7 +30,7 @@ export function Avatar({ userId, name, hasAvatar = true, version, size = 32, cla
     >
       {showImg ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/users/${userId}/avatar${version ? `?v=${version}` : ""}`} alt={name} width={size} height={size} className="size-full object-cover" onError={() => setFailed(true)} />
+        <img src={src ?? `/api/users/${userId}/avatar${version ? `?v=${version}` : ""}`} alt={name} width={size} height={size} className="size-full object-cover" onError={() => setFailed(true)} />
       ) : (
         <PersonGlyph />
       )}

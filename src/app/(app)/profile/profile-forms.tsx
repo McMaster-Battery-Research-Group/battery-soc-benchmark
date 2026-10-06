@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/avatar";
 import { Label, FieldError, Hint } from "@/components/ui/input";
+import { resizeAvatar as resizeToDataUrl, AVATAR_PX } from "@/lib/avatar-client";
 
 export type ProfileValues = {
   id: string;
@@ -28,33 +29,6 @@ export type ProfileValues = {
   hasAvatar: boolean;
   avatarVersion: number | null;
 };
-
-const AVATAR_PX = 256;
-
-/** Centre-crop + resize an image file to a square JPEG data URL in the browser. */
-async function resizeToDataUrl(file: File): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = () => rej(new Error("unreadable"));
-      i.src = url;
-    });
-    const side = Math.min(img.naturalWidth, img.naturalHeight);
-    const sx = (img.naturalWidth - side) / 2;
-    const sy = (img.naturalHeight - side) / 2;
-    const c = document.createElement("canvas");
-    c.width = c.height = AVATAR_PX;
-    const ctx = c.getContext("2d")!;
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, AVATAR_PX, AVATAR_PX);
-    ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_PX, AVATAR_PX);
-    return c.toDataURL("image/jpeg", 0.86);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 export function ProfileForms(v: ProfileValues & { affiliations?: string[] }) {
   const [p, pAction] = useActionState<ActionState, FormData>(updateProfileAction, {});

@@ -36,7 +36,7 @@ export default async function ContestPage({ params }: { params: Promise<{ slug: 
   const frozen = rows.filter((r) => new Date(r.submittedAt) <= contest.endsAt);
   const phase = contestPhase(contest);
   const canRegister = registrationOpen(contest);
-  const mine = session?.user ? frozen.filter((r) => r.userId === session.user.id).length : 0;
+  const mine = session?.user ? frozen.filter((r) => r.ownerId === session.user.id).length : 0;
   const prizes = prizesOf(contest);
   const winners = phase === "judged" ? winnersOf(contest) : [];
   const elig = ELIGIBILITY[contest.eligibility] ?? ELIGIBILITY.ANYONE;

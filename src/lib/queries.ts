@@ -1,6 +1,7 @@
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
+import { publicAuthors, AUTHOR_USER_SELECT, AUTHOR_COLLABORATORS } from "./authors";
 import { METRIC_KEYS, type MetricKey } from "./test-cases";
 
 export type LeaderboardRow = {
@@ -16,11 +17,16 @@ export type LeaderboardRow = {
   completedAt: string | null;
   author: string;
   affiliation: string;
-  /** null when an administrator credited the entry to someone without an account */
+  /** account of the first public author (for the link and picture); null when that person has no account */
   userId: string | null;
+  /** the uploading account: permissions, "mine" highlighting, contest entrant. May not be shown publicly. */
+  ownerId: string;
   /** avatarUpdatedAt epoch ms, null when the author has no picture */
   avatarVersion: number | null;
-  collaborators: { id: string | null; name: string; avatarVersion: number | null }[];
+  /** picture of a first author without an account */
+  avatarSrc: string | null;
+  /** the other public authors, in order */
+  collaborators: { id: string | null; name: string; avatarVersion: number | null; avatarSrc: string | null }[];
   /** a score carried over from before this platform; no package, not re-evaluable */
   isLegacy: boolean;
   contestId: string | null;
@@ -57,17 +63,19 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
   };
   const subs = await db.submission.findMany({
     where,
+    omit: { creditAvatar: true },
     include: {
-      user: { select: { name: true, affiliation: true, avatarUpdatedAt: true } },
-      // only accepted co-authors are public
-      collaborators: { where: { acceptedAt: { not: null } }, select: { name: true, affiliation: true, user: { select: { id: true, name: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
+      user: { select: AUTHOR_USER_SELECT },
+      collaborators: AUTHOR_COLLABORATORS,
       result: { select: resultSelect },
     },
     orderBy: { submittedAt: "desc" },
   });
   return subs
     .filter((s) => s.result)
-    .map((s) => ({
+    .map((s) => {
+      const [first, ...rest] = publicAuthors(s);
+      return {
       id: s.id,
       seq: s.seq,
       version: s.version,
@@ -78,25 +86,28 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       isHidden: s.isHidden,
       submittedAt: s.submittedAt.toISOString(),
       completedAt: s.completedAt?.toISOString() ?? null,
-      // an administrator-set credit replaces the owner's name everywhere the entry is shown;
-      // the account still owns it for permissions and e-mail
-      author: s.creditName ?? s.user.name,
-      affiliation: s.creditName ? (s.creditAffiliation ?? "") : s.user.affiliation,
-      userId: s.creditName ? null : s.userId,
-      avatarVersion: s.creditName ? null : (s.user.avatarUpdatedAt?.getTime() ?? null),
+      // the public author list (src/lib/authors.ts); the owner account may not be on it
+      author: first.name,
+      affiliation: first.affiliation,
+      userId: first.id,
+      ownerId: s.userId,
+      avatarVersion: first.avatarVersion,
+      avatarSrc: first.avatarSrc,
       isLegacy: s.isLegacy,
-      collaborators: s.collaborators.map((c) => { const a = toCoAuthor(c); return { id: a.id, name: a.name, avatarVersion: a.avatarVersion }; }),
+      collaborators: rest.map((a) => ({ id: a.id, name: a.name, avatarVersion: a.avatarVersion, avatarSrc: a.avatarSrc })),
       contestId: s.contestId,
       ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string }),
-    }));
+      };
+    });
 }
 
 export async function getSubmissionDetail(id: string) {
   return db.submission.findUnique({
     where: { id },
+    omit: { creditAvatar: true },
     include: {
       user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } },
-      collaborators: { orderBy: { addedAt: "asc" }, select: { userId: true, name: true, affiliation: true, notifiedAt: true, acceptedAt: true, user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } } } },
+      collaborators: { orderBy: { addedAt: "asc" }, select: { id: true, userId: true, name: true, affiliation: true, avatarAt: true, notifiedAt: true, acceptedAt: true, user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } } } },
       result: true,
       job: { select: { log: true, attempts: true, cancelRequestedAt: true } },
       contest: { select: { id: true, slug: true, title: true, status: true, startsAt: true, endsAt: true } },
@@ -177,4 +188,10 @@ export function toCoAuthor(c: {
 }): CoAuthor {
   if (c.user) return { id: c.user.id, name: c.user.name, affiliation: c.user.affiliation, avatarVersion: c.user.avatarUpdatedAt?.getTime() ?? null };
   return { id: null, name: c.name ?? "Unnamed co-author", affiliation: c.affiliation ?? "", avatarVersion: null };
+}
+
+/** The public author list of one submission (src/lib/authors.ts), for the PDF report, share image and exports. */
+export async function getPublicAuthors(id: string) {
+  const s = await db.submission.findUnique({ where: { id }, select: { id: true, creditName: true, creditAffiliation: true, creditAvatarAt: true, ownerDisplay: true, user: { select: AUTHOR_USER_SELECT }, collaborators: AUTHOR_COLLABORATORS } });
+  return s ? publicAuthors(s) : [];
 }

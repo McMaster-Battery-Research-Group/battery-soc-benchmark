@@ -41,3 +41,21 @@ export const personBySlug = (slug: string) => PEOPLE.find((p) => p.slug === slug
 export const personByEmail = (email: string | null | undefined) => (email ? PEOPLE.find((p) => p.email === email.toLowerCase()) : undefined);
 /** first-name + last-name initials for the placeholder tile */
 export const initialsOf = (name: string) => name.replace(/^Dr\.\s*/, "").replace(/,.*$/, "").split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("");
+
+const plain = (n: string) => n.toLowerCase().replace(/^dr\.?\s+/, "").replace(/,.*$/, "").replace(/\([^)]*\)\s*/g, "").replace(/\b[a-z]\.\s*/g, "").replace(/\s+/g, " ").trim();
+
+/**
+ * Team photo for someone credited on a submission by name only (no account): the full name as on
+ * the About page, or just a first name when only one team member has it ("Atjen").
+ */
+export function teamPhotoFor(name: string): string | null {
+  const q = plain(name);
+  if (!q) return null;
+  const exact = PEOPLE.find((p) => p.photo && plain(p.name) === q);
+  if (exact) return exact.photo!;
+  if (!q.includes(" ")) {
+    const first = PEOPLE.filter((p) => p.photo && plain(p.name).split(" ")[0] === q);
+    if (first.length === 1) return first[0].photo!;
+  }
+  return null;
+}

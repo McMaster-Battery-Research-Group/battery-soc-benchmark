@@ -377,7 +377,7 @@ export async function finalizeContestAction(id: string, picks: string[], results
   for (const [i, sid] of picks.entries()) {
     const r = byId.get(sid);
     if (!r) return { ok: false, error: "One of the picked entries is not a scored, on-time entry of this contest." };
-    winners.push({ place: i + 1, label: prizes[i]?.label ?? "Winner", amount: prizes[i]?.amount ?? "", submissionId: r.id, userId: r.userId, modelName: r.modelName, author: r.author, weightedError: r.weightedError });
+    winners.push({ place: i + 1, label: prizes[i]?.label ?? "Winner", amount: prizes[i]?.amount ?? "", submissionId: r.id, userId: r.ownerId, modelName: r.modelName, author: r.author, weightedError: r.weightedError });
   }
   const wasJudged = c.status === "JUDGED";
   await db.contest.update({ where: { id }, data: { winners, status: "JUDGED", judgedAt: new Date(), resultsNote: resultsNote.trim() || null } });

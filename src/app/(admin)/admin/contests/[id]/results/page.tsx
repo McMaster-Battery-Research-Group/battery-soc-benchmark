@@ -44,7 +44,7 @@ export default async function ContestResults({ params }: { params: Promise<{ id:
             judged={c.status === "JUDGED"}
             registrants={c._count.entries}
             places={Array.from({ length: places }, (_, i) => ({ label: prizes[i]?.label ?? "Winner", amount: prizes[i]?.amount ?? "" }))}
-            entries={all.map((r) => ({ id: r.id, userId: r.userId, modelName: r.modelName, author: r.author, weightedError: r.weightedError, allCells: r.allCells, submittedAt: r.submittedAt }))}
+            entries={all.map((r) => ({ id: r.id, userId: r.ownerId, modelName: r.modelName, author: r.author, weightedError: r.weightedError, allCells: r.allCells, submittedAt: r.submittedAt }))}
             initialPicks={current.length ? current.map((w) => w.submissionId) : best.slice(0, places).map((r) => r.id)}
             initialNote={c.resultsNote ?? ""}
           />

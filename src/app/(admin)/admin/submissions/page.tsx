@@ -6,6 +6,7 @@ import { NativeSelect } from "@/components/ui/input";
 import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-version";
 import { ModerateButtons } from "./moderate";
 import { EditAuthorship } from "./authorship";
+import { ownerIsShown, guestAvatar } from "@/lib/authors";
 import { RunningProgress } from "./running-progress";
 import { LegacyEntryDialog } from "./legacy-entry";
 import { AutoRefresh } from "../workers/controls";
@@ -25,9 +26,10 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
     where: status ? { status: status as "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" } : {},
     orderBy: { submittedAt: "desc" },
     take: 200,
+    omit: { creditAvatar: true },
     include: {
       user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } },
-      collaborators: { include: { user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
+      collaborators: { select: { id: true, userId: true, name: true, affiliation: true, avatarAt: true, notifiedAt: true, acceptedAt: true, user: { select: { id: true, name: true, email: true, affiliation: true, avatarUpdatedAt: true } } }, orderBy: { addedAt: "asc" } },
       result: { select: { weightedError: true, evaluatorVersion: true } },
       job: { select: { log: true } },
       contest: { select: { title: true } },
@@ -82,19 +84,22 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                   <td className="max-w-[260px] px-3 py-2.5">
                     <ul className="space-y-1">
                       {[
-                        { id: s.user.id as string | null, name: s.user.name, email: s.user.email as string | null, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null, role: "owner", state: "" },
+                        { id: s.user.id as string | null, name: s.user.name, email: s.user.email as string | null, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null, avatarSrc: null as string | null, role: "owner", state: ownerIsShown(s) ? "" : "not shown" },
+                        // someone without an account credited as the author (submitted on their behalf)
+                        ...(s.creditName ? [{ id: null as string | null, name: s.creditName, email: null as string | null, avatarVersion: null as number | null, avatarSrc: guestAvatar(s.id, "credit", s.creditAvatarAt, s.creditName ?? ""), role: "author", state: "no account" }] : []),
                         // a co-author an administrator credited has no account: name only, no link, no e-mail
                         ...s.collaborators.map((c) => ({
                           id: (c.user?.id ?? null) as string | null,
                           name: c.user?.name ?? c.name ?? "Unnamed co-author",
                           email: (c.user?.email ?? null) as string | null,
                           avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null,
+                          avatarSrc: c.user ? null : guestAvatar(s.id, c.id, c.avatarAt, c.name ?? ""),
                           role: "co-author",
                           state: c.user ? (c.acceptedAt ? "" : c.notifiedAt ? "invited" : "pending") : "no account",
                         })),
                       ].map((u, i) => (
                         <li key={u.id ?? `x${i}`} className="flex items-center gap-2">
-                          <Avatar userId={u.id ?? ""} name={u.name} hasAvatar={u.avatarVersion !== null} version={u.avatarVersion} size={26} className={u.state ? "opacity-60" : undefined} />
+                          <Avatar userId={u.id ?? ""} name={u.name} hasAvatar={u.avatarVersion !== null} version={u.avatarVersion} src={u.avatarSrc} size={26} className={u.state && u.state !== "no account" ? "opacity-60" : undefined} />
                           <span className="min-w-0">
                             {u.id ? (
                               <Link href={`/users/${u.id}`} className="block truncate text-grey-900 hover:text-maroon hover:underline">
@@ -117,8 +122,9 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                       seq={s.seq}
                       modelName={s.modelName}
                       owner={{ id: s.user.id, name: s.user.name, email: s.user.email, affiliation: s.user.affiliation, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null }}
-                      credit={{ name: s.creditName, affiliation: s.creditAffiliation }}
-                      coAuthors={s.collaborators.map((c) => ({ id: c.user?.id ?? null, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.user?.affiliation ?? c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null }))}
+                      credit={{ name: s.creditName, affiliation: s.creditAffiliation, avatarSrc: guestAvatar(s.id, "credit", s.creditAvatarAt, s.creditName ?? "") }}
+                      ownerDisplay={s.ownerDisplay}
+                      coAuthors={s.collaborators.map((c) => ({ id: c.user?.id ?? null, rowId: c.id, name: c.user?.name ?? c.name ?? "Unnamed co-author", email: c.user?.email ?? "", affiliation: c.user?.affiliation ?? c.affiliation ?? undefined, avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null, avatarSrc: c.user ? null : guestAvatar(s.id, c.id, c.avatarAt, c.name ?? "") }))}
                     />
                   </td>
                   <td className="px-3 py-2.5">

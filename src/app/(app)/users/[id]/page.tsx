@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { publicAuthors, AUTHOR_USER_SELECT, AUTHOR_COLLABORATORS } from "@/lib/authors";
 import { Globe, GraduationCap, BookOpen, Briefcase, Building2, CalendarDays, Trophy, Pencil, Shield, Users } from "lucide-react";
 import { personByEmail } from "@/lib/people";
 import { db } from "@/lib/db";
@@ -34,9 +35,15 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   const isAdmin = session?.user?.role === "ADMIN";
   const subs = await db.submission.findMany({
     where: { OR: [{ userId: user.id }, { collaborators: { some: { userId: user.id, ...(isSelf || isAdmin ? {} : { acceptedAt: { not: null } }) } } }], status: "COMPLETED", result: { isNot: null }, ...(isSelf || isAdmin ? {} : { isPrivate: false, isHidden: false }) },
-    include: { result: { select: { weightedError: true, allCells: true } }, contest: { select: { title: true } }, user: { select: { name: true } } },
+    omit: { creditAvatar: true },
+    include: { result: { select: { weightedError: true, allCells: true } }, contest: { select: { title: true } }, user: { select: AUTHOR_USER_SELECT }, collaborators: AUTHOR_COLLABORATORS },
     orderBy: { submittedAt: "desc" },
-  }).then((rows) => rows.filter((s) => !(s.userId === user.id && s.creditName) || isSelf || isAdmin));
+  }).then((rows) =>
+    rows
+      // an uploader who is not shown as an author (submitted on someone's behalf) is not credited on their profile either
+      .map((s) => ({ ...s, authors: publicAuthors(s), shown: publicAuthors(s).some((a) => a.id === user.id) }))
+      .filter((s) => s.shown || isSelf || isAdmin),
+  );
 
   const links = [
     user.orcid ? { icon: OrcidIcon, label: "ORCID", text: user.orcid, href: `https://orcid.org/${user.orcid}` } : null,
@@ -95,7 +102,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                     <Link href={`/submissions/${s.id}`} className="font-heading font-medium text-ink hover:text-maroon hover:underline">{s.modelName}</Link>
                     {s.contest ? <Badge variant="gold" className="ml-2"><Trophy className="size-3" /> {s.contest.title}</Badge> : null}
                     {s.isPrivate ? <Badge variant="neutral" className="ml-2">Private</Badge> : null}
-                    {s.userId !== user.id ? <span className="ml-2 text-xs text-grey-600">with {s.creditName ?? s.user.name}</span> : s.creditName ? <span className="ml-2 text-xs text-grey-600">shown publicly as {s.creditName}&apos;s work</span> : null}
+                    {!s.shown ? <span className="ml-2 text-xs text-grey-600">not shown as an author; credited to {s.authors.map((a) => a.name).join(", ")}</span> : s.authors.length > 1 ? <span className="ml-2 text-xs text-grey-600">with {s.authors.filter((a) => a.id !== user.id).map((a) => a.name).join(", ")}</span> : null}
                   </td>
                   <td className="px-3 py-2 text-grey-700">{MODEL_TYPE_LABELS[s.modelType] ?? s.modelType}</td>
                   <td className="px-3 py-2 text-right font-heading font-semibold tabular">{fmtPct(s.result!.weightedError)} %</td>

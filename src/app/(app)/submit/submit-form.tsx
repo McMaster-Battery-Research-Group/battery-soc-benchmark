@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { useActionState } from "react";
-import { UploadCloud, FileArchive, X, Trophy } from "lucide-react";
+import { UploadCloud, FileArchive, X, Trophy, Camera } from "lucide-react";
 import { createSubmissionAction, type SubmitState } from "./actions";
 import { Field, SubmitButton } from "@/components/forms/field";
-import { Label, NativeSelect, FieldError } from "@/components/ui/input";
+import { Label, NativeSelect, FieldError, Input } from "@/components/ui/input";
 import { Checkbox, Switch } from "@/components/ui/checkbox";
 import { Alert } from "@/components/ui/misc";
 import { MODEL_TYPES, submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
@@ -13,6 +13,7 @@ import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { cn, fmtBytes } from "@/lib/utils";
 import { uploadPackage } from "@/lib/upload-client";
 import { Avatar } from "@/components/avatar";
+import { resizeAvatar } from "@/lib/avatar-client";
 import { UserPickerDialog } from "@/components/user-picker";
 import type { UserHit } from "@/app/actions/users";
 import { Users } from "lucide-react";
@@ -41,6 +42,14 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
   const [contestId, setContestId] = React.useState(preselectContest ?? "");
   const [acceptTerms, setAcceptTerms] = React.useState(false);
   const [collabs, setCollabs] = React.useState<UserHit[]>([]);
+  // submitting on someone else's behalf: they are the author, the uploader may stay off the credits
+  const [behalf, setBehalf] = React.useState(false);
+  const [behalfKind, setBehalfKind] = React.useState<"account" | "guest">("guest");
+  const [behalfUser, setBehalfUser] = React.useState<UserHit | null>(null);
+  const [behalfName, setBehalfName] = React.useState("");
+  const [behalfAffil, setBehalfAffil] = React.useState("");
+  const [behalfPhoto, setBehalfPhoto] = React.useState<string | null>(null);
+  const [showMe, setShowMe] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
   const [drag, setDrag] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -79,6 +88,8 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
     const parsed = submissionMetaSchema.safeParse({ modelName, description, modelType, evaluationLevel, isPrivate, contestId: contestId || null, acceptTerms });
     const errs: FieldErrors = parsed.success ? {} : zodErrors(parsed.error);
     if (!file) errs.file = "Upload your submission package (.zip containing Model.m, Model.p or Model.py).";
+    if (behalf && behalfKind === "account" && !behalfUser) errs.behalf = "Choose the author's account.";
+    if (behalf && behalfKind === "guest" && behalfName.trim().length < 2) errs.behalf = "Enter the author's full name.";
     setClientErrors(errs);
     if (Object.keys(errs).length) return; // nothing sent, nothing reset
 
@@ -91,6 +102,13 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
     fd.set("contestId", contestId);
     fd.set("acceptTerms", acceptTerms ? "on" : "");
     fd.set("collaboratorIds", JSON.stringify(collabs.map((c) => c.id)));
+    fd.set("onBehalf", behalf ? "on" : "");
+    fd.set("behalfKind", behalfKind);
+    fd.set("behalfUserId", behalfUser?.id ?? "");
+    fd.set("behalfName", behalfName);
+    fd.set("behalfAffiliation", behalfAffil);
+    fd.set("behalfPhoto", behalfPhoto ?? "");
+    fd.set("showMe", showMe ? "on" : "");
     fd.set("file", file!);
 
     // 3) With cloud storage the browser uploads the package first, then posts only metadata + object key.
@@ -181,7 +199,63 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
       </fieldset>
 
       <fieldset className="mt-8 space-y-3">
-        <legend className="mb-1 font-heading text-lg font-semibold text-ink">3. Collaborators <span className="text-sm font-normal text-grey-600">(optional)</span></legend>
+        <legend className="mb-1 font-heading text-lg font-semibold text-ink">3. Authors</legend>
+        <div className="rounded-brand border border-border p-4">
+          <label className="flex items-start gap-3">
+            <Switch checked={behalf} onCheckedChange={(v) => { setBehalf(v); clearErr("behalf"); }} />
+            <span className="text-sm">
+              <span className="font-heading font-medium text-ink">I&apos;m submitting this for someone else</span>
+              <span className="block text-grey-700">They are credited as the author. You still manage the submission and get the results e-mail.</span>
+            </span>
+          </label>
+          {behalf ? (
+            <div className="mt-4 space-y-3 border-t border-border pt-4">
+              <div className="inline-flex rounded-brand border border-border p-0.5 text-sm font-semibold" role="radiogroup" aria-label="Does the author have an account?">
+                {([["guest", "They don't have an account"], ["account", "They have an account"]] as const).map(([k, label]) => (
+                  <button key={k} type="button" role="radio" aria-checked={behalfKind === k} onClick={() => { setBehalfKind(k); clearErr("behalf"); }} className={`rounded px-3 py-1.5 ${behalfKind === k ? "bg-maroon text-white" : "text-grey-700 hover:bg-grey-100"}`}>{label}</button>
+                ))}
+              </div>
+              {behalfKind === "account" ? (
+                behalfUser ? (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-2 text-sm">
+                    <Avatar userId={behalfUser.id} name={behalfUser.name} hasAvatar={behalfUser.avatarVersion !== null} version={behalfUser.avatarVersion} size={24} />
+                    <span className="font-heading font-medium text-ink">{behalfUser.name}</span>
+                    <span className="hidden text-xs text-grey-600 sm:inline">· {behalfUser.affiliation}</span>
+                    <button type="button" onClick={() => setBehalfUser(null)} className="rounded-full p-0.5 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`Remove ${behalfUser.name}`}><X className="size-3.5" /></button>
+                  </div>
+                ) : (
+                  <UserPickerDialog title="Who is the author?" exclude={collabs.map((c) => c.id)} onAdd={async (u) => { setBehalfUser(u); setCollabs((l) => l.filter((x) => x.id !== u.id)); clearErr("behalf"); }}
+                    trigger={<Button type="button" variant="outline" size="sm"><Users /> Choose their account</Button>} />
+                )
+              ) : (
+                <div className="flex flex-wrap items-start gap-4">
+                  <label className="group relative cursor-pointer" title="Add a photo (optional)">
+                    <Avatar userId="" name={behalfName || "Author"} hasAvatar={false} src={behalfPhoto} size={64} />
+                    <span className="absolute -bottom-1 -right-1 rounded-full border border-border bg-white p-1 text-grey-700 shadow-sm group-hover:text-maroon"><Camera className="size-3.5" /></span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={async (e) => { const f = e.currentTarget.files?.[0]; if (f) setBehalfPhoto(await resizeAvatar(f).catch(() => null)); }} />
+                  </label>
+                  <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="behalfName" required>Author&apos;s full name</Label>
+                      <Input id="behalfName" value={behalfName} maxLength={120} onChange={(e) => { setBehalfName(e.currentTarget.value); clearErr("behalf"); }} placeholder="e.g. Bongseok Kim" />
+                    </div>
+                    <div>
+                      <Label htmlFor="behalfAffil">Affiliation</Label>
+                      <Input id="behalfAffil" value={behalfAffil} maxLength={160} onChange={(e) => setBehalfAffil(e.currentTarget.value)} placeholder="e.g. KAIST" />
+                    </div>
+                    <p className="text-xs text-grey-600 sm:col-span-2">{behalfPhoto ? <>Photo added. <button type="button" className="text-maroon underline" onClick={() => setBehalfPhoto(null)}>Remove</button></> : "Photo optional: click the circle to add one."}</p>
+                  </div>
+                </div>
+              )}
+              {behalfKind === "account" ? <p className="text-xs text-grey-600">They get the usual co-author invitation once you press <strong>Notify</strong> after submitting, and are shown as the author when they accept. Until then the entry shows you.</p> : null}
+              <label className="flex items-start gap-2 text-sm text-grey-800">
+                <Checkbox checked={showMe} onCheckedChange={(v) => setShowMe(v === true)} />
+                <span>Also show me as a co-author <span className="text-grey-600">(off: your name stays off the leaderboard and your profile)</span></span>
+              </label>
+              <FieldError>{errors.behalf}</FieldError>
+            </div>
+          ) : null}
+        </div>
         <p className="text-sm text-grey-700">Co-authors with an account appear beside the model on the leaderboard and can view it while private. Nobody is e-mailed yet: after submitting you review the list and press <strong>Notify</strong>, and only then do they receive the notification and later the results and PDF report.</p>
         {collabs.length ? (
           <ul className="flex flex-wrap gap-2">
@@ -196,12 +270,12 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
           </ul>
         ) : null}
         <UserPickerDialog
-          exclude={collabs.map((c) => c.id)}
+          exclude={[...collabs.map((c) => c.id), ...(behalfUser ? [behalfUser.id] : [])]}
           onAdd={async (u) => {
             if (collabs.length >= 10) throw new Error("At most 10 collaborators.");
             setCollabs((l) => (l.some((x) => x.id === u.id) ? l : [...l, u]));
           }}
-          trigger={<Button type="button" variant="outline" size="sm"><Users /> {collabs.length ? "Add another collaborator" : "Add collaborators"}</Button>}
+          trigger={<Button type="button" variant="outline" size="sm"><Users /> {collabs.length ? "Add another co-author" : "Add co-authors"}</Button>}
         />
       </fieldset>
 
@@ -229,7 +303,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, ha
       <div className="mt-8 border-t border-border pt-6">
         <label className="flex items-start gap-3 text-sm">
           <Checkbox name="acceptTerms" checked={acceptTerms} onCheckedChange={(v) => { setAcceptTerms(v === true); clearErr("acceptTerms"); }} aria-invalid={!!errors.acceptTerms} />
-          <span className="text-grey-800">I confirm the model was developed using only the open portion of the dataset or other public data, and I accept the <a href="/terms" className="text-maroon underline" target="_blank">submission terms</a>. My name and affiliation will appear beside public results.</span>
+          <span className="text-grey-800">I confirm the model was developed using only the open portion of the dataset or other public data, and I accept the <a href="/terms" className="text-maroon underline" target="_blank">submission terms</a>. {behalf && !showMe ? "The author's name and affiliation will appear beside public results." : "My name and affiliation will appear beside public results."}</span>
         </label>
         <FieldError>{errors.acceptTerms}</FieldError>
         {Object.keys(errors).some((k) => errors[k]) ? <Alert variant="danger" className="mt-4">{errors.form ?? "Please fix the highlighted fields; everything you entered has been kept."}</Alert> : null}

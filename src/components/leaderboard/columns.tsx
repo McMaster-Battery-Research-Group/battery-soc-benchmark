@@ -74,7 +74,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
               </Link>
             ) : (
               <span className="rounded-full ring-2 ring-white" title={row.original.author}>
-                <Avatar userId="" name={row.original.author} hasAvatar={false} size={30} />
+                <Avatar userId="" name={row.original.author} hasAvatar={false} src={row.original.avatarSrc} size={30} />
               </span>
             )}
             {/* a co-author credited by an administrator has no account: shown, but not linked */}
@@ -85,7 +85,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
                 </Link>
               ) : (
                 <span key={`x${i}`} className="-ml-2 rounded-full ring-2 ring-white" title={c.name}>
-                  <Avatar userId="" name={c.name} hasAvatar={false} size={26} />
+                  <Avatar userId="" name={c.name} hasAvatar={false} src={c.avatarSrc} size={26} />
                 </span>
               ),
             )}
