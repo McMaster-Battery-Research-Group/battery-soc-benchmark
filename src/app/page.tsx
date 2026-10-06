@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
 import { HeroTrace } from "@/components/hero-trace";
@@ -38,6 +39,16 @@ export default async function HomePage() {
               <Button asChild size="lg" className="border border-white/40 bg-transparent text-white hover:bg-white hover:text-maroon"><Link href="/leaderboard">View leaderboard</Link></Button>
             </div>
             <p className="mt-6 text-sm text-white/75">Free for academic and industry use · CC-BY 4.0 dataset · blinded evaluation</p>
+            {/* who stands behind it, visible before anyone scrolls */}
+            <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-white/15 pt-5">
+              <a href="https://www.mcmaster.ca" target="_blank" rel="noreferrer" className="flex items-center gap-3" aria-label="McMaster University">
+                <Image src="/logos/mcmaster.svg" alt="" width={300} height={56} className="h-9 w-auto brightness-0 invert" />
+              </a>
+              <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" className="flex items-center gap-3" aria-label="NSERC / CRSNG">
+                <Image src="/logos/nserc-white.svg" alt="" width={116} height={56} className="h-9 w-auto" />
+                <span className="text-xs leading-tight text-white/75">Supported by an NSERC<br />Discovery Grant</span>
+              </a>
+            </div>
           </div>
           <div className="md:col-span-5">
             <div className="relative rounded-brand border border-white/20 bg-maroon-800/95 p-5 shadow-xl">
