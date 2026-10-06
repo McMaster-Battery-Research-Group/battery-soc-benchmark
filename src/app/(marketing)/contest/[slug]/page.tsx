@@ -102,7 +102,11 @@ export default async function ContestPage({ params }: { params: Promise<{ slug: 
       </div>
 
       <div className="container-site py-8">
-        {phase === "draft" ? <Alert variant="warning" className="mb-6" title="Draft contest">Only administrators can see this page. Publish it from Admin → Contests.</Alert> : null}
+        {phase === "draft" ? (
+          <Alert variant="warning" className="mb-6" title="Draft contest">
+            Only administrators can see this page. <Link href={`/admin/contests/${contest.id}`} className="font-semibold text-maroon underline">Edit or publish it</Link> in the admin panel.
+          </Alert>
+        ) : null}
         {winners.length ? (
           <section id="winners" className="mb-10 scroll-mt-24">
             <h2 className="font-heading text-2xl font-bold">Winners</h2>
