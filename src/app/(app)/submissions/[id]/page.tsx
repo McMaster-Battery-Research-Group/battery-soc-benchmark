@@ -276,9 +276,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                         {r.tracesKey && canSee ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/traces`} download><Download /> Traces (.mat)</a></Button> : null}
                       </div>
                     </section>
-                    <Fold title={`How a ${MODEL_TYPE_LABELS[sub.modelType].replace(/^([A-Z])(?=[a-z])/, (c) => c.toLowerCase())} works`} sub="The canonical structure for this model family; the description above gives the specific architecture.">
-                      <ModelSchematic spec={specForModelType(sub.modelType)} title={`${MODEL_TYPE_LABELS[sub.modelType]}: standardized view`} />
-                    </Fold>
+                    {sub.modelType !== "OTHER" ? (
+                      <Fold title={`How ${modelTypePhrase(MODEL_TYPE_LABELS[sub.modelType])} works`} sub="The canonical structure for this model family; the description above gives the specific architecture.">
+                        <ModelSchematic spec={specForModelType(sub.modelType)} title={`${MODEL_TYPE_LABELS[sub.modelType]}: standardized view`} />
+                      </Fold>
+                    ) : null}
                   </div>
                 ),
               },
@@ -296,6 +298,13 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         ownerDisplay={ownerDisplayOf(sub)} hasCredit={!!sub.creditName} othersShown={authors.filter((a) => a.id !== sub.user.id).length} />
     </div>
   );
+}
+
+/** "a feedforward NN", "an LSTM", "a UKF": the label mid-sentence with the right article. */
+function modelTypePhrase(label: string) {
+  const word = label.replace(/^([A-Z])(?=[a-z])/, (c) => c.toLowerCase());
+  const an = /^[aeiou]/i.test(word) || /^[FHLMNRSX][A-Z]/.test(word); // acronyms whose first letter is said with a vowel sound
+  return `${an ? "an" : "a"} ${word}`;
 }
 
 /** Collapsed section (native <details>, no JS): title + one-line summary; opens in place. */
