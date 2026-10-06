@@ -302,8 +302,10 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
 /** "a feedforward NN", "an LSTM", "a UKF": the label mid-sentence with the right article. */
 function modelTypePhrase(label: string) {
-  const word = label.replace(/^([A-Z])(?=[a-z])/, (c) => c.toLowerCase());
-  const an = /^[aeiou]/i.test(word) || /^[FHLMNRSX][A-Z]/.test(word); // acronyms whose first letter is said with a vowel sound
+  let word = label.replace(/^([A-Z])(?=[a-z])/, (c) => c.toLowerCase());
+  if (/-based$/.test(word) || word === "hybrid") word += " model";
+  // a lower-case word starting with a vowel, or an acronym whose first letter is said with a vowel sound (not U: "a UKF")
+  const an = /^[aeiou]/.test(word) || /^[AEFHILMNORSX][A-Z]/.test(word);
   return `${an ? "an" : "a"} ${word}`;
 }
 
