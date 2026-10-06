@@ -12,9 +12,9 @@ const M = "#7A003C", G = "#FDBF57", GREY = "#495965", LINE = "#DBDBDD", INK = "#
 const SERIES = ["#8f2555", "#1f7fb5", "#c98a2e", "#6b62b8"];
 
 export interface ReportInput {
-  submission: { id: string; seq: number; version?: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean; creditName?: string | null; creditAffiliation?: string | null };
-  user: { name: string; affiliation: string };
-  collaborators?: { name: string; affiliation: string }[];
+  submission: { id: string; seq: number; version?: number; modelName: string; description: string; modelType: string; submittedAt: Date; completedAt: Date | null; isPrivate: boolean };
+  /** public author list in order (getPublicAuthors) */
+  authors: { name: string; affiliation: string }[];
   /** score history (append-only); rendered after the test-case table when it has more than one entry */
   history?: { createdAt: Date; kind: string; evaluatorVersion: string; weightedError: number | null; note: string | null }[];
   /** active scoring weights (defaults when omitted) */
@@ -25,9 +25,7 @@ export interface ReportInput {
 
 export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const { submission: s, result: r, siteUrl } = input;
-    // an administrator-set credit replaces the owner as the author shown
-    const user = s.creditName ? { name: s.creditName, affiliation: s.creditAffiliation ?? "" } : input.user;
+    const { submission: s, result: r, siteUrl, authors } = input;
     const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true, info: { Title: `${s.modelName}: Battery SOC Benchmark report`, Author: "Battery SOC Benchmark, McMaster University" } });
     // The standard Helvetica fonts only cover WinAnsi: map typographic characters
     // that would otherwise print as garbage (− Σ ⱼ … → ≥ ≤).
@@ -59,8 +57,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       }
     }
     doc.fillColor(INK).font("Helvetica-Bold").fontSize(22).text(s.modelName, X0, 48, { width: W });
-    const authors = [user, ...(input.collaborators ?? [])];
-    const authorLine = authors.length === 1 ? `${user.name}, ${user.affiliation}` : authors.map((a) => `${a.name} (${a.affiliation})`).join(", ");
+    const authorLine = authors.length === 1 ? [authors[0].name, authors[0].affiliation].filter(Boolean).join(", ") : authors.map((a) => (a.affiliation ? `${a.name} (${a.affiliation})` : a.name)).join(", ");
     doc.fillColor(GREY).font("Helvetica").fontSize(10).text(`Submission #${s.seq}${(s.version ?? 1) > 1 ? ` (v${s.version})` : ""}  ·  ${MODEL_TYPE_LABELS[s.modelType] ?? s.modelType}  ·  ${authorLine}`, { width: W });
     doc.text(`Submitted ${date(s.submittedAt)}  ·  Evaluated ${date(s.completedAt)}  ·  Evaluator ${r.evaluatorVersion}${s.isPrivate ? "  ·  PRIVATE" : ""}`, { width: W });
     doc.moveDown(0.6);
@@ -300,7 +297,10 @@ function tableHeader(doc: PDFKit.PDFDocument, x: number, y: number, cols: number
   });
 }
 
-function barChart(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, bars: { label: string; value: number }[], color: string) {
+function barChart(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, allBars: { label: string; value: number | null | undefined }[], color: string) {
+  // legacy entries carry only the headline figures: a missing test case gets no bar rather than a crash
+  const bars = allBars.flatMap((b) => (typeof b.value === "number" && Number.isFinite(b.value) ? [{ label: b.label, value: b.value }] : []));
+  if (!bars.length) return;
   const padL = 36, padB = 30, padT = 12;
   const max = Math.max(1, ...bars.map((b) => b.value)) * 1.15;
   const plotW = w - padL, plotH = h - padB - padT;
