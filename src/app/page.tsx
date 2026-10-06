@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
+import { HeroTrace } from "@/components/hero-trace";
 import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import { fmtPct, fmtDate } from "@/lib/utils";
@@ -21,7 +22,8 @@ export default async function HomePage() {
       {/* Hero — maroon copy block with the brand circle device, cropped on two sides */}
       <section className="relative overflow-hidden bg-maroon text-white">
         <div aria-hidden className="pointer-events-none absolute -right-40 -top-56 size-[640px] rounded-full border-[56px] border-gold/90 opacity-90 md:-right-24" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-72 -left-40 size-[520px] rounded-full border-[48px] border-white/10" />
+        {/* abstract SOC trace: reference (white) and a converging estimate (gold) */}
+        <HeroTrace className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] w-full" />
         <div className="container-site relative grid gap-10 py-16 md:grid-cols-12 md:py-24">
           <div className="md:col-span-7">
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">McMaster University · Electrical &amp; Computer Engineering</p>
