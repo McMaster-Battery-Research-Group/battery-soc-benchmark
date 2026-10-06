@@ -154,7 +154,7 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit }:
         <p className="mt-4 flex items-start gap-2 rounded-brand bg-grey-100/70 px-3 py-2 text-sm text-grey-800">
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-maroon" />
           <span>
-            <strong>{controller.name}</strong> controls this submission (edits, new versions, deletion){!ownerListed && leader?.kind === "guest" ? ", but is not shown as an author" : ""}.
+            <strong>{controller.name}</strong> manages this submission (new versions, visibility, co-author invitations, deletion){!ownerListed && leader?.kind === "guest" ? ", but is not shown as an author" : ""}.
             {leader?.kind === "account" ? <> Ownership moves from {init.ownerRow.name} to {leader.name} when you save.</> : null}
           </span>
         </p>

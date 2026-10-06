@@ -206,9 +206,14 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
   return { ok: true, immediate: false };
 }
 
-/** Owner/admin: edit name, description and model type. Never touches scores; noted in the score history. */
+/**
+ * Admin only: edit name, description and model type. Submitters cannot change these after submitting
+ * (they can upload a new version); corrections go through an administrator. Never touches scores;
+ * noted in the score history.
+ */
 export async function updateSubmissionDetailsAction(id: string, input: { modelName: string; description: string; modelType: string }): Promise<{ ok: true } | { ok: false; errors: Record<string, string | undefined> }> {
   const { sub, session } = await ownedSubmission(id);
+  if (session.user.role !== "ADMIN") return { ok: false, errors: { form: "Only administrators can change a submission's details. Use the contact form if something needs correcting." } };
   const parsed = submissionMetaSchema.pick({ modelName: true, description: true, modelType: true }).safeParse(input);
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const contest = sub.contestId ? await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, startsAt: true, endsAt: true } }) : null;
