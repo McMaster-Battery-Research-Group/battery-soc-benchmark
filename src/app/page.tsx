@@ -79,7 +79,7 @@ export default async function HomePage() {
       </section>
 
       {/* How it works */}
-      <section className="container-site py-20">
+      <section className="container-site py-16">
         <div className="max-w-2xl">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">How it works</p>
           <h2 className="mt-2 font-heading text-3xl font-bold">From open data to a standardized score</h2>
@@ -145,7 +145,7 @@ export default async function HomePage() {
       </section>
 
       {/* Citation */}
-      <section className="container-site py-16">
+      <section className="container-site pt-16">
         <div className="rounded-brand border-l-4 border-gold bg-white p-6 shadow-[var(--shadow-card)]">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">Cite the benchmark</p>
           <p className="mt-2 text-[15px] leading-relaxed text-grey-800">
