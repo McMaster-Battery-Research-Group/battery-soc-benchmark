@@ -1,34 +1,20 @@
 ﻿"use client";
 
-import * as React from "react";
 import Link from "next/link";
-import { HelpCircle, ChevronDown } from "lucide-react";
+import { HelpCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Term } from "@/components/term";
-import { cn } from "@/lib/utils";
 
+/** A quiet "How to read this table" button in the table toolbar; the explanation opens in a dialog. */
 export function HowToRead({ legacyCount = 0, hasPrivate = false }: { legacyCount?: number; hasPrivate?: boolean }) {
-  const [open, setOpen] = React.useState(false);
-  React.useEffect(() => {
-    try {
-      setOpen(localStorage.getItem("socbench.howToRead") !== "closed");
-    } catch {}
-  }, []);
-  const toggle = () => {
-    setOpen((v) => {
-      try {
-        localStorage.setItem("socbench.howToRead", v ? "closed" : "open");
-      } catch {}
-      return !v;
-    });
-  };
   return (
-    <div className="mt-5 rounded-brand border border-border bg-white">
-      <button onClick={toggle} className="flex w-full items-center gap-2 px-4 py-3 text-left font-heading text-sm font-medium text-ink" aria-expanded={open}>
-        <HelpCircle className="size-4 text-maroon" /> How to read this table
-        <ChevronDown className={cn("ml-auto size-4 text-grey-600 transition-transform", open && "rotate-180")} />
-      </button>
-      {open ? (
-        <div className="grid gap-x-10 gap-y-3 border-t border-border bg-grey-100/40 px-4 py-4 text-sm leading-relaxed text-grey-700 md:grid-cols-2">
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-grey-700"><HelpCircle /> How to read this table</Button>
+      </DialogTrigger>
+      <DialogContent title="How to read this table" size="lg">
+        <div className="grid gap-x-8 gap-y-3 text-sm leading-relaxed text-grey-700 md:grid-cols-2">
           <p><strong className="font-medium text-ink">Every number is an error in % SOC: lower is better.</strong> It is the <Term k="rmse" /> between the model&apos;s estimate and the true state of charge, averaged over a group of hidden test cycles.</p>
           <p><strong className="font-medium text-ink">Rank follows <Term k="weighted-error" />.</strong> It combines all test cases with published weights so cold weather, heavy loads and sensor faults count as much as easy conditions. Sorting other columns doesn&apos;t change the medals.</p>
           <p><strong className="font-medium text-ink">Blinded vs. non-blinded:</strong> &ldquo;Blinded&rdquo; is the error on a cell whose data was never released. If it is much worse than &ldquo;All cells&rdquo;, the model has over-fitted the open data.</p>
@@ -40,7 +26,7 @@ export function HowToRead({ legacyCount = 0, hasPrivate = false }: { legacyCount
             <p className="border-l-2 border-grey-300 pl-3 md:col-span-2"><strong className="font-semibold text-ink">Your private models</strong> are hidden from everyone else. Tick <em>Show my private models</em> to see where they <em>would</em> rank (shown as a ghost &ldquo;~N&rdquo;); they never shift the public ranks.</p>
           ) : null}
         </div>
-      ) : null}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

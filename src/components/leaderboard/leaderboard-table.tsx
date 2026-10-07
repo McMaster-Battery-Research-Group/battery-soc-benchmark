@@ -35,11 +35,14 @@ export function LeaderboardTable({
   viewerId,
   compact = false,
   title = "leaderboard",
+  help,
 }: {
   rows: LeaderboardRow[];
   viewerId?: string | null;
   compact?: boolean;
   title?: string;
+  /** e.g. the "How to read this table" button, shown in the toolbar */
+  help?: React.ReactNode;
 }) {
   const router = useRouter();
   const columns = React.useMemo(() => buildColumns(), []);
@@ -168,6 +171,7 @@ export function LeaderboardTable({
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {help}
               <ColumnPicker visibility={visibility} onChange={updateVisibility} />
               <Button variant="outline" size="sm" onClick={download}><Download /> CSV</Button>
             </div>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Search, GitCompareArrows, Lock, SlidersHorizontal } from "lucide-react";
+import { Plus, X, Search, Lock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import type { LeaderboardRow } from "@/lib/queries";
@@ -13,7 +13,6 @@ import { Term } from "@/components/term";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/ui/misc";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
 import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { SocTracePicker } from "@/components/charts/soc-trace";
@@ -32,38 +31,35 @@ export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows
 
   return (
     <div className="space-y-6">
-      {ids.length >= MAX ? (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-grey-700">Comparing {MAX} models (the maximum).</p>
-          <Picker rows={rows} ids={ids} onApply={(next) => apply(next.slice(0, MAX))} viewerId={viewerId} compact />
-        </div>
-      ) : null}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {selected.map((s, i) => (
-          <div key={s.id} className="card flex items-start gap-3 p-4" style={{ borderTopColor: SERIES[i], borderTopWidth: 3 }}>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-heading font-semibold text-ink">{s.modelName}{s.isPrivate ? <Lock className="ml-1.5 inline size-3.5 text-[#9a6a17]" aria-label="Private" /> : null}</p>
-              <p className="truncate text-xs text-grey-600">{MODEL_TYPE_LABELS[s.modelType]} · {s.author}</p>
-              <p className="mt-1 text-sm"><span className="font-heading font-semibold text-ink tabular">{fmtPct(s.weightedError)} %</span> <span className="text-grey-600">weighted</span></p>
-            </div>
-            <button onClick={() => apply(ids.filter((x) => x !== s.id))} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-ink" aria-label={`Remove ${s.modelName}`}><X className="size-4" /></button>
+      {/* one card: who is being compared, and the two ways to add models */}
+      <div className="card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-heading font-semibold text-ink">{selected.length ? `${selected.length} of ${MAX} models` : "Pick two to four models"}</p>
+            <p className="text-sm text-grey-700">{selected.length < 2 ? "Their test-case errors, temperature curves and SOC traces are shown side by side. The address updates, so any comparison can be shared." : "The address updates, so this comparison can be shared."}</p>
           </div>
-        ))}
-        {ids.length < MAX ? <Picker rows={rows} ids={ids} onApply={(next) => apply(next.slice(0, MAX))} viewerId={viewerId} /> : null}
+          <div className="flex flex-wrap gap-2">
+            <Picker rows={rows} ids={ids} onApply={(next) => apply(next.slice(0, MAX))} viewerId={viewerId} label={ids.length ? "Add or change models" : "Choose models"} primary={!ids.length} />
+            {selected.length < 2 ? <Button variant="outline" onClick={() => apply([...rows].sort((a, b) => a.weightedError - b.weightedError).slice(0, 3).map((r) => r.id))}>Compare the top 3</Button> : null}
+          </div>
+        </div>
+        {selected.length ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {selected.map((s, i) => (
+              <div key={s.id} className="flex items-start gap-3 rounded-brand border border-border p-3" style={{ borderTopColor: SERIES[i], borderTopWidth: 3 }}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-heading font-semibold text-ink">{s.modelName}{s.isPrivate ? <Lock className="ml-1.5 inline size-3.5 text-[#9a6a17]" aria-label="Private" /> : null}</p>
+                  <p className="truncate text-xs text-grey-600">{MODEL_TYPE_LABELS[s.modelType]} · {s.author}</p>
+                  <p className="mt-1 text-sm"><span className="font-heading font-semibold text-ink tabular">{fmtPct(s.weightedError)} %</span> <span className="text-grey-600">weighted</span></p>
+                </div>
+                <button onClick={() => apply(ids.filter((x) => x !== s.id))} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-ink" aria-label={`Remove ${s.modelName}`}><X className="size-4" /></button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {selected.length < 2 ? (
-        <EmptyState
-          icon={GitCompareArrows}
-          title="Select at least two models"
-          description="Use the picker above to add models from the leaderboard, or start with the current top three. The URL updates so you can share any comparison."
-          action={
-            <Button variant="secondary" onClick={() => apply([...rows].sort((a, b) => a.weightedError - b.weightedError).slice(0, 3).map((r) => r.id))}>
-              Compare the top 3 models
-            </Button>
-          }
-        />
-      ) : (
+      {selected.length < 2 ? null : (
         <>
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
@@ -113,7 +109,7 @@ function MetricRow({ label, vals, bold, fmt = (v) => `${fmtPct(v)} %`, lowerBett
 
 const MAX = 4;
 
-function Picker({ rows, ids, onApply, viewerId, compact }: { rows: LeaderboardRow[]; ids: string[]; onApply: (ids: string[]) => void; viewerId?: string; compact?: boolean }) {
+function Picker({ rows, ids, onApply, viewerId, label, primary = false }: { rows: LeaderboardRow[]; ids: string[]; onApply: (ids: string[]) => void; viewerId?: string; label: string; primary?: boolean }) {
   const [q, setQ] = React.useState("");
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<string[]>(ids);
@@ -142,13 +138,7 @@ function Picker({ rows, ids, onApply, viewerId, compact }: { rows: LeaderboardRo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {compact ? (
-          <Button variant="outline" size="sm"><SlidersHorizontal /> Change models</Button>
-        ) : (
-        <button className="flex min-h-24 items-center justify-center gap-2 rounded-brand border-2 border-dashed border-border p-4 font-heading text-sm font-medium text-grey-700 hover:border-maroon hover:text-maroon">
-          <Plus className="size-4" /> {ids.length ? `Add or change models (${ids.length} of ${MAX})` : "Choose models to compare"}
-        </button>
-        )}
+        <Button variant={primary ? "primary" : "outline"}><Plus /> {label}</Button>
       </DialogTrigger>
       <DialogContent title="Choose models to compare" description={`Tick up to ${MAX}. Public evaluated submissions in leaderboard order; your private models are included and marked.`} size="lg">
         <div className="relative mb-3">

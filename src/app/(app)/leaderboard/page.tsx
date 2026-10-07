@@ -23,8 +23,7 @@ export default async function LeaderboardPage() {
         compact
       />
       <div className="container-site py-6">
-        <LeaderboardTable rows={rows} viewerId={session?.user?.id} />
-        <HowToRead legacyCount={rows.filter((r) => !isCurrentBenchmark(r.evaluatorVersion)).length} hasPrivate={!!session?.user?.id && rows.some((r) => r.isPrivate && r.ownerId === session.user!.id)} />
+        <LeaderboardTable rows={rows} viewerId={session?.user?.id} help={<HowToRead legacyCount={rows.filter((r) => !isCurrentBenchmark(r.evaluatorVersion)).length} hasPrivate={!!session?.user?.id && rows.some((r) => r.isPrivate && r.ownerId === session.user!.id)} />} />
         <p className="mt-4 text-xs text-grey-600">
           Ranking is by weighted error regardless of the current sort. Private models are shown only to their owner and are excluded from public rankings. Read the{" "}
           <Link href="/docs" className="text-maroon underline">methodology</Link> for how each test case is constructed.
