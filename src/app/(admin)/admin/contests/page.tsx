@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Copy, Plus, Trophy } from "lucide-react";
+import { Plus, Trophy } from "lucide-react";
 import { db } from "@/lib/db";
 import { fmtDate } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { contestPhase, PHASE_BADGE } from "@/lib/contest";
-import { duplicateContestAction } from "../actions";
+import { ContestRowActions } from "./row-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +28,8 @@ export default async function AdminContests() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={PHASE_BADGE[phase]} />
-                {phase === "judging" ? <Button asChild size="sm"><Link href={`/admin/contests/${c.id}/results`}><Trophy /> Finalize results</Link></Button> : null}
-                <form action={duplicateContestAction.bind(null, c.id)}><Button type="submit" variant="outline" size="sm"><Copy /> Duplicate</Button></form>
+                {phase === "judging" ? <Button asChild variant="secondary" size="sm"><Link href={`/admin/contests/${c.id}/results`}><Trophy /> Finalize results</Link></Button> : null}
+                <ContestRowActions id={c.id} title={c.title} registrations={c._count.entries} entries={c._count.submissions} />
                 <Button asChild variant="tertiary" size="sm"><Link href={`/contest/${c.slug}`}>View →</Link></Button>
               </div>
             </li>

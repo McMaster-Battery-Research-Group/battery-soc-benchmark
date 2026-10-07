@@ -464,3 +464,18 @@ export function contestResultsEmail(to: string, name: string, contest: { title: 
     text: `The results of ${contest.title} are final.\n\n${winners.map((w) => `${w.label}: ${w.modelName} (${w.author}), ${w.weightedError.toFixed(2)} %${w.amount ? `, ${w.amount}` : ""}`).join("\n")}\n\n${href}`,
   });
 }
+
+/** A visitor's page crashed: the reference, where and with what, so it can be matched with the server log. */
+export async function clientErrorEmail(report: { digest: string; url: string; message: string; userAgent: string; user: string; count: number }) {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const { adminNotifyTargets } = await import("@/lib/admin-notify");
+  const to = await adminNotifyTargets("errors");
+  if (!to.length) return false;
+  const rows = [["Reference", report.digest], ["Page", report.url], ["Message", report.message], ["Visitor", report.user], ["Browser", report.userAgent], ["Seen", `${report.count} time${report.count === 1 ? "" : "s"} this hour`]];
+  return sendMail({
+    to: to.join(", "),
+    subject: `Page error on ${report.url.replace(/^https?:\/\/[^/]+/, "") || "/"} (ref ${report.digest.slice(0, 8)})`,
+    html: layout("Page error", `<p>A visitor saw the error page. Match the reference with <code>journalctl -u socbench-web</code> on the web host.</p><table cellpadding="0" cellspacing="0" style="font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:4px 14px 4px 0;color:#6d7a84;vertical-align:top">${k}</td><td style="padding:4px 0;word-break:break-all">${esc(v)}</td></tr>`).join("")}</table>`),
+    text: rows.map(([k, v]) => `${k}: ${v}`).join("\n"),
+  });
+}
