@@ -29,7 +29,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
       <PageHeader eyebrow="Blinded evaluation" title="Submit a model" description="Upload your package, name the model, and it is queued for evaluation on the blinded dataset. The package is deleted as soon as the run finishes." />
       <div className="container-site grid gap-8 py-10 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <SubmitForm contests={contests.map((c) => ({ id: c.id, title: c.title, remaining: c.maxSubmissionsPerUser - c._count.submissions }))} preselectContest={sp.contest} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} directUpload={(process.env.STORAGE ?? "local") === "supabase"} />
+          <SubmitForm contests={contests.map((c) => ({ id: c.id, title: c.title, remaining: c.maxSubmissionsPerUser - c._count.submissions }))} preselectContest={sp.contest} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} directUpload={(process.env.STORAGE ?? "local") === "supabase"} isAdmin={session?.user?.role === "ADMIN"} />
         </div>
         <aside className="space-y-4">
           <div className="card p-5">

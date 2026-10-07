@@ -37,7 +37,7 @@ function StepHeader({ n, icon: Icon, title, sub }: { n: number; icon: React.Comp
   );
 }
 
-export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: { contests: { id: string; title: string; remaining: number }[]; preselectContest?: string; maxMb: number; directUpload: boolean }) {
+export function SubmitForm({ contests, preselectContest, maxMb, directUpload, isAdmin = false }: { contests: { id: string; title: string; remaining: number }[]; preselectContest?: string; maxMb: number; directUpload: boolean; /** administrators also see the evaluator console */ isAdmin?: boolean }) {
   const [state, rawAction] = useActionState<SubmitState, FormData>(createSubmissionAction, {});
   const [uploadPct, setUploadPct] = React.useState<number | null>(null);
   const [uploadErr, setUploadErr] = React.useState<string | undefined>();
@@ -226,7 +226,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
             <DryRunQuotaLine refreshKey={testAttempts} className="mt-1" />
             {testPct !== null ? <p className="mt-2 text-xs text-grey-600">Uploading… {testPct}%</p> : null}
             {testErr ? <Alert variant="danger" className="mt-3">{testErr}</Alert> : null}
-            <DryRunResult id={testId} poll={poll} footer={<>Happy with it? Fill in the details below and submit the same package.</>} />
+            <DryRunResult id={testId} poll={poll} showLog={isAdmin} footer={<>Happy with it? Fill in the details below and submit the same package.</>} />
           </div>
         ) : null}
         {uploadPct !== null || checking ? (

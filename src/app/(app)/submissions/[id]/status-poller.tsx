@@ -25,7 +25,7 @@ function ago(iso: string | null) {
   return h < 36 ? `${h} h ago` : `${Math.round(h / 24)} d ago`;
 }
 
-export function StatusPoller({ id, status, log }: { id: string; status: string; log: string }) {
+export function StatusPoller({ id, status, log, showLog = false }: { id: string; status: string; log: string; /** print the evaluator console (administrators) */ showLog?: boolean }) {
   const router = useRouter();
   const [live, setLive] = React.useState<Live>({ status, log });
   const [, setTick] = React.useState(0); // re-render every few seconds so "remaining" counts down between polls
@@ -131,7 +131,7 @@ export function StatusPoller({ id, status, log }: { id: string; status: string; 
           <div className={running ? "h-full w-1/3 animate-[slide_1.6s_ease-in-out_infinite] rounded-full bg-maroon" : offline ? "h-full w-1/12 rounded-full bg-gold-400" : "h-full w-1/12 rounded-full bg-grey-400"} />
         )}
       </div>
-      {live.log ? <pre ref={logRef} className="mt-4 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all rounded-brand bg-grey-900 p-3 text-xs leading-relaxed text-white">{live.log}</pre> : null}
+      {showLog && live.log ? <pre ref={logRef} className="mt-4 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all rounded-brand bg-grey-900 p-3 text-xs leading-relaxed text-white">{live.log}</pre> : null}
       <style>{`@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}`}</style>
     </div>
   );

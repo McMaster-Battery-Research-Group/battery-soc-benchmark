@@ -171,7 +171,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
       {/* ---------- transient states */}
       {sp.new ? <Alert variant="success" className="mt-6" title="Submission received">Your package passed the package checks and is queued for blinded evaluation. This page updates automatically; you will also receive an email when it finishes.</Alert> : null}
       {sub.status === "QUEUED" || sub.status === "RUNNING" ? (
-        <div className="mt-6"><StatusPoller id={sub.id} status={sub.status} log={canSee ? sub.job?.log ?? "" : ""} /></div>
+        <div className="mt-6"><StatusPoller id={sub.id} status={sub.status} log={canSee ? sub.job?.log ?? "" : ""} showLog={isAdmin} /></div>
       ) : null}
       {sub.status === "COMPLETED" && r && (isOwner || isCollaborator) ? (
         <Celebration id={sub.id} modelName={sub.modelName} score={fmtPct(r.weightedError)} rank={rank} recentlyCompleted={!!sub.completedAt && Date.now() - sub.completedAt.getTime() < 14 * 86400_000} />
@@ -179,7 +179,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
       {sub.status === "FAILED" ? (
         <Alert variant="danger" className="mt-6" title="Evaluation failed">
           <p>{sub.failureMessage}</p>
-          {canSee && sub.job?.log ? <pre className="mt-3 max-h-64 overflow-auto rounded-brand bg-grey-900 p-3 text-xs text-white">{sub.job.log}</pre> : null}
+          {isAdmin && sub.job?.log ? <pre className="mt-3 max-h-64 overflow-auto rounded-brand bg-grey-900 p-3 text-xs text-white">{sub.job.log}</pre> : null}
           <p className="mt-2 text-xs">Tip: use <Link href="/submit" className="underline">Test your package first</Link> on the Submit page before re-submitting. Think the evaluator is wrong? <Link href={`/contact?category=bug&subject=${encodeURIComponent(`Submission #${sub.seq} failed`)}&from=/submissions/${sub.id}`} className="underline">Tell us</Link>.</p>
         </Alert>
       ) : null}
