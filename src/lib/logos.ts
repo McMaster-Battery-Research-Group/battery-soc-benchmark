@@ -11,9 +11,9 @@ import path from "path";
  *
  * nserc.svg/png are NSERC's official *symbol* (the red NSERC/CRSNG block), which NSERC's
  * acknowledgement guidelines allow where the full signature would be too small; the PNG is
- * rendered from the SVG. mcmaster.svg is still a text-only placeholder until Brand Marketing
- * supplies the official files; while a PNG is absent the PDF and e-mails fall back to a text
- * acknowledgement for that logo.
+ * rendered from the SVG. mcmaster.svg / mcmaster-white.svg are McMaster's logo (crest and name) as
+ * published on mcmaster.ca, cropped from the "Brighter World" lockup: a stand-in until Brand
+ * Marketing supplies the official files. mcmaster.png is rendered from the SVG.
  */
 export const LOGOS = {
   mcmaster: { svg: "/logos/mcmaster.svg", png: "/logos/mcmaster.png", alt: "McMaster University", href: "https://www.mcmaster.ca" },

@@ -42,10 +42,10 @@ export default async function HomePage() {
             {/* who stands behind it, visible before anyone scrolls */}
             <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-white/15 pt-5">
               <a href="https://www.mcmaster.ca" target="_blank" rel="noreferrer" className="flex items-center gap-3" aria-label="McMaster University">
-                <Image src="/logos/mcmaster.svg" alt="" width={300} height={56} className="h-9 w-auto brightness-0 invert" />
+                <Image src="/logos/mcmaster-white.svg" alt="" width={556} height={350} className="h-12 w-auto" />
               </a>
               <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" className="flex items-center gap-3" aria-label="NSERC / CRSNG">
-                <Image src="/logos/nserc-white.svg" alt="" width={116} height={56} className="h-9 w-auto" />
+                <Image src="/logos/nserc-white.svg" alt="" width={116} height={56} className="h-10 w-auto" />
                 <span className="text-xs leading-tight text-white/75">Supported by an NSERC<br />Discovery Grant</span>
               </a>
             </div>

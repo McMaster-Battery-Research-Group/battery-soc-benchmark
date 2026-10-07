@@ -46,7 +46,7 @@ export function SiteFooter() {
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-6">
             <a href="https://www.mcmaster.ca" target="_blank" rel="noreferrer" aria-label="McMaster University" className="shrink-0">
-              <Image src="/logos/mcmaster.svg" alt="McMaster University" width={200} height={56} className="h-9 w-auto" />
+              <Image src="/logos/mcmaster.svg" alt="McMaster University" width={61} height={38} className="h-11 w-auto" />
             </a>
             <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" aria-label="NSERC / CRSNG" className="shrink-0">
               <Image src="/logos/nserc.svg" alt="NSERC / CRSNG" width={83} height={40} className="h-9 w-auto" />
