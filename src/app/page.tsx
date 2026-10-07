@@ -6,7 +6,6 @@ import { HeroTrace } from "@/components/hero-lines";
 import { getSiteStats, getLeaderboardRows, getShowcaseTrace } from "@/lib/queries";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import { fmtPct, fmtDate } from "@/lib/utils";
-import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { Button } from "@/components/ui/button";
 import { RankBadge } from "@/components/leaderboard/rank-badge";
 import { CellGlyph } from "@/components/layout/logo";
@@ -64,7 +63,7 @@ export default async function HomePage() {
                     <RankBadge rank={i + 1} className={i >= 3 ? "text-white/80" : ""} />
                     <div className="min-w-0 flex-1">
                       <Link href={`/submissions/${r.id}`} className="block truncate font-heading text-sm font-semibold text-white hover:underline">{r.modelName}</Link>
-                      <p className="truncate text-xs text-white/70">{MODEL_TYPE_LABELS[r.modelType]} · {r.affiliation}</p>
+                      <p className="truncate text-xs text-white/70">{r.author}{r.collaborators.length ? " et al." : ""} · {r.affiliation}</p>
                     </div>
                     <span className="font-heading text-sm font-semibold tabular text-gold">{fmtPct(r.weightedError)}%</span>
                   </li>
