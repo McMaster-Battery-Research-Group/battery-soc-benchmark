@@ -6,7 +6,7 @@ import { NativeSelect } from "@/components/ui/input";
 import { CURRENT_EVALUATOR_VERSION, isCurrentBenchmark } from "@/lib/benchmark-version";
 import { ModerateButtons } from "./moderate";
 import { EditAuthorship } from "./authorship";
-import { ownerIsShown, guestAvatar } from "@/lib/authors";
+import { publicAuthors, guestAvatar } from "@/lib/authors";
 import { RunningProgress } from "./running-progress";
 import { LegacyEntryDialog } from "./legacy-entry";
 import { AutoRefresh } from "../workers/controls";
@@ -16,10 +16,6 @@ import { Avatar } from "@/components/avatar";
 export const dynamic = "force-dynamic";
 
 /** Affiliation recorded for an administrator-entered credit, if any. */
-function c_affil(s: { collaborators: { name: string | null; affiliation: string | null; user: unknown }[] }, name: string) {
-  return s.collaborators.find((c) => !c.user && c.name === name)?.affiliation ?? "";
-}
-
 export default async function AdminSubmissions({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const subs = await db.submission.findMany({
@@ -81,42 +77,38 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                     </div>
                     {s.failureMessage ? <p className="mt-0.5 line-clamp-2 text-xs text-danger" title={s.failureMessage}>{s.failureMessage}</p> : null}
                   </td>
-                  <td className="max-w-[260px] px-3 py-2.5">
-                    <ul className="space-y-1">
-                      {[
-                        { id: s.user.id as string | null, name: s.user.name, email: s.user.email as string | null, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null, avatarSrc: null as string | null, role: "owner", state: ownerIsShown(s) ? "" : "not shown" },
-                        // someone without an account credited as the author (submitted on their behalf)
-                        ...(s.creditName ? [{ id: null as string | null, name: s.creditName, email: null as string | null, avatarVersion: null as number | null, avatarSrc: guestAvatar(s.id, "credit", s.creditAvatarAt, s.creditName ?? ""), role: "author", state: "no account" }] : []),
-                        // a co-author an administrator credited has no account: name only, no link, no e-mail
-                        ...s.collaborators.map((c) => ({
-                          id: (c.user?.id ?? null) as string | null,
-                          name: c.user?.name ?? c.name ?? "Unnamed co-author",
-                          email: (c.user?.email ?? null) as string | null,
-                          avatarVersion: c.user?.avatarUpdatedAt?.getTime() ?? null,
-                          avatarSrc: c.user ? null : guestAvatar(s.id, c.id, c.avatarAt, c.name ?? ""),
-                          role: "co-author",
-                          state: c.user ? (c.acceptedAt ? "" : c.notifiedAt ? "invited" : "pending") : "no account",
+                  <td className="max-w-[280px] px-3 py-2.5">
+                    {(() => {
+                      // public authors in display order, then whoever is attached but not shown
+                      const pub = publicAuthors(s);
+                      const ownerShown = pub.some((a) => a.id === s.user.id);
+                      const rows = [
+                        ...pub.map((a, i) => ({
+                          key: a.id ?? `g${i}`, id: a.id, name: a.name, avatarVersion: a.avatarVersion, avatarSrc: a.avatarSrc,
+                          sub: a.id === s.user.id ? s.user.email : a.id ? (s.collaborators.find((c) => c.userId === a.id)?.user?.email ?? "") : a.affiliation || "no account",
+                          tags: [i === 0 ? "lead author" : "co-author", ...(a.id === s.user.id ? ["manages"] : [])], dim: false,
                         })),
-                      ].map((u, i) => (
-                        <li key={u.id ?? `x${i}`} className="flex items-center gap-2">
-                          <Avatar userId={u.id ?? ""} name={u.name} hasAvatar={u.avatarVersion !== null} version={u.avatarVersion} src={u.avatarSrc} size={26} className={u.state && u.state !== "no account" ? "opacity-60" : undefined} />
-                          <span className="min-w-0">
-                            {u.id ? (
-                              <Link href={`/users/${u.id}`} className="block truncate text-grey-900 hover:text-maroon hover:underline">
-                                {u.name}
-                                {u.role === "co-author" ? <span className="ml-1 text-[10px] font-heading font-semibold uppercase tracking-wide text-grey-500">{u.state || "co-author"}</span> : null}
-                              </Link>
-                            ) : (
-                              <span className="block truncate text-grey-900">
-                                {u.name}
-                                <span className="ml-1 text-[10px] font-heading font-semibold uppercase tracking-wide text-grey-500">{u.state}</span>
+                        ...(!ownerShown ? [{ key: "owner", id: s.user.id as string | null, name: s.user.name, avatarVersion: s.user.avatarUpdatedAt?.getTime() ?? null, avatarSrc: null as string | null, sub: s.user.email, tags: ["manages", "not shown"], dim: true }] : []),
+                        ...s.collaborators.filter((c) => c.user && !c.acceptedAt).map((c) => ({ key: c.id, id: c.user!.id as string | null, name: c.user!.name, avatarVersion: c.user!.avatarUpdatedAt?.getTime() ?? null, avatarSrc: null as string | null, sub: c.user!.email, tags: ["co-author", c.notifiedAt ? "invited" : "pending"], dim: true })),
+                      ];
+                      const tagClass = (t: string) => t === "lead author" ? "bg-maroon-100 text-maroon" : t === "manages" ? "bg-gold-100 text-[#7a4f0e]" : "bg-grey-100 text-grey-600";
+                      return (
+                        <ul className="space-y-1.5">
+                          {rows.map((u) => (
+                            <li key={u.key} className={`flex items-center gap-2 ${u.dim ? "opacity-70" : ""}`}>
+                              <Avatar userId={u.id ?? ""} name={u.name} hasAvatar={u.avatarVersion !== null} version={u.avatarVersion} src={u.avatarSrc} size={26} />
+                              <span className="min-w-0">
+                                <span className="flex flex-wrap items-center gap-1">
+                                  {u.id ? <Link href={`/users/${u.id}`} className="truncate text-grey-900 hover:text-maroon hover:underline">{u.name}</Link> : <span className="truncate text-grey-900">{u.name}</span>}
+                                  {u.tags.map((t) => <span key={t} className={`rounded-[3px] px-1 py-px font-heading text-[9px] font-semibold uppercase tracking-wide ${tagClass(t)}`}>{t}</span>)}
+                                </span>
+                                <span className="block truncate text-xs text-grey-600">{u.sub}</span>
                               </span>
-                            )}
-                            <span className="block truncate text-xs text-grey-600" title={u.email ?? undefined}>{u.email ?? (c_affil(s, u.name) || "credited by an administrator")}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                            </li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
                     <EditAuthorship
                       id={s.id}
                       seq={s.seq}
