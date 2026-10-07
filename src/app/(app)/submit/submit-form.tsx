@@ -339,7 +339,8 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload }: 
             ) : null}
 
             <div>
-              <p className="text-sm text-grey-700">Co-authors with an account appear beside the model and can see it while private. Nobody is e-mailed yet: after submitting you review the list and press <strong>Notify</strong>.</p>
+              <p className="font-heading text-sm font-semibold text-ink">Co-authors</p>
+              <p className="mt-0.5 text-sm text-grey-700">People who worked on this model with you. Each one needs an account. They are listed next to the model once they accept an invitation, which you send from the submission page after submitting.</p>
               {collabs.length ? (
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {collabs.map((c) => (
