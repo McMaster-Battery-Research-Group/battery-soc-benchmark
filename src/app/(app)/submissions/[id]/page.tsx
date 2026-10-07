@@ -23,7 +23,6 @@ import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { SocTracePicker } from "@/components/charts/soc-trace";
 import { KeyCases } from "@/components/charts/key-cases";
 import { PerCycleTable } from "@/components/charts/per-cycle-table";
-import { ModelSchematic, specForModelType } from "@/components/model-schematic";
 import * as React from "react";
 import { StatusPoller } from "./status-poller";
 import { Celebration } from "@/components/celebration";
@@ -228,7 +227,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                   </>
                 ),
               },
-              ...(history.length
+              ...(canSee && history.length
                 ? [{
                     id: "score-history", label: "History", icon: <History />, count: String(history.length),
                     content: (
@@ -257,7 +256,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                     ),
                   }]
                 : []),
-              {
+              ...(canSee ? [{
                 id: "details", label: "Details", icon: <Info />,
                 content: (
                   <div className="space-y-5">
@@ -276,14 +275,9 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                         {r.tracesKey && canSee ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/traces`} download><Download /> Traces (.mat)</a></Button> : null}
                       </div>
                     </section>
-                    {sub.modelType !== "OTHER" ? (
-                      <Fold title={`How ${modelTypePhrase(MODEL_TYPE_LABELS[sub.modelType])} works`} sub="The canonical structure for this model family; the description above gives the specific architecture.">
-                        <ModelSchematic spec={specForModelType(sub.modelType)} title={`${MODEL_TYPE_LABELS[sub.modelType]}: standardized view`} />
-                      </Fold>
-                    ) : null}
                   </div>
                 ),
-              },
+              }] : []),
             ]}
           />
         </div>
@@ -297,31 +291,6 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         list={sub.collaborators.flatMap((c) => (c.user ? [{ ...toPerson(c.user), notified: !!c.notifiedAt, accepted: !!c.acceptedAt }] : []))} canEdit={canManage} viewerId={session?.user?.id}
         ownerDisplay={ownerDisplayOf(sub)} hasCredit={!!sub.creditName} othersShown={authors.filter((a) => a.id !== sub.user.id).length} />
     </div>
-  );
-}
-
-/** "a feedforward NN", "an LSTM", "a UKF": the label mid-sentence with the right article. */
-function modelTypePhrase(label: string) {
-  let word = label.replace(/^([A-Z])(?=[a-z])/, (c) => c.toLowerCase());
-  if (/-based$/.test(word) || word === "hybrid") word += " model";
-  // a lower-case word starting with a vowel, or an acronym whose first letter is said with a vowel sound (not U: "a UKF")
-  const an = /^[aeiou]/.test(word) || /^[AEFHILMNORSX][A-Z]/.test(word);
-  return `${an ? "an" : "a"} ${word}`;
-}
-
-/** Collapsed section (native <details>, no JS): title + one-line summary; opens in place. */
-function Fold({ id, title, sub, children }: { id?: string; title: string; sub?: string; children: React.ReactNode }) {
-  return (
-    <details id={id} className="group card scroll-mt-24">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
-        <span>
-          <span className="font-heading text-[15px] font-semibold text-ink">{title}</span>
-          {sub ? <span className="mt-0.5 block text-sm text-grey-700">{sub}</span> : null}
-        </span>
-        <ChevronDown className="size-5 shrink-0 text-grey-500 transition-transform group-open:rotate-180" />
-      </summary>
-      <div className="border-t border-border p-5">{children}</div>
-    </details>
   );
 }
 
