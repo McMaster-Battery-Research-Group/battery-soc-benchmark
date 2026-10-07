@@ -42,20 +42,23 @@ export function PageHeader({
   description,
   actions,
   className,
+  compact = false,
 }: {
   eyebrow?: string;
   title: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  /** data pages (leaderboard, compare): a short header so the content starts near the top */
+  compact?: boolean;
 }) {
   return (
     <div className={cn("border-b border-border bg-grey-100/60", className)}>
-      <div className="container-site flex flex-col gap-5 py-10 md:flex-row md:items-end md:justify-between md:py-14">
+      <div className={cn("container-site flex flex-col gap-5 md:flex-row md:items-end md:justify-between", compact ? "py-6 md:py-7" : "py-10 md:py-14")}>
         <div className="max-w-3xl">
-          {eyebrow ? <p className="mb-2 font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">{eyebrow}</p> : null}
-          <h1 className="font-heading text-3xl font-bold leading-tight md:text-[40px] md:leading-[46px]">{title}</h1>
-          {description ? <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-grey-700">{description}</p> : null}
+          {eyebrow ? <p className={cn("font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon", compact ? "mb-1" : "mb-2")}>{eyebrow}</p> : null}
+          <h1 className={cn("font-heading font-bold leading-tight", compact ? "text-2xl md:text-3xl" : "text-3xl md:text-[40px] md:leading-[46px]")}>{title}</h1>
+          {description ? <p className={cn("max-w-2xl leading-relaxed text-grey-700", compact ? "mt-1.5 text-[15px]" : "mt-3 text-[17px]")}>{description}</p> : null}
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
       </div>

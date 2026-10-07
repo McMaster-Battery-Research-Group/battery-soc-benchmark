@@ -36,7 +36,7 @@ const COLS = [
 
 export function SiteFooter() {
   return (
-    <footer className="mt-16 border-t border-border bg-grey-100/70">
+    <footer className="border-t border-border bg-grey-100/70">
       <div className="container-site grid gap-10 py-12 md:grid-cols-12">
         <div className="md:col-span-6">
           <Wordmark />

@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
-import { HeroChart } from "@/components/hero-trace";
-import { getSiteStats, getLeaderboardRows, getShowcaseTrace } from "@/lib/queries";
+import { HeroLines } from "@/components/hero-lines";
+import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import { fmtPct, fmtDate } from "@/lib/utils";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
@@ -14,16 +14,17 @@ import { CellGlyph } from "@/components/layout/logo";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [stats, rows, showcase] = await Promise.all([getSiteStats(), getLeaderboardRows(), getShowcaseTrace()]);
+  const [stats, rows] = await Promise.all([getSiteStats(), getLeaderboardRows()]);
   // same ranking rule as the leaderboard: only current-benchmark rows are ranked (legacy-scored ones are listed there unranked)
-  const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 3);
+  const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 5);
 
   return (
     <>
       {/* Hero — maroon copy block with the brand circle device, cropped on two sides */}
       <section className="relative overflow-hidden bg-maroon text-white">
         <div aria-hidden className="pointer-events-none absolute -right-40 -top-56 size-[640px] rounded-full border-[56px] border-gold/90 opacity-90 md:-right-24" />
-        <div className="container-site relative grid gap-10 py-14 md:grid-cols-12 md:py-16">
+        <HeroLines className="pointer-events-none absolute inset-x-0 bottom-0 h-14 w-full" />
+        <div className="container-site relative grid gap-10 pb-24 pt-12 md:grid-cols-12 md:pt-14">
           <div className="md:col-span-7">
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">Open benchmark · Blinded evaluation</p>
             <h1 className="mt-4 font-heading text-4xl font-bold leading-[1.1] text-white md:text-[50px] md:leading-[55px]">
@@ -54,8 +55,7 @@ export default async function HomePage() {
           </div>
           <div className="md:col-span-5">
             <div className="relative rounded-brand border border-white/20 bg-maroon-800/95 p-5 shadow-xl">
-              <HeroChart trace={showcase} compact />
-              <div className="mt-5 flex items-center justify-between border-t border-white/15 pt-4">
+              <div className="flex items-center justify-between">
                 <p className="font-heading text-sm font-semibold text-white">Top of the leaderboard</p>
                 <Link href="/leaderboard" className="text-xs text-gold underline">All models</Link>
               </div>
@@ -95,13 +95,13 @@ export default async function HomePage() {
       </section>
 
       {/* How it works */}
-      <section className="container-site py-16">
+      <section className="container-site py-12">
         <div className="max-w-2xl">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">How it works</p>
           <h2 className="mt-2 font-heading text-3xl font-bold">From open data to a standardized score</h2>
         </div>
-        <PipelineDiagram className="mt-8 hidden md:block" />
-        <ol className="mt-8 grid gap-6 md:grid-cols-3">
+        <PipelineDiagram className="mt-6 hidden md:block" />
+        <ol className="mt-6 grid gap-6 md:grid-cols-3">
           {[
             { icon: Download, t: "Download the open data", d: "Characterization tests (HPPC, C/20, C/3, C/2, 1C) and reordered drive cycles for three cells at six temperatures.", href: "/dataset", cta: "Get the dataset" },
             { icon: FlaskConical, t: "Build your estimator", d: "Any method: coulomb counting, Kalman filters, physics-based models, neural networks. Package it as Model.m, Model.p or Model.py, then test it on the site before submitting.", href: "/docs#submission-format", cta: "Submission format" },
@@ -122,7 +122,7 @@ export default async function HomePage() {
 
       {/* Contest + dataset */}
       <section className="bg-grey-100/70">
-        <div className="container-site grid gap-6 py-16 lg:grid-cols-2">
+        <div className="container-site grid gap-6 py-12 lg:grid-cols-2">
           {stats.contest ? (
             <div className="card overflow-hidden">
               <div className="flex items-center gap-3 bg-maroon px-6 py-4 text-white">
@@ -139,10 +139,13 @@ export default async function HomePage() {
             </div>
           ) : (
             <div className="card p-6">
-              <Trophy className="size-6 text-maroon" />
+              <div className="flex items-center gap-3">
+                <Trophy className="size-6 text-grey-400" />
+                <span className="rounded-full bg-grey-100 px-2.5 py-0.5 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">No contest running</span>
+              </div>
               <h3 className="mt-3 font-heading text-2xl font-bold">Contests</h3>
-              <p className="mt-2 text-grey-800">Time-boxed challenges with cash prizes run periodically. The public leaderboard is always open.</p>
-              <Button asChild variant="secondary" className="mt-5"><Link href="/contest">Contest page</Link></Button>
+              <p className="mt-2 text-grey-800">Nothing is open at the moment. Contests with cash prizes are announced here when they start; the public leaderboard accepts submissions at any time.</p>
+              <Button asChild variant="secondary" className="mt-5"><Link href="/contest">Past contests</Link></Button>
             </div>
           )}
           <div className="card p-6">
@@ -161,7 +164,7 @@ export default async function HomePage() {
       </section>
 
       {/* Citation */}
-      <section className="container-site pt-16">
+      <section className="container-site py-12">
         <div className="rounded-brand border-l-4 border-gold bg-white p-6 shadow-[var(--shadow-card)]">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">Cite the benchmark</p>
           <p className="mt-2 text-[15px] leading-relaxed text-grey-800">

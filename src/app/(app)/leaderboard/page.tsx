@@ -20,10 +20,11 @@ export default async function LeaderboardPage() {
         eyebrow="Blinded evaluation"
         title="Leaderboard"
         description="Every model was scored on the same hidden Tesla 2170 drive-cycle data from −20 °C to 40 °C. Numbers are average RMSE in % SOC: lower is better."
+        compact
       />
-      <div className="container-site py-10">
-        <HowToRead legacyCount={rows.filter((r) => !isCurrentBenchmark(r.evaluatorVersion)).length} hasPrivate={!!session?.user?.id && rows.some((r) => r.isPrivate && r.userId === session.user!.id)} />
+      <div className="container-site py-6">
         <LeaderboardTable rows={rows} viewerId={session?.user?.id} />
+        <HowToRead legacyCount={rows.filter((r) => !isCurrentBenchmark(r.evaluatorVersion)).length} hasPrivate={!!session?.user?.id && rows.some((r) => r.isPrivate && r.ownerId === session.user!.id)} />
         <p className="mt-4 text-xs text-grey-600">
           Ranking is by weighted error regardless of the current sort. Private models are shown only to their owner and are excluded from public rankings. Read the{" "}
           <Link href="/docs" className="text-maroon underline">methodology</Link> for how each test case is constructed.
