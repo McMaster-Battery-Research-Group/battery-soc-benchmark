@@ -3,7 +3,7 @@ import Image from "next/image";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
 import { HeroTrace } from "@/components/hero-lines";
-import { getSiteStats, getLeaderboardRows, getShowcaseTrace } from "@/lib/queries";
+import { getSiteStats, getLeaderboardRows, getShowcase } from "@/lib/queries";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import { fmtPct, fmtDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { CellGlyph } from "@/components/layout/logo";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [stats, rows, showcase] = await Promise.all([getSiteStats(), getLeaderboardRows(), getShowcaseTrace()]);
+  const [stats, rows, showcase] = await Promise.all([getSiteStats(), getLeaderboardRows(), getShowcase()]);
   // same ranking rule as the leaderboard: only current-benchmark rows are ranked (legacy-scored ones are listed there unranked)
   const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 5);
 
@@ -72,7 +72,7 @@ export default async function HomePage() {
               <p className="mt-2 text-[11px] text-white/60">Weighted error (% SOC), lower is better.</p>
             </div>
             {/* what the numbers above measure: the leader on one cold blinded cycle */}
-            <HeroTrace trace={showcase} />
+            <HeroTrace data={showcase} />
           </div>
         </div>
       </section>

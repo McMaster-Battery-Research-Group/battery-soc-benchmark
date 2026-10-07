@@ -4,7 +4,7 @@ import { db } from "./db";
 import { publicAuthors, AUTHOR_USER_SELECT, AUTHOR_COLLABORATORS } from "./authors";
 import { METRIC_KEYS, type MetricKey } from "./test-cases";
 import type { TimeSeriesTrace } from "@/evaluator/types";
-import type { ShowcaseTrace } from "@/components/hero-lines";
+import type { Showcase } from "@/components/hero-lines";
 
 export type LeaderboardRow = {
   id: string;
@@ -199,18 +199,25 @@ export async function getPublicAuthors(id: string) {
 }
 
 /**
- * One real trace for the homepage: the current leader's coldest open-cell drive cycle, with both the
- * reference SOC and the estimate (blinded-cell traces carry only the error, so they never qualify).
+ * The homepage trace: the leader's coldest open-cell drive cycle (reference SOC + estimate), with the
+ * second and third models' estimates on the same cycle where they have it. Blinded-cell traces carry
+ * only the error, so they never qualify.
  */
-export async function getShowcaseTrace(): Promise<ShowcaseTrace | null> {
-  const r = await db.evaluationResult.findFirst({
+export async function getShowcase(): Promise<Showcase | null> {
+  const top = await db.evaluationResult.findMany({
     where: { submission: { isPrivate: false, isHidden: false, status: "COMPLETED", isLegacy: false }, evaluatorVersion: { startsWith: BENCHMARK_VERSION } },
     orderBy: { weightedError: "asc" },
+    take: 3,
     select: { timeSeries: true, submission: { select: { id: true, modelName: true } } },
   });
-  if (!r) return null;
-  const traces = (r.timeSeries as unknown as TimeSeriesTrace[]).filter((x) => (x.group ?? "cycle") === "cycle" && x.actual?.length && x.estimated?.length && x.t?.length);
-  if (!traces.length) return null;
-  const pick = traces.reduce((m, x) => (x.temperatureC < m.temperatureC ? x : m));
-  return { submissionId: r.submission.id, modelName: r.submission.modelName, label: pick.label.replace(/-(?=\d)/, "−"), t: pick.t, actual: pick.actual!, estimated: pick.estimated! };
+  if (!top.length) return null;
+  const cycles = (r: (typeof top)[number]) => (r.timeSeries as unknown as TimeSeriesTrace[]).filter((x) => (x.group ?? "cycle") === "cycle" && x.actual?.length && x.estimated?.length && x.t?.length);
+  const lead = cycles(top[0]);
+  if (!lead.length) return null;
+  const pick = lead.reduce((m, x) => (x.temperatureC < m.temperatureC ? x : m));
+  const series = top.flatMap((r) => {
+    const tr = cycles(r).find((x) => x.key === pick.key);
+    return tr ? [{ submissionId: r.submission.id, modelName: r.submission.modelName, t: tr.t, estimated: tr.estimated! }] : [];
+  });
+  return { label: pick.label.replace(/-(?=\d)/, "−"), t: pick.t, actual: pick.actual!, series };
 }

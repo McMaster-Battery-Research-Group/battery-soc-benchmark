@@ -1,77 +1,76 @@
 import Link from "next/link";
 
-export type ShowcaseTrace = {
-  submissionId: string;
-  modelName: string;
+export type ShowcaseSeries = { submissionId: string; modelName: string; t: number[]; estimated: number[] };
+export type Showcase = {
   /** e.g. "m80 UDDS at −20 °C" */
   label: string;
-  /** hours */
+  /** hours, % SOC: the reference run (identical for every model) */
   t: number[];
-  /** % SOC */
   actual: number[];
-  estimated: number[];
+  /** the medallists' estimates, best first */
+  series: ShowcaseSeries[];
 };
 
-/**
- * Under the hero's leaderboard card: the current leader's coldest blinded drive cycle, reference SOC
- * (white) against its estimate (gold) with the error shaded. No axes or grid, one caption. Falls back
- * to a drive-cycle-shaped illustration on a database without a public result.
- */
-/** Hours of the run shown: the opening stretch, where the drive-cycle shape and the estimate locking on are visible. */
-const WINDOW_H = 1;
+/** gold, silver, bronze: the same colours as the rank medals in the card above */
+const MEDAL = ["#FDBF57", "#d4d8dc", "#d9a066"];
 
-export function HeroTrace({ trace }: { trace: ShowcaseTrace | null }) {
-  const full = trace ?? synthetic();
-  const n = Math.max(2, full.t.filter((t) => t <= WINDOW_H).length);
-  const data = { ...full, t: full.t.slice(0, n), actual: full.actual.slice(0, n), estimated: full.estimated.slice(0, n) };
-  const W = 560, H = 130, tMax = data.t[n - 1] || 1;
-  // vertical range follows the data, so a few percent of SOC fill the box
-  const all = [...data.actual, ...data.estimated];
-  const lo = Math.min(...all) - 0.5, hi = Math.max(...all) + 0.5;
-  const x = (i: number) => (data.t[i] / tMax) * W;
-  const y = (v: number) => 6 + (1 - (v - lo) / (hi - lo)) * (H - 12);
-  const pts = (arr: number[]) => arr.map((v, i) => [x(i), y(v)] as const);
-  // smooth (Catmull-Rom) path through the samples, so the down-sampled trace does not look angular
-  const smooth = (p: readonly (readonly [number, number])[]) =>
-    p.map(([px, py], i) => {
-      if (!i) return `M${px.toFixed(1)} ${py.toFixed(1)}`;
-      const p0 = p[i - 2] ?? p[i - 1], p1 = p[i - 1], p2 = p[i], p3 = p[i + 1] ?? p[i];
-      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-      return `C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${px.toFixed(1)} ${py.toFixed(1)}`;
-    }).join(" ");
-  const line = (arr: number[]) => smooth(pts(arr));
-  const band = `${line(data.actual)} L${x(n - 1).toFixed(1)} ${y(data.estimated[n - 1]).toFixed(1)} ${smooth([...pts(data.estimated)].reverse()).replace(/^M[^C]*/, "")} Z`;
+/**
+ * Under the hero's leaderboard card: the top three models' estimates over one blinded drive cycle,
+ * over the whole run, against the reference SOC. Light axes, one legend, nothing else.
+ * Falls back to an illustration on a database without public results.
+ */
+export function HeroTrace({ data: given }: { data: Showcase | null }) {
+  const data = given ?? synthetic();
+  const W = 560, H = 190, padL = 34, padR = 8, padT = 6, padB = 22;
+  const tMax = Math.max(data.t[data.t.length - 1] || 1, ...data.series.map((s) => s.t[s.t.length - 1] || 0));
+  const x = (t: number) => padL + (t / tMax) * (W - padL - padR);
+  const y = (v: number) => padT + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - padT - padB);
+  const line = (t: number[], v: number[]) => v.map((val, i) => `${i ? "L" : "M"}${x(t[i]).toFixed(1)} ${y(val).toFixed(1)}`).join(" ");
+  const hours = (h: number) => (h >= 1 ? `${Number.isInteger(h) ? h : h.toFixed(1)} h` : `${Math.round(h * 60)} min`);
   return (
     <figure className="mt-5">
-      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs text-white/75">
-        <span>
-          {trace ? <><Link href={`/submissions/${trace.submissionId}`} className="font-semibold text-white hover:underline">{trace.modelName}</Link>, the current leader: the first hour of {trace.label}</> : <>What the evaluator measures: an estimate against the reference SOC over a drive cycle</>}
-        </span>
-        <span className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 rounded bg-white/80" /> reference</span>
-          <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 rounded bg-gold" /> estimate</span>
-        </span>
+      <figcaption className="text-xs text-white/75">
+        {given ? <>The top three on one blinded drive cycle, {data.label}, over the whole run</> : <>What the evaluator measures: estimates against the reference SOC over a blinded drive cycle</>}
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-auto w-full" role="img" aria-label={`Reference SOC and estimate over the first hour of ${data.label}`}>
-        <path d={band} fill="#FDBF57" fillOpacity="0.28" />
-        <path d={line(data.actual)} fill="none" stroke="#fff" strokeOpacity="0.8" strokeWidth="1.8" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        <path d={line(data.estimated)} fill="none" stroke="#FDBF57" strokeWidth="1.8" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/85">
+        <li className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-white/85" /> reference SOC</li>
+        {data.series.map((s, i) => (
+          <li key={s.submissionId || i} className="inline-flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded" style={{ background: MEDAL[i] }} />
+            {s.submissionId ? <Link href={`/submissions/${s.submissionId}`} className="hover:underline">{s.modelName}</Link> : s.modelName}
+          </li>
+        ))}
+      </ul>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-auto w-full" role="img" aria-label={`Reference SOC and the top three estimates over ${data.label}`}>
+        {[0, 50, 100].map((g) => (
+          <g key={g}>
+            <line x1={padL} x2={W - padR} y1={y(g)} y2={y(g)} stroke="#fff" strokeOpacity={g === 0 ? 0.3 : 0.1} strokeWidth="1" />
+            <text x={padL - 6} y={y(g) + 3.5} textAnchor="end" fontSize="9" fill="#fff" fillOpacity="0.6" fontFamily="Arial, sans-serif">{g} %</text>
+          </g>
+        ))}
+        <path d={line(data.t, data.actual)} fill="none" stroke="#fff" strokeOpacity="0.9" strokeWidth="1.8" strokeDasharray="5 4" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {[...data.series].reverse().map((s, k) => {
+          const i = data.series.length - 1 - k; // draw the leader last, on top
+          return <path key={s.submissionId || i} d={line(s.t, s.estimated)} fill="none" stroke={MEDAL[i]} strokeOpacity={i ? 0.8 : 1} strokeWidth="1.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
+        })}
+        <g fontSize="9" fill="#fff" fillOpacity="0.6" fontFamily="Arial, sans-serif">
+          <text x={padL} y={H - 8}>0</text>
+          <text x={x(tMax / 2)} y={H - 8} textAnchor="middle">{hours(tMax / 2)}</text>
+          <text x={W - padR} y={H - 8} textAnchor="end">{hours(tMax)}</text>
+        </g>
       </svg>
     </figure>
   );
 }
 
-/** A drive-cycle-shaped discharge (stops, regen bumps, sensor noise) and an estimate that starts wrong and locks on. */
-function synthetic(): ShowcaseTrace {
-  const N = 280;
-  const t = Array.from({ length: N }, (_, i) => (i / (N - 1)) * 2);
-  let soc = 97;
-  const actual = t.map((h, i) => {
-    const drive = 0.5 + 0.5 * Math.sin(i * 0.9) ** 2; // accelerating / cruising
-    const regen = Math.max(0, Math.sin(i * 0.37 + 1)) ** 8 * 0.9; // braking recovers a little
-    soc -= 0.26 * drive - regen * 0.3;
-    return soc;
-  });
-  const estimated = actual.map((v, i) => v - 9 * Math.exp(-2.2 * t[i]) + 0.9 * Math.sin(i * 1.7) * (0.3 + Math.exp(-t[i])));
-  return { submissionId: "", modelName: "", label: "a cold drive cycle (illustration)", t, actual, estimated };
+/** A cold discharge from full to empty with three estimators of decreasing quality. */
+function synthetic(): Showcase {
+  const N = 240;
+  const t = Array.from({ length: N }, (_, i) => (i / (N - 1)) * 4.5);
+  const actual = t.map((h, i) => 100 - 21 * h + 0.6 * Math.sin(i * 0.9) ** 2 - 0.4 * Math.max(0, Math.sin(i * 0.37)) ** 6);
+  const est = (bias: number, wobble: number, decay: number) => actual.map((v, i) => v - bias * Math.exp(-decay * t[i]) + wobble * Math.sin(i * 1.7) * (0.3 + 0.7 * Math.exp(-t[i] / 2)));
+  return {
+    label: "a −20 °C drive cycle (illustration)", t, actual,
+    series: [{ submissionId: "", modelName: "best model", t, estimated: est(8, 0.8, 2.5) }, { submissionId: "", modelName: "second", t, estimated: est(12, 1.6, 1.5) }, { submissionId: "", modelName: "third", t, estimated: est(15, 2.4, 1) }],
+  };
 }
