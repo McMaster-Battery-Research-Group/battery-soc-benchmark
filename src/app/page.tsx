@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
-import { HeroLines } from "@/components/hero-lines";
-import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
+import { HeroTrace } from "@/components/hero-lines";
+import { getSiteStats, getLeaderboardRows, getShowcaseTrace } from "@/lib/queries";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import { fmtPct, fmtDate } from "@/lib/utils";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
@@ -14,7 +14,7 @@ import { CellGlyph } from "@/components/layout/logo";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [stats, rows] = await Promise.all([getSiteStats(), getLeaderboardRows()]);
+  const [stats, rows, showcase] = await Promise.all([getSiteStats(), getLeaderboardRows(), getShowcaseTrace()]);
   // same ranking rule as the leaderboard: only current-benchmark rows are ranked (legacy-scored ones are listed there unranked)
   const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 5);
 
@@ -72,8 +72,8 @@ export default async function HomePage() {
               </ol>
               <p className="mt-2 text-[11px] text-white/60">Weighted error (% SOC), lower is better.</p>
             </div>
-            {/* what the numbers above measure, in two quiet lines */}
-            <HeroLines className="mt-6 h-auto w-full" />
+            {/* what the numbers above measure: the leader on one cold blinded cycle */}
+            <HeroTrace trace={showcase} />
           </div>
         </div>
       </section>
