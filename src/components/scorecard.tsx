@@ -63,12 +63,12 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
                     <Tooltip content={r.description}><span className={`cursor-help border-b border-dotted border-grey-400 ${r.w === 0 ? "" : "text-grey-900"}`}>{r.label}</span></Tooltip>
                     {r.w === 0 ? <span className="ml-1.5 text-xs text-grey-500">(reference only; every other test is a subset of it)</span> : null}
                   </td>
-                  <td className="px-3 py-2 text-right font-heading font-semibold tabular text-ink">{fmtPct(r.value)} %</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right font-heading font-semibold tabular text-ink">{fmtPct(r.value)} %</td>
                   <td className="px-3 py-2">
                     <div className="h-2 w-full rounded-full bg-grey-100"><div className="h-2 rounded-full bg-maroon/70" style={{ width: `${Math.max(2, (100 * r.value) / maxRmse)}%` }} /></div>
                   </td>
-                  <td className="px-3 py-2 text-right tabular text-grey-700">{r.w.toFixed(4)}</td>
-                  <td className="px-5 py-2 text-right tabular text-ink">{r.part.toFixed(4)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular text-grey-700">{r.w.toFixed(4)}</td>
+                  <td className="whitespace-nowrap px-5 py-2 text-right tabular text-ink">{r.part.toFixed(4)}</td>
                 </tr>
               );
             })}

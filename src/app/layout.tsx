@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -13,6 +13,9 @@ const poppins = Poppins({
   variable: "--font-poppins",
   display: "swap",
 });
+
+/** Phone browsers tint their toolbar with this; maroon keeps the hero and the chrome one colour. */
+export const viewport: Viewport = { themeColor: "#7A003C", width: "device-width", initialScale: 1 };
 
 export const metadata: Metadata = {
   title: {

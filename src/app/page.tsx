@@ -21,7 +21,7 @@ export default async function HomePage() {
     <>
       {/* Hero — maroon copy block with the brand circle device, cropped on two sides */}
       <section className="relative overflow-hidden bg-maroon text-white">
-        <div aria-hidden className="pointer-events-none absolute -right-40 -top-56 size-[640px] rounded-full border-[56px] border-gold/90 opacity-90 md:-right-24" />
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-56 hidden size-[640px] rounded-full border-[56px] border-gold/90 opacity-90 md:block" />
         <div className="container-site relative grid gap-10 py-12 md:grid-cols-12 md:py-14">
           <div className="md:col-span-7">
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">Open benchmark · Blinded evaluation</p>
