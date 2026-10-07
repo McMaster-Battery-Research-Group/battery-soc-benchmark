@@ -23,8 +23,7 @@ export default async function HomePage() {
       {/* Hero — maroon copy block with the brand circle device, cropped on two sides */}
       <section className="relative overflow-hidden bg-maroon text-white">
         <div aria-hidden className="pointer-events-none absolute -right-40 -top-56 size-[640px] rounded-full border-[56px] border-gold/90 opacity-90 md:-right-24" />
-        <HeroLines className="pointer-events-none absolute inset-x-0 bottom-0 h-14 w-full" />
-        <div className="container-site relative grid gap-10 pb-24 pt-12 md:grid-cols-12 md:pt-14">
+        <div className="container-site relative grid gap-10 py-12 md:grid-cols-12 md:py-14">
           <div className="md:col-span-7">
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">Open benchmark · Blinded evaluation</p>
             <h1 className="mt-4 font-heading text-4xl font-bold leading-[1.1] text-white md:text-[50px] md:leading-[55px]">
@@ -73,6 +72,8 @@ export default async function HomePage() {
               </ol>
               <p className="mt-2 text-[11px] text-white/60">Weighted error (% SOC), lower is better.</p>
             </div>
+            {/* what the numbers above measure, in two quiet lines */}
+            <HeroLines className="mt-6 h-auto w-full" />
           </div>
         </div>
       </section>
@@ -144,7 +145,7 @@ export default async function HomePage() {
                 <span className="rounded-full bg-grey-100 px-2.5 py-0.5 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">No contest running</span>
               </div>
               <h3 className="mt-3 font-heading text-2xl font-bold">Contests</h3>
-              <p className="mt-2 text-grey-800">Nothing is open at the moment. Contests with cash prizes are announced here when they start; the public leaderboard accepts submissions at any time.</p>
+              <p className="mt-2 text-grey-800">Nothing is open at the moment. Contests with cash prizes are announced here when they start.</p>
               <Button asChild variant="secondary" className="mt-5"><Link href="/contest">Past contests</Link></Button>
             </div>
           )}
