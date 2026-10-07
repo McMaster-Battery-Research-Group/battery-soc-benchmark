@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const [stats, rows, showcase] = await Promise.all([getSiteStats(), getLeaderboardRows(), getShowcaseTrace()]);
   // same ranking rule as the leaderboard: only current-benchmark rows are ranked (legacy-scored ones are listed there unranked)
-  const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 5);
+  const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 3);
 
   return (
     <>
@@ -54,7 +54,8 @@ export default async function HomePage() {
           </div>
           <div className="md:col-span-5">
             <div className="relative rounded-brand border border-white/20 bg-maroon-800/95 p-5 shadow-xl">
-              <div className="flex items-center justify-between">
+              <HeroChart trace={showcase} compact />
+              <div className="mt-5 flex items-center justify-between border-t border-white/15 pt-4">
                 <p className="font-heading text-sm font-semibold text-white">Top of the leaderboard</p>
                 <Link href="/leaderboard" className="text-xs text-gold underline">All models</Link>
               </div>
@@ -73,10 +74,6 @@ export default async function HomePage() {
               <p className="mt-2 text-[11px] text-white/60">Weighted error (% SOC), lower is better.</p>
             </div>
           </div>
-        </div>
-        {/* one real blinded cycle from the current leader: what the benchmark measures, at a glance */}
-        <div className="container-site relative border-t border-white/15 pb-10 pt-6">
-          <HeroChart trace={showcase} />
         </div>
       </section>
 
