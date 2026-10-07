@@ -181,7 +181,7 @@ export function LeaderboardTable({
         ) : (
           <>
             {/* Desktop table */}
-            <TopScrollbar className="hidden md:block">
+            <TopScrollbar className="hidden md:block" bodyClassName="max-h-[72vh]">
               <table className="w-full border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-10 bg-grey-100">
                   {table.getHeaderGroups().map((hg) => (

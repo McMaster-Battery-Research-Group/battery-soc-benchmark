@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * scrolled sideways without first scrolling to its bottom edge. The top bar only appears when the
  * content overflows, and the two stay in step.
  */
-export function TopScrollbar({ className, children }: { className?: string; children: React.ReactNode }) {
+export function TopScrollbar({ className, bodyClassName, children }: { className?: string; /** e.g. a max height, which makes the content scroll vertically inside its box with the header pinned */ bodyClassName?: string; children: React.ReactNode }) {
   const top = React.useRef<HTMLDivElement>(null);
   const body = React.useRef<HTMLDivElement>(null);
   const spacer = React.useRef<HTMLDivElement>(null);
@@ -41,7 +41,7 @@ export function TopScrollbar({ className, children }: { className?: string; chil
       <div ref={top} onScroll={() => mirror(top.current, body.current)} className={cn("top-scrollbar overflow-x-auto overflow-y-hidden", needed ? "block" : "hidden")} aria-hidden>
         <div ref={spacer} className="h-px" />
       </div>
-      <div ref={body} onScroll={() => mirror(body.current, top.current)} className="overflow-x-auto">
+      <div ref={body} onScroll={() => mirror(body.current, top.current)} className={cn("overflow-auto", bodyClassName)}>
         {children}
       </div>
     </div>
