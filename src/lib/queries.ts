@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { publicAuthors, AUTHOR_USER_SELECT, AUTHOR_COLLABORATORS } from "./authors";
 import { METRIC_KEYS, type MetricKey } from "./test-cases";
+import type { TimeSeriesTrace } from "@/evaluator/types";
+import type { ShowcaseTrace } from "@/components/hero-trace";
 
 export type LeaderboardRow = {
   id: string;
@@ -194,4 +196,21 @@ export function toCoAuthor(c: {
 export async function getPublicAuthors(id: string) {
   const s = await db.submission.findUnique({ where: { id }, select: { id: true, creditName: true, creditAffiliation: true, creditAvatarAt: true, ownerDisplay: true, user: { select: AUTHOR_USER_SELECT }, collaborators: AUTHOR_COLLABORATORS } });
   return s ? publicAuthors(s) : [];
+}
+
+/**
+ * One real trace for the homepage: the current leader's coldest open-cell drive cycle, with both the
+ * reference SOC and the estimate (blinded-cell traces carry only the error, so they never qualify).
+ */
+export async function getShowcaseTrace(): Promise<ShowcaseTrace | null> {
+  const r = await db.evaluationResult.findFirst({
+    where: { submission: { isPrivate: false, isHidden: false, status: "COMPLETED", isLegacy: false }, evaluatorVersion: { startsWith: BENCHMARK_VERSION } },
+    orderBy: { weightedError: "asc" },
+    select: { timeSeries: true, submission: { select: { id: true, modelName: true } } },
+  });
+  if (!r) return null;
+  const traces = (r.timeSeries as unknown as TimeSeriesTrace[]).filter((x) => (x.group ?? "cycle") === "cycle" && x.actual?.length && x.estimated?.length && x.t?.length);
+  if (!traces.length) return null;
+  const pick = traces.reduce((m, x) => (x.temperatureC < m.temperatureC ? x : m));
+  return { submissionId: r.submission.id, modelName: r.submission.modelName, label: pick.label.replace("-", "\u2212"), t: pick.t, actual: pick.actual!, estimated: pick.estimated! };
 }

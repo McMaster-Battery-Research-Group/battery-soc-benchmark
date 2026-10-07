@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
 import { PipelineDiagram } from "@/components/diagrams";
-import { HeroTrace } from "@/components/hero-trace";
-import { getSiteStats, getLeaderboardRows } from "@/lib/queries";
+import { HeroChart } from "@/components/hero-trace";
+import { getSiteStats, getLeaderboardRows, getShowcaseTrace } from "@/lib/queries";
 import { isCurrentBenchmark } from "@/lib/benchmark-version";
 import { fmtPct, fmtDate } from "@/lib/utils";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
@@ -14,7 +14,7 @@ import { CellGlyph } from "@/components/layout/logo";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [stats, rows] = await Promise.all([getSiteStats(), getLeaderboardRows()]);
+  const [stats, rows, showcase] = await Promise.all([getSiteStats(), getLeaderboardRows(), getShowcaseTrace()]);
   // same ranking rule as the leaderboard: only current-benchmark rows are ranked (legacy-scored ones are listed there unranked)
   const top = rows.filter((r) => isCurrentBenchmark(r.evaluatorVersion)).sort((a, b) => a.weightedError - b.weightedError).slice(0, 5);
 
@@ -23,11 +23,9 @@ export default async function HomePage() {
       {/* Hero — maroon copy block with the brand circle device, cropped on two sides */}
       <section className="relative overflow-hidden bg-maroon text-white">
         <div aria-hidden className="pointer-events-none absolute -right-40 -top-56 size-[640px] rounded-full border-[56px] border-gold/90 opacity-90 md:-right-24" />
-        {/* abstract SOC trace: reference (white) and a converging estimate (gold) */}
-        <HeroTrace className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] w-full" />
-        <div className="container-site relative grid gap-10 py-16 md:grid-cols-12 md:py-24">
+        <div className="container-site relative grid gap-10 py-14 md:grid-cols-12 md:py-16">
           <div className="md:col-span-7">
-            <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">McMaster University · Electrical &amp; Computer Engineering</p>
+            <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">Open benchmark · Blinded evaluation</p>
             <h1 className="mt-4 font-heading text-4xl font-bold leading-[1.1] text-white md:text-[50px] md:leading-[55px]">
               The standardized benchmark for battery state-of-charge estimation.
             </h1>
@@ -40,13 +38,17 @@ export default async function HomePage() {
             </div>
             <p className="mt-6 text-sm text-white/75">Free for academic and industry use · CC-BY 4.0 dataset · blinded evaluation</p>
             {/* who stands behind it, visible before anyone scrolls */}
-            <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-white/15 pt-5">
-              <a href="https://www.mcmaster.ca" target="_blank" rel="noreferrer" className="flex items-center gap-3" aria-label="McMaster University">
-                <Image src="/logos/mcmaster-white.svg" alt="" width={556} height={350} className="h-12 w-auto" />
+            <div className="mt-9 flex flex-wrap items-start gap-x-12 gap-y-5">
+              <a href="https://www.eng.mcmaster.ca/ece/" target="_blank" rel="noreferrer" aria-label="McMaster University, Electrical and Computer Engineering">
+                <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Developed at</p>
+                <Image src="/logos/mcmaster-white.svg" alt="" width={556} height={350} className="mt-2 h-16 w-auto" />
               </a>
-              <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" className="flex items-center gap-3" aria-label="NSERC / CRSNG">
-                <Image src="/logos/nserc-white.svg" alt="" width={116} height={56} className="h-10 w-auto" />
-                <span className="text-xs leading-tight text-white/75">Supported by an NSERC<br />Discovery Grant</span>
+              <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" aria-label="NSERC / CRSNG">
+                <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Supported by</p>
+                <span className="mt-2 flex items-center gap-3">
+                  <Image src="/logos/nserc-white.svg" alt="" width={116} height={56} className="h-12 w-auto" />
+                  <span className="text-xs leading-snug text-white/75">NSERC Discovery<br />Grant RGPIN-2024-06796</span>
+                </span>
               </a>
             </div>
           </div>
@@ -71,6 +73,10 @@ export default async function HomePage() {
               <p className="mt-2 text-[11px] text-white/60">Weighted error (% SOC), lower is better.</p>
             </div>
           </div>
+        </div>
+        {/* one real blinded cycle from the current leader: what the benchmark measures, at a glance */}
+        <div className="container-site relative border-t border-white/15 pb-10 pt-6">
+          <HeroChart trace={showcase} />
         </div>
       </section>
 
