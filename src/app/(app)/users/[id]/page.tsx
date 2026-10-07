@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { publicAuthors, AUTHOR_USER_SELECT, AUTHOR_COLLABORATORS } from "@/lib/authors";
-import { Globe, GraduationCap, BookOpen, Briefcase, Building2, CalendarDays, Trophy, Pencil, Shield, Users } from "lucide-react";
+import { Globe, BookOpen, Briefcase, Building2, CalendarDays, Trophy, Pencil, Shield, Users } from "lucide-react";
+import { GitHubIcon, OrcidIcon, LinkedInIcon, ResearchGateIcon, GoogleScholarIcon } from "@/components/brand-icons";
 import { personByEmail } from "@/lib/people";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
@@ -47,8 +48,8 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
 
   const links = [
     user.orcid ? { icon: OrcidIcon, label: "ORCID", text: user.orcid, href: `https://orcid.org/${user.orcid}` } : null,
-    user.googleScholar ? { icon: GraduationCap, label: "Google Scholar", text: "Profile", href: user.googleScholar } : null,
-    user.researchGate ? { icon: BookOpen, label: "ResearchGate", text: "Profile", href: user.researchGate } : null,
+    user.googleScholar ? { icon: GoogleScholarIcon, label: "Google Scholar", text: "Profile", href: user.googleScholar } : null,
+    user.researchGate ? { icon: ResearchGateIcon, label: "ResearchGate", text: "Profile", href: user.researchGate } : null,
     user.linkedin ? { icon: LinkedInIcon, label: "LinkedIn", text: "Profile", href: user.linkedin } : null,
     user.github ? { icon: GitHubIcon, label: "GitHub", text: user.github.replace(/^https?:\/\/(www\.)?github\.com\//, ""), href: user.github } : null,
     user.website ? { icon: Globe, label: "Website", text: user.website.replace(/^https?:\/\//, ""), href: user.website } : null,
@@ -117,29 +118,5 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         <div className="mt-3"><EmptyState title="No public submissions yet" description={isSelf ? "Results of your public submissions will be listed here." : "This researcher has not published any evaluated models yet."} /></div>
       )}
     </div>
-  );
-}
-
-function LinkedInIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="currentColor">
-      <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z" />
-    </svg>
-  );
-}
-
-function GitHubIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="currentColor">
-      <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z" />
-    </svg>
-  );
-}
-
-function OrcidIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 256 256" className={className} aria-hidden fill="currentColor">
-      <path d="M128 0C57.3 0 0 57.3 0 128s57.3 128 128 128 128-57.3 128-128S198.7 0 128 0zM86.3 186.2H70.9V79.1h15.4v107.1zm-7.7-118.8c-5.5 0-10-4.5-10-10s4.5-10 10-10 10 4.5 10 10-4.5 10-10 10zm93.9 118.8h-41.2V79.1h41.2c37.9 0 55.3 27.1 55.3 53.5 0 27.5-21.5 53.6-55.3 53.6zm-1.9-93.2h-23.9v79.3h24.3c31.3 0 39.7-23.5 39.7-39.6 0-21.5-13.7-39.7-40.1-39.7z" />
-    </svg>
   );
 }
