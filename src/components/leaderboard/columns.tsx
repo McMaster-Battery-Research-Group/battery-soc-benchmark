@@ -45,7 +45,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             <span className="whitespace-nowrap">{MODEL_TYPE_LABELS[row.original.modelType] ?? row.original.modelType}</span>
             {row.original.isPrivate ? (
               <Tooltip content="Only you can see this row. Make it public from the submission page to appear on the leaderboard.">
-                <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900"><Lock className="size-3" /> Private · only you</span>
+                <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-grey-900"><Lock className="size-3" /> Private · only you</span>
               </Tooltip>
             ) : null}
             {row.original.isHidden ? (
@@ -53,7 +53,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             ) : null}
             {!isCurrentBenchmark(row.original.evaluatorVersion) ? (
               <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Kept for reference but NOT ranked; submit a new version to be scored on the current benchmark and ranked again.`}>
-                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span>
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span>
               </Tooltip>
             ) : null}
           </div>
@@ -89,7 +89,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
                 </span>
               ),
             )}
-            {row.original.collaborators.length > 3 ? <span className="-ml-2 flex size-[26px] items-center justify-center rounded-full bg-grey-200 font-heading text-[10px] font-semibold text-grey-800 ring-2 ring-white">+{row.original.collaborators.length - 3}</span> : null}
+            {row.original.collaborators.length > 3 ? <span className="-ml-2 flex size-[1.625rem] items-center justify-center rounded-full bg-grey-200 font-heading text-[0.625rem] font-semibold text-grey-800 ring-2 ring-white">+{row.original.collaborators.length - 3}</span> : null}
           </span>
           <span className="min-w-0">
             {row.original.userId ? (

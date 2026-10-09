@@ -29,7 +29,7 @@ export function RankBadge({ rank, ghost = false, unranked = false, className }: 
           <path d="M23 0h-6l-4 14h6z" fill="#a8325f" stroke="#fff" strokeWidth="0.75" />
         </svg>
         <span
-          className="absolute bottom-0 left-1/2 flex size-[22px] -translate-x-1/2 items-center justify-center rounded-full font-heading text-[11px] font-bold tabular"
+          className="absolute bottom-0 left-1/2 flex size-[1.375rem] -translate-x-1/2 items-center justify-center rounded-full font-heading text-[0.6875rem] font-bold tabular"
           style={{ background: medal.face, color: medal.text, boxShadow: `inset 0 0 0 1.5px ${medal.rim}, inset 0 0 0 3px rgb(255 255 255 / 0.35), 0 1px 2px rgb(0 0 0 / 0.25)` }}
         >
           {rank}

@@ -57,8 +57,8 @@ export function PageHeader({
       <div className={cn("container-site flex flex-col gap-5 md:flex-row md:items-end md:justify-between", compact ? "py-6 md:py-7" : "py-10 md:py-14")}>
         <div className="max-w-3xl">
           {eyebrow ? <p className={cn("font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon", compact ? "mb-1" : "mb-2")}>{eyebrow}</p> : null}
-          <h1 className={cn("font-heading font-bold leading-tight", compact ? "text-2xl md:text-3xl" : "text-3xl md:text-[40px] md:leading-[46px]")}>{title}</h1>
-          {description ? <p className={cn("max-w-2xl leading-relaxed text-grey-700", compact ? "mt-1.5 text-[15px]" : "mt-3 text-[17px]")}>{description}</p> : null}
+          <h1 className={cn("font-heading font-bold leading-tight", compact ? "text-2xl md:text-3xl" : "text-3xl md:text-[2.5rem] md:leading-[2.875rem]")}>{title}</h1>
+          {description ? <p className={cn("max-w-2xl leading-relaxed text-grey-700", compact ? "mt-1.5 text-[0.9375rem]" : "mt-3 text-[1.0625rem]")}>{description}</p> : null}
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
       </div>

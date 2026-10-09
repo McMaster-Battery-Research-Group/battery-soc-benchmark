@@ -30,7 +30,7 @@ export default function GlossaryPage() {
                 {GLOSSARY.filter((e) => e.group === g).map((e) => (
                   <div key={e.key} id={e.key} className="scroll-mt-24 px-5 py-4">
                     <dt className="font-heading font-semibold text-ink">{e.term}</dt>
-                    <dd className="mt-1 text-[15px] leading-relaxed text-grey-800">{e.short}{e.long ? <span className="mt-1.5 block text-sm text-grey-700">{e.long}</span> : null}</dd>
+                    <dd className="mt-1 text-[0.9375rem] leading-relaxed text-grey-800">{e.short}{e.long ? <span className="mt-1.5 block text-sm text-grey-700">{e.long}</span> : null}</dd>
                   </div>
                 ))}
               </dl>

@@ -105,11 +105,11 @@ export function CodeBlock({
     } catch {}
   };
   return (
-    <div className={cn("overflow-hidden rounded-brand border border-grey-800 bg-grey-900 text-[12.5px] leading-[1.55]", className)}>
+    <div className={cn("overflow-hidden rounded-brand border border-grey-800 bg-grey-900 text-[0.7812rem] leading-[1.55]", className)}>
       <div className="flex items-center gap-2 border-b border-white/10 bg-black/30 px-3 py-1.5">
         <FileCode2 className="size-3.5 text-gold" />
         <span className="font-mono text-xs text-white/85">{filename ?? (language === "matlab" ? "Model.m" : "code")}</span>
-        <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white/60">{language}</span>
+        <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[0.625rem] uppercase tracking-wide text-white/60">{language}</span>
         <button onClick={copy} className="ml-auto inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-white/80 hover:bg-white/10 hover:text-white" aria-live="polite">
           {copied ? <Check className="size-3.5 text-cootes" /> : <Copy className="size-3.5" />} {copied ? "Copied" : "Copy"}
         </button>

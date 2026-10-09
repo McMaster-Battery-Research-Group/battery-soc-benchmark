@@ -61,7 +61,7 @@ export default async function DocsPage() {
           </ul>
         </nav>
 
-        <article className="prose-brand max-w-3xl space-y-14 text-[15px] leading-relaxed text-grey-800">
+        <article className="prose-brand max-w-3xl space-y-14 text-[0.9375rem] leading-relaxed text-grey-800">
           <section id="overview">
             <H2 id="overview">Overview</H2>
             <p className="mt-3">Hundreds of SOC estimation methods are published every year, each evaluated on different data, drive profiles and error metrics, which makes them impossible to compare. This tool fixes the data and the test: everyone parameterises or trains on the same <Link href="/dataset">open data</Link>, and every submission is scored on the same blinded data by the same evaluator. Results are directly comparable across authors, methods and years.</p>

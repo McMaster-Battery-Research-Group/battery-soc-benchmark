@@ -120,7 +120,7 @@ export function EditAuthorship({ id, seq, modelName, owner, coAuthors, credit, o
         {/* what the public will see */}
         <div className="rounded-brand border border-border bg-grey-100/70 px-4 py-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-grey-600"><Eye className="size-3.5" /> Shown on the site as</p>
-          <p className="mt-1 text-[15px] text-ink">
+          <p className="mt-1 text-[0.9375rem] text-ink">
             {ordered.length ? ordered.map((p, i) => (
               <React.Fragment key={p.key}>{i ? ", " : ""}<span className={i === 0 ? "font-semibold" : undefined}>{p.name || "(name needed)"}</span></React.Fragment>
             )) : <span className="text-danger">Nobody. Add at least one person.</span>}

@@ -29,10 +29,10 @@ export function ResultTabs({ tabs, className }: { tabs: ResultTab[]; className?:
     <Tabs value={value} onValueChange={change} className={cn("card", className)}>
       <TabsList className="flex-wrap gap-0 px-2 pt-1 sm:flex-nowrap" aria-label="Result sections">
         {tabs.map((t) => (
-          <TabsTrigger key={t.id} value={t.id} className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm sm:gap-2 sm:px-3.5 sm:py-3 sm:text-[15px] [&_svg]:size-4">
+          <TabsTrigger key={t.id} value={t.id} className="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm sm:gap-2 sm:px-3.5 sm:py-3 sm:text-[0.9375rem] [&_svg]:size-4">
             {t.icon}
             {t.label}
-            {t.count ? <span className="rounded-full bg-grey-100 px-1.5 py-0.5 font-heading text-[11px] font-semibold text-grey-700">{t.count}</span> : null}
+            {t.count ? <span className="rounded-full bg-grey-100 px-1.5 py-0.5 font-heading text-[0.6875rem] font-semibold text-grey-700">{t.count}</span> : null}
           </TabsTrigger>
         ))}
       </TabsList>

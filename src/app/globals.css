@@ -90,15 +90,12 @@ body {
   }
 }
 
-/* Large monitors: everything is sized in rem, so stepping the root size up scales the whole page
-   instead of leaving a small layout floating in wide margins; the content column widens too. */
-@media (min-width: 1920px) {
-  html { font-size: 17px; }
-  :root { --container-site: 1440px; }
-}
-@media (min-width: 2400px) {
-  html { font-size: 18px; }
-  :root { --container-site: 1600px; }
+/* Large monitors: everything is sized in rem, so growing the root size scales the whole page instead
+   of leaving a small layout floating in wide margins. From 1536px the root grows with the viewport
+   (16px at 1536, ~18px at 1920, 22px at 2560) and the content column grows with it. */
+@media (min-width: 1536px) {
+  html { font-size: clamp(16px, calc(7px + 0.586vw), 22px); }
+  :root { --container-site: 82rem; }
 }
 
 body {

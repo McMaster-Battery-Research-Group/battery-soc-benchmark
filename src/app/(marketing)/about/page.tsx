@@ -12,9 +12,9 @@ function PersonCard({ p }: { p: Person }) {
     <li>
       <Link href={`/people/${p.slug}`} className="card flex items-center gap-4 p-4 transition-colors hover:border-maroon">
         {p.photo ? (
-          <Image src={p.photo} alt={p.name} width={72} height={72} className="size-[72px] shrink-0 rounded-brand object-cover" />
+          <Image src={p.photo} alt={p.name} width={72} height={72} className="size-[4.5rem] shrink-0 rounded-brand object-cover" />
         ) : (
-          <span aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-brand bg-maroon-100 font-heading text-xl font-semibold text-maroon">{initialsOf(p.name)}</span>
+          <span aria-hidden className="flex size-[4.5rem] shrink-0 items-center justify-center rounded-brand bg-maroon-100 font-heading text-xl font-semibold text-maroon">{initialsOf(p.name)}</span>
         )}
         <div className="min-w-0">
           <p className="font-heading font-semibold text-ink">{p.name}</p>
@@ -29,7 +29,7 @@ export default function AboutPage() {
   return (
     <>
       <PageHeader eyebrow="About the project" title="An open, blinded benchmark from McMaster University" description="Developed by Dr. Phillip Kollmeyer's battery research group in the Department of Electrical and Computer Engineering so that state-of-charge estimation methods can finally be compared on equal terms, and to give students and industry a public, credible place to prove their algorithms." />
-      <div className="container-site max-w-3xl space-y-12 py-10 text-[15px] leading-relaxed text-grey-800">
+      <div className="container-site max-w-3xl space-y-12 py-10 text-[0.9375rem] leading-relaxed text-grey-800">
         <section>
           <SectionTitle>Why a blind modelling tool</SectionTitle>
           <p>Other fields have long relied on independent, comparative evaluation: the NIST Face Recognition Vendor Test or the PEER blind prediction contests in structural engineering. Battery state estimation had nothing equivalent: every paper used its own cells, cycles and metrics, and the author&apos;s effort on each baseline could unintentionally skew a comparison. This platform provides the dataset, the blinded test cases and the evaluator so that a lower number really does mean a better algorithm.</p>

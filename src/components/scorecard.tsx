@@ -58,7 +58,7 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
               return (
                 <tr key={r.key} className={`border-t border-border ${r.w === 0 ? "text-grey-500" : ""}`}>
                   <td className="px-4 py-2 md:px-5">
-                    {head ? <span className="mb-0.5 block font-heading text-[10px] font-semibold uppercase tracking-wide text-maroon">{g}</span> : null}
+                    {head ? <span className="mb-0.5 block font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-maroon">{g}</span> : null}
                     <span className="mr-1.5 text-xs text-grey-500">T{r.test}</span>
                     <Tooltip content={r.description}><span className={`cursor-help border-b border-dotted border-grey-400 ${r.w === 0 ? "" : "text-grey-900"}`}>{r.label}</span></Tooltip>
                     {r.w === 0 ? <span className="ml-1.5 hidden text-xs text-grey-500 md:inline">(reference only; every other test is a subset of it)</span> : null}

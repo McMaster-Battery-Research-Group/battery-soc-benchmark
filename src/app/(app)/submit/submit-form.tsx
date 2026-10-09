@@ -27,7 +27,7 @@ function StepHeader({ n, icon: Icon, title, sub }: { n: number; icon: React.Comp
     <div className="flex items-start gap-3">
       <span className="relative flex size-10 shrink-0 items-center justify-center rounded-brand bg-maroon text-white">
         <Icon className="size-5" />
-        <span className="absolute -bottom-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-gold font-heading text-[11px] font-bold text-ink ring-2 ring-white">{n}</span>
+        <span className="absolute -bottom-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-gold font-heading text-[0.6875rem] font-bold text-ink ring-2 ring-white">{n}</span>
       </span>
       <div>
         <h2 className="font-heading text-lg font-semibold leading-tight text-ink">{title}</h2>

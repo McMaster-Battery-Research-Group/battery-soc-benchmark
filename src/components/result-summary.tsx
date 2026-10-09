@@ -66,9 +66,9 @@ export function ResultSummary({ values, weightedError, rank, legacy }: Props) {
     <section aria-label="Summary" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
       {tiles.map((t) => (
         <div key={t.label} className="card flex items-start gap-3 p-3 sm:p-4">
-          <span className={`mt-0.5 hidden size-9 shrink-0 items-center justify-center rounded-full sm:flex ${t.warn ? "bg-[#fdf4e3] text-[#9a6a17]" : "bg-maroon-100 text-maroon"}`}><t.icon className="size-[18px]" /></span>
+          <span className={`mt-0.5 hidden size-9 shrink-0 items-center justify-center rounded-full sm:flex ${t.warn ? "bg-[#fdf4e3] text-[#9a6a17]" : "bg-maroon-100 text-maroon"}`}><t.icon className="size-[1.125rem]" /></span>
           <div className="min-w-0">
-            <p className="font-heading text-[11px] font-semibold uppercase tracking-wide text-grey-600">{t.label}</p>
+            <p className="font-heading text-[0.6875rem] font-semibold uppercase tracking-wide text-grey-600">{t.label}</p>
             <p className="font-heading text-xl font-bold tabular leading-tight text-ink sm:text-2xl">{t.value}<span className="ml-1 text-base font-semibold text-grey-600">{t.unit}</span></p>
             <p className="mt-0.5 hidden text-xs leading-snug text-grey-700 sm:block">{t.sub}</p>
           </div>

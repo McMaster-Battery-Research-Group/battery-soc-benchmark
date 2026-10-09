@@ -72,7 +72,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
               <li className="inline-flex items-center gap-1.5"><Building2 className="size-4 text-grey-500" /> {user.affiliation}</li>
               <li className="inline-flex items-center gap-1.5"><CalendarDays className="size-4 text-grey-500" /> Member since {fmtDate(user.createdAt)}</li>
             </ul>
-            {user.bio ? <p className="mt-4 max-w-3xl whitespace-pre-line text-[15px] leading-relaxed text-grey-800">{user.bio}</p> : null}
+            {user.bio ? <p className="mt-4 max-w-3xl whitespace-pre-line text-[0.9375rem] leading-relaxed text-grey-800">{user.bio}</p> : null}
             {links.length ? (
               <ul className="mt-4 flex flex-wrap gap-2">
                 {links.map((l) => (

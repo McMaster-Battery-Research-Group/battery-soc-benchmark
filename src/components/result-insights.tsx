@@ -70,7 +70,7 @@ export function ResultInsights({ values, weights }: { values: Record<MetricKey, 
           <li key={i.title} className={`card flex items-start gap-3 border-l-4 p-4 ${tone[i.tone].bar}`}>
             <span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${tone[i.tone].icon}`}><i.icon className="size-4" /></span>
             <div className="min-w-0">
-              <p className="font-heading text-[15px] font-semibold leading-snug text-ink">{i.title}</p>
+              <p className="font-heading text-[0.9375rem] font-semibold leading-snug text-ink">{i.title}</p>
               <p className="mt-1 text-sm leading-relaxed text-grey-700">{i.text}</p>
             </div>
           </li>

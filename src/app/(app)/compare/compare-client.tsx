@@ -159,8 +159,8 @@ function Picker({ rows, ids, onApply, viewerId, label, primary = false }: { rows
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span className="truncate font-heading font-medium text-ink">{r.modelName}</span>
-                      {r.isPrivate ? <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900"><Lock className="size-3" /> {r.userId === viewerId ? "Private · only you" : "Private"}</span> : null}
-                      {legacy ? <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span> : null}
+                      {r.isPrivate ? <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-grey-900"><Lock className="size-3" /> {r.userId === viewerId ? "Private · only you" : "Private"}</span> : null}
+                      {legacy ? <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#f2dcb6] bg-[#fdf4e3] px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-[#7a4f0e]">legacy · unranked</span> : null}
                     </span>
                     <span className="block truncate text-xs text-grey-600">#{r.seq} · {MODEL_TYPE_LABELS[r.modelType]} · {r.author}, {r.affiliation}</span>
                   </span>

@@ -16,7 +16,7 @@ export function AccordionTrigger({ className, children, ...props }: React.Compon
     <AccordionPrimitive.Header className="flex">
       <AccordionPrimitive.Trigger
         className={cn(
-          "flex flex-1 items-center justify-between gap-4 py-4 text-left font-heading text-[15px] font-semibold text-ink transition-colors hover:text-maroon [&[data-state=open]>svg]:rotate-180",
+          "flex flex-1 items-center justify-between gap-4 py-4 text-left font-heading text-[0.9375rem] font-semibold text-ink transition-colors hover:text-maroon [&[data-state=open]>svg]:rotate-180",
           className,
         )}
         {...props}
@@ -30,7 +30,7 @@ export function AccordionTrigger({ className, children, ...props }: React.Compon
 
 export function AccordionContent({ className, children, ...props }: React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>) {
   return (
-    <AccordionPrimitive.Content className="overflow-hidden text-[15px] leading-relaxed text-grey-700" {...props}>
+    <AccordionPrimitive.Content className="overflow-hidden text-[0.9375rem] leading-relaxed text-grey-700" {...props}>
       <div className={cn("pb-4", className)}>{children}</div>
     </AccordionPrimitive.Content>
   );

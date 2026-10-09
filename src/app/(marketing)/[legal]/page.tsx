@@ -46,7 +46,7 @@ export default async function LegalPage({ params }: { params: Promise<{ legal: s
   return (
     <>
       <PageHeader title={page.title} description="Last updated August 2026." />
-      <article className="container-site max-w-3xl space-y-8 py-10 text-[15px] leading-relaxed text-grey-800">
+      <article className="container-site max-w-3xl space-y-8 py-10 text-[0.9375rem] leading-relaxed text-grey-800">
         {page.body.map((s) => (
           <section key={s.h}>
             <h2 className="font-heading text-xl font-bold">{s.h}</h2>

@@ -71,7 +71,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
   const aboutSection = (
       <section className="card p-5">
         <h2 className="font-heading font-semibold text-ink">About this submission</h2>
-        <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-grey-800">{sub.description}</p>
+        <p className="mt-2 max-w-3xl text-[0.9375rem] leading-relaxed text-grey-800">{sub.description}</p>
         <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           {sub.fileName && sub.fileSize !== null ? (
             <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}), deleted after evaluation`} />

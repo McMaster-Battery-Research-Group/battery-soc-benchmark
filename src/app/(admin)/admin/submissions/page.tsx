@@ -100,7 +100,7 @@ export default async function AdminSubmissions({ searchParams }: { searchParams:
                               <span className="min-w-0">
                                 <span className="flex flex-wrap items-center gap-1">
                                   {u.id ? <Link href={`/users/${u.id}`} className="truncate text-grey-900 hover:text-maroon hover:underline">{u.name}</Link> : <span className="truncate text-grey-900">{u.name}</span>}
-                                  {u.tags.map((t) => <span key={t} className={`rounded-[3px] px-1 py-px font-heading text-[9px] font-semibold uppercase tracking-wide ${tagClass(t)}`}>{t}</span>)}
+                                  {u.tags.map((t) => <span key={t} className={`rounded-[3px] px-1 py-px font-heading text-[0.5625rem] font-semibold uppercase tracking-wide ${tagClass(t)}`}>{t}</span>)}
                                 </span>
                                 <span className="block truncate text-xs text-grey-600">{u.sub}</span>
                               </span>

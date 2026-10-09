@@ -102,7 +102,7 @@ function UserRow({ u, reason, done, adding, onAdd }: { u: UserHit; reason?: stri
       <span className="min-w-0 flex-1">
         <span className="block truncate font-heading font-medium text-ink">{u.name}</span>
         <span className="block truncate text-xs text-grey-600">{[u.occupation, u.affiliation].filter(Boolean).join(" · ")}</span>
-        {reason ? <span className="block truncate text-[11px] text-maroon">{reason}</span> : null}
+        {reason ? <span className="block truncate text-[0.6875rem] text-maroon">{reason}</span> : null}
       </span>
       {done ? (
         <span className="inline-flex items-center gap-1 text-xs text-forest"><Check className="size-3.5" /> Added</span>

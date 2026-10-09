@@ -6,7 +6,7 @@ export function Wordmark({ className, inverted = false }: { className?: string; 
   return (
     <Link href="/" className={cn("inline-flex items-center gap-2.5", className)} aria-label="Battery SOC Benchmark home">
       <CellGlyph className="size-7" inverted={inverted} />
-      <span className={cn("font-heading text-[17px] font-semibold tracking-tight", inverted ? "text-white" : "text-ink")}>
+      <span className={cn("font-heading text-[1.0625rem] font-semibold tracking-tight", inverted ? "text-white" : "text-ink")}>
         Battery<span className={inverted ? "text-gold" : "text-maroon"}>SOC</span>Benchmark
       </span>
     </Link>

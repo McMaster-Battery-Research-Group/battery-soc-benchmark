@@ -54,7 +54,7 @@ export function ChartFrame({
     <figure ref={figRef} className={cn("card", className)}>
       <figcaption className="flex flex-col gap-2 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="font-heading text-[15px] font-semibold text-ink">{title}</p>
+          <p className="font-heading text-[0.9375rem] font-semibold text-ink">{title}</p>
           {description ? <p className="mt-0.5 text-xs text-grey-700">{description}</p> : null}
         </div>
         {legend && legend.length > 1 ? (

@@ -38,7 +38,7 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
   const active = (m: string[]) => m.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/"));
   const learnActive = LEARN.some((l) => pathname === l.href || pathname.startsWith(l.href + "/"));
   const item = (isActive: boolean) =>
-    cn("rounded-brand px-3 py-2 font-heading text-[15px] font-medium transition-colors", isActive ? "bg-maroon-100 text-maroon" : "text-grey-800 hover:bg-grey-100 hover:text-ink");
+    cn("rounded-brand px-3 py-2 font-heading text-[0.9375rem] font-medium transition-colors", isActive ? "bg-maroon-100 text-maroon" : "text-grey-800 hover:bg-grey-100 hover:text-ink");
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
@@ -82,7 +82,7 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
               <DropdownMenuTrigger className="ml-1 flex items-center gap-2 rounded-brand px-2 py-1.5 hover:bg-grey-100">
                 <Avatar userId={user.id} name={user.name} size={32} />
                 <span className="max-w-32 truncate font-heading text-sm font-medium text-ink">{user.name}</span>
-                {user.role === "ADMIN" ? <span className="rounded-[3px] bg-maroon px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-white" title="Administrator">Admin</span> : null}
+                {user.role === "ADMIN" ? <span className="rounded-[3px] bg-maroon px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-white" title="Administrator">Admin</span> : null}
                 <ChevronDown className="size-4 text-grey-600" />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
@@ -116,7 +116,7 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
                     <p className="truncate font-heading font-semibold text-ink">{user.name}</p>
                     <p className="truncate text-xs text-grey-600">{user.affiliation}</p>
                   </div>
-                  {user.role === "ADMIN" ? <span className="ml-auto rounded-[3px] bg-maroon px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-white">Admin</span> : null}
+                  {user.role === "ADMIN" ? <span className="ml-auto rounded-[3px] bg-maroon px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-white">Admin</span> : null}
                 </div>
                 {user.role === "ADMIN" ? <Link href="/admin" className="flex items-center gap-2 rounded-brand bg-maroon-100 px-3 py-3 font-heading font-medium text-maroon"><Shield className="size-4" /> Admin panel</Link> : null}
                 <Link href="/submissions" className="rounded-brand px-3 py-3 font-heading font-medium text-grey-900">My submissions</Link>
@@ -130,7 +130,7 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
             <Link href="/submit" className="rounded-brand px-3 py-3 font-heading text-base font-medium text-maroon">Submit a model</Link>
             <p className="mt-2 px-3 pb-1 pt-2 font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Learn</p>
             {LEARN.map((l) => (
-              <Link key={l.href} href={l.href} className="rounded-brand px-3 py-2.5 font-heading text-[15px] font-medium text-grey-900">{l.label}</Link>
+              <Link key={l.href} href={l.href} className="rounded-brand px-3 py-2.5 font-heading text-[0.9375rem] font-medium text-grey-900">{l.label}</Link>
             ))}
             <div className="my-2 h-px bg-border" />
             {user ? (

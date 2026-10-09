@@ -39,7 +39,7 @@ export function PerCycleTable({ rows, modelName }: { rows: PerCycleRow[]; modelN
         </div>
         <Button variant="outline" size="sm" onClick={download}><Download /> CSV ({filtered.length})</Button>
       </div>
-      <div className="max-h-[480px] overflow-auto">
+      <div className="max-h-[30rem] overflow-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-grey-100">
             <tr className="border-b border-border">

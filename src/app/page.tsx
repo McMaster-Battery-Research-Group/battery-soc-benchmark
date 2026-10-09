@@ -21,11 +21,11 @@ export default async function HomePage() {
     <>
       {/* Hero — maroon copy block with the brand circle device, cropped on two sides */}
       <section className="relative overflow-hidden bg-maroon text-white">
-        <div aria-hidden className="pointer-events-none absolute -right-24 -top-56 hidden size-[640px] rounded-full border-[56px] border-gold/90 opacity-90 md:block" />
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-56 hidden size-[40rem] rounded-full border-[3.5rem] border-gold/90 opacity-90 md:block" />
         <div className="container-site relative grid gap-10 py-12 md:grid-cols-12 md:py-14">
           <div className="md:col-span-7">
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">Open benchmark · Blinded evaluation</p>
-            <h1 className="mt-3 font-heading text-[2rem] font-bold leading-[1.12] text-white sm:text-4xl md:mt-4 md:text-[50px] md:leading-[55px]">
+            <h1 className="mt-3 font-heading text-[2rem] font-bold leading-[1.12] text-white sm:text-4xl md:mt-4 md:text-[3.125rem] md:leading-[3.4375rem]">
               The standardized benchmark for battery state-of-charge estimation.
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg md:mt-6">
@@ -39,11 +39,11 @@ export default async function HomePage() {
             {/* who stands behind it, visible before anyone scrolls */}
             <div className="mt-8 flex flex-wrap items-start gap-x-12 gap-y-5 md:mt-9">
               <a href="https://www.eng.mcmaster.ca/ece/" target="_blank" rel="noreferrer" aria-label="McMaster University, Electrical and Computer Engineering">
-                <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Developed at</p>
+                <p className="font-heading text-[0.625rem] font-semibold uppercase tracking-[0.16em] text-white/60">Developed at</p>
                 <Image src="/logos/mcmaster-white.svg" alt="" width={556} height={350} className="mt-2 h-14 w-auto md:h-16" />
               </a>
               <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" aria-label="NSERC / CRSNG">
-                <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Supported by</p>
+                <p className="font-heading text-[0.625rem] font-semibold uppercase tracking-[0.16em] text-white/60">Supported by</p>
                 <span className="mt-2 flex items-center gap-3">
                   <Image src="/logos/nserc-white.svg" alt="" width={116} height={56} className="h-12 w-auto" />
                   <span className="text-xs leading-snug text-white/75">NSERC Discovery<br />Grant RGPIN-2024-06796</span>
@@ -69,7 +69,7 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ol>
-              <p className="mt-2 text-[11px] text-white/60">Weighted error (% SOC), lower is better.</p>
+              <p className="mt-2 text-[0.6875rem] text-white/60">Weighted error (% SOC), lower is better.</p>
             </div>
             {/* what the numbers above measure: the leader on one cold blinded cycle */}
             <HeroTrace data={showcase} />
@@ -167,7 +167,7 @@ export default async function HomePage() {
       <section className="container-site py-12">
         <div className="rounded-brand border-l-4 border-gold bg-white p-6 shadow-[var(--shadow-card)]">
           <p className="font-heading text-xs font-semibold uppercase tracking-[0.14em] text-maroon">Cite the benchmark</p>
-          <p className="mt-2 text-[15px] leading-relaxed text-grey-800">
+          <p className="mt-2 text-[0.9375rem] leading-relaxed text-grey-800">
             P. J. Kollmeyer, M. Naguib, F. Khanum and A. Emadi, “A Blind Modeling Tool for Standardized Evaluation of Battery State of Charge Estimation Algorithms,” <em>2022 IEEE Transportation Electrification Conference &amp; Expo (ITEC)</em>, pp. 243–248, 2022.{" "}
             <a href="https://doi.org/10.1109/ITEC53557.2022.9813996" className="text-maroon underline" target="_blank" rel="noreferrer">doi:10.1109/ITEC53557.2022.9813996</a>
           </p>

@@ -47,7 +47,7 @@ export default function GettingStartedPage() {
       <PageHeader eyebrow="New here?" title="Get started with the benchmark" description="A guided path from zero to your first score on the leaderboard, written for students and engineers who are new to battery state-of-charge estimation." actions={<Button asChild><Link href="/register">Create a free account</Link></Button>} />
       <div className="container-site max-w-3xl py-10">
         <PipelineDiagram className="mb-8 hidden sm:block" />
-        <div className="card mb-8 p-5 text-[15px] leading-relaxed text-grey-800">
+        <div className="card mb-8 p-5 text-[0.9375rem] leading-relaxed text-grey-800">
           <p className="font-heading font-semibold text-ink">The benchmark in one paragraph</p>
           <p className="mt-2">Four Tesla Model 3 cells were cycled in a thermal chamber from −20 °C to 40 °C with realistic driving loads. Part of that data is <Term k="open-data">open</Term> for you to build on; the rest is <Term k="blinded" />. You write a small function that estimates SOC from current, voltage and temperature, upload it, and the evaluator runs it on the blinded data. You get back one headline number, the <Term k="weighted-error" />, plus a breakdown by temperature, load, drive-cycle type and robustness, so you can see exactly where your method is strong or weak, and compare it with everyone else&apos;s on identical terms.</p>
         </div>
@@ -60,7 +60,7 @@ export default function GettingStartedPage() {
               </div>
               <div className="min-w-0">
                 <h2 className="font-heading text-lg font-semibold">{s.title}</h2>
-                <p className="mt-2 text-[15px] leading-relaxed text-grey-800">{s.body}</p>
+                <p className="mt-2 text-[0.9375rem] leading-relaxed text-grey-800">{s.body}</p>
                 {i === 2 ? <ModelLoopDiagram className="mt-4 hidden sm:block" /> : null}
                 <div className="mt-3 flex flex-wrap gap-4">
                   {s.links.map((l) => <Link key={l.href} href={l.href} className="inline-flex items-center gap-1 font-heading text-sm font-semibold text-maroon hover:underline">{l.label} <ArrowRight className="size-4" /></Link>)}

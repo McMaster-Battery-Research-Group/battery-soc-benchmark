@@ -124,7 +124,7 @@ export function ContestForm({ contest, entriesCsv, entryCount }: { contest: Cont
                     aria-current={active ? "step" : undefined}
                     className={cn("inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-heading text-sm font-semibold transition-colors", active ? "bg-maroon text-white" : "text-grey-700 hover:bg-grey-100", bad && !active && "text-danger")}
                   >
-                    <span className={cn("flex size-5 items-center justify-center rounded-full text-[11px]", active ? "bg-white/20 text-white" : bad ? "bg-danger text-white" : done ? "bg-forest text-white" : "bg-grey-200 text-grey-700")}>
+                    <span className={cn("flex size-5 items-center justify-center rounded-full text-[0.6875rem]", active ? "bg-white/20 text-white" : bad ? "bg-danger text-white" : done ? "bg-forest text-white" : "bg-grey-200 text-grey-700")}>
                       {bad && !active ? "!" : done && !active ? <Check className="size-3" /> : i + 1}
                     </span>
                     {s.label}
@@ -320,14 +320,14 @@ export function ContestForm({ contest, entriesCsv, entryCount }: { contest: Cont
             <div className="flex">
               <div className="w-24 shrink-0 bg-maroon p-3 text-white">
                 <Trophy className="size-5 text-gold" />
-                <ul className="mt-2 space-y-0.5 text-[11px] leading-tight">
+                <ul className="mt-2 space-y-0.5 text-[0.6875rem] leading-tight">
                   {c.prizes.filter((p) => p.amount).slice(0, 3).map((p, i) => <li key={i} className="font-heading font-semibold">{p.amount}</li>)}
                 </ul>
               </div>
               <div className="min-w-0 flex-1 p-3">
                 <p className="truncate font-heading text-sm font-bold text-ink">{c.title || "Contest title"}</p>
                 <p className="mt-0.5 line-clamp-2 text-xs text-grey-700">{c.summary || "The summary appears here."}</p>
-                <p className="mt-1.5 text-[11px] text-grey-600">{c.startsAt && c.endsAt ? `${new Date(c.startsAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })} → ${new Date(c.endsAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}` : "Dates"}</p>
+                <p className="mt-1.5 text-[0.6875rem] text-grey-600">{c.startsAt && c.endsAt ? `${new Date(c.startsAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })} → ${new Date(c.endsAt).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}` : "Dates"}</p>
               </div>
             </div>
           </div>

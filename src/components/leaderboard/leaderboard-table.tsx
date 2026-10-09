@@ -253,7 +253,7 @@ export function LeaderboardTable({
                     <RankBadge rank={rankById.get(r.id)!.rank} ghost={rankById.get(r.id)!.ghost} unranked={rankById.get(r.id)!.unranked} />
                     <div className="min-w-0 flex-1">
                       <Link href={`/submissions/${r.id}`} className="font-heading font-semibold text-ink">{r.modelName}</Link>
-                      {r.isPrivate ? <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-grey-900">Private · only you</span> : null}
+                      {r.isPrivate ? <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-gold-400 bg-gold-200 px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-grey-900">Private · only you</span> : null}
                       <p className="text-xs text-grey-600">{MODEL_TYPE_LABELS[r.modelType]} · {r.author}, {r.affiliation} · {fmtDate(r.submittedAt)}</p>
                       <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
                         <div><dt className="text-grey-600">Weighted</dt><dd className="font-heading font-semibold text-ink tabular">{fmtPct(r.weightedError)}</dd></div>

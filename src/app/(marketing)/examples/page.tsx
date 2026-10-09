@@ -41,8 +41,8 @@ export default async function ExamplesPage() {
                     <Badge variant="maroon">{MODEL_TYPE_LABELS[e.modelType]}</Badge>
                     <Badge>Complexity {e.complexity} · {COMPLEXITY_LABELS[e.complexity]}</Badge>
                   </div>
-                  <p className="mt-1 font-heading text-[15px] text-grey-700">{e.tagline}</p>
-                  {e.description.map((p, i) => <p key={i} className="mt-3 text-[15px] leading-relaxed text-grey-800">{p}</p>)}
+                  <p className="mt-1 font-heading text-[0.9375rem] text-grey-700">{e.tagline}</p>
+                  {e.description.map((p, i) => <p key={i} className="mt-3 text-[0.9375rem] leading-relaxed text-grey-800">{p}</p>)}
                 </div>
               </div>
 

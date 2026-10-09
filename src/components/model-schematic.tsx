@@ -42,7 +42,7 @@ export function ModelSchematic({ spec, title, className, compact = false }: { sp
   return (
     <div className={cn("card overflow-hidden", className)}>
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-5 py-3">
-        <p className="font-heading text-[15px] font-semibold text-ink">{title ?? meta.title}</p>
+        <p className="font-heading text-[0.9375rem] font-semibold text-ink">{title ?? meta.title}</p>
         <p className="text-xs text-grey-600">{meta.family}</p>
       </div>
       <div className={cn("grid gap-5 p-5", compact ? "" : "lg:grid-cols-[1.3fr_1fr]")}>
@@ -50,7 +50,7 @@ export function ModelSchematic({ spec, title, className, compact = false }: { sp
         <div className="space-y-3 text-sm">
           <div>
             <p className="font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">Governing equation</p>
-            <div className="mt-1 rounded-brand bg-grey-100 px-3 py-2 text-[15px] text-ink">{meta.equation.map((tex, i) => <MathBlock key={i} tex={tex} />)}{meta.equationNote ? <p className="mt-1 text-xs text-grey-600">{meta.equationNote}</p> : null}</div>
+            <div className="mt-1 rounded-brand bg-grey-100 px-3 py-2 text-[0.9375rem] text-ink">{meta.equation.map((tex, i) => <MathBlock key={i} tex={tex} />)}{meta.equationNote ? <p className="mt-1 text-xs text-grey-600">{meta.equationNote}</p> : null}</div>
           </div>
           <div>
             <p className="font-heading text-xs font-semibold uppercase tracking-wide text-grey-600">State carried in z</p>

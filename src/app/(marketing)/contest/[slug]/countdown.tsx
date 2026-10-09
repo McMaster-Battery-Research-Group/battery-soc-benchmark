@@ -17,7 +17,7 @@ export function Countdown({ target }: { target: string }) {
   const cell = (v: number, l: string) => (
     <div className="text-center">
       <div className="font-heading text-3xl font-bold tabular text-white">{now === null ? "–" : String(v).padStart(2, "0")}</div>
-      <div className="text-[11px] uppercase tracking-wide text-white/70">{l}</div>
+      <div className="text-[0.6875rem] uppercase tracking-wide text-white/70">{l}</div>
     </div>
   );
   return (
