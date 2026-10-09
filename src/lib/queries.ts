@@ -32,6 +32,9 @@ export type LeaderboardRow = {
   /** a score carried over from before this platform; no package, not re-evaluable */
   isLegacy: boolean;
   contestId: string | null;
+  description: string;
+  /** size in bytes of the latest uploaded package, null for entries without size */
+  fileSize: number | null;
   weightedError: number;
   complexity: number;
   complexityUncertainty: number;
@@ -98,6 +101,8 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       isLegacy: s.isLegacy,
       collaborators: rest.map((a) => ({ id: a.id, name: a.name, avatarVersion: a.avatarVersion, avatarSrc: a.avatarSrc })),
       contestId: s.contestId,
+      description: s.description,
+      fileSize: s.fileSize,
       ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string }),
       };
     });

@@ -75,7 +75,10 @@ export default async function SubmissionPage({ params, searchParams }: { params:
         <p className="mt-2 max-w-3xl text-[0.9375rem] leading-relaxed text-grey-800">{sub.description}</p>
         <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           {sub.fileName && sub.fileSize !== null ? (
-            <Row k="Package" v={`${sub.fileName} (${fmtBytes(sub.fileSize)}), deleted after evaluation`} />
+            <>
+              <Row k="Package" v={`${sub.fileName}, deleted after evaluation`} />
+              <Row k="Package size" v={fmtBytes(sub.fileSize)} />
+            </>
           ) : (
             <Row k="Package" v="None; this is a carried-over record, not a run of this evaluator" />
           )}
