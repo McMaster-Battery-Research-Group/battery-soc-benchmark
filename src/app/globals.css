@@ -82,6 +82,13 @@ html {
 body {
   color-scheme: light;
 }
+/* Samsung Internet treats a page as "supporting dark mode" when it styles for the dark preference;
+   this rule changes nothing visible but keeps its forced dark mode off. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light dark;
+  }
+}
 
 /* Large monitors: everything is sized in rem, so stepping the root size up scales the whole page
    instead of leaving a small layout floating in wide margins; the content column widens too. */
@@ -120,6 +127,14 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-maroon);
   outline-offset: 2px;
+}
+/* Recharts makes the plot and its bars focusable; a tap on a phone focuses them and would draw the
+   ring around the whole plot. The tooltip already marks what is focused. */
+.recharts-wrapper :focus-visible,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible {
+  outline: none;
 }
 
 /* Utility layer */
