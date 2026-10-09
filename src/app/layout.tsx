@@ -15,7 +15,7 @@ const poppins = Poppins({
 });
 
 /** Phone browsers tint their toolbar with this; maroon keeps the hero and the chrome one colour. */
-export const viewport: Viewport = { themeColor: "#7A003C", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#7A003C", width: "device-width", initialScale: 1, colorScheme: "light dark" };
 
 export const metadata: Metadata = {
   title: {

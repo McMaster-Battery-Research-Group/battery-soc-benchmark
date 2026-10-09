@@ -169,9 +169,9 @@ export function LeaderboardTable({
                 </Tooltip>
               ) : null}
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               {help}
-              <ColumnPicker visibility={visibility} onChange={updateVisibility} />
+              <div className="hidden md:block"><ColumnPicker visibility={visibility} onChange={updateVisibility} /></div>
               <Button variant="outline" size="sm" onClick={download}><Download /> CSV</Button>
             </div>
           </div>

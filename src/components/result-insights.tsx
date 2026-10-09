@@ -61,7 +61,7 @@ export function ResultInsights({ values, weights }: { values: Record<MetricKey, 
   } as const;
   return (
     <section aria-labelledby="takeaways">
-      <div className="mb-2 flex items-baseline gap-2">
+      <div className="mb-2 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
         <h2 id="takeaways" className="flex items-center gap-2 font-heading text-lg font-semibold text-ink"><Lightbulb className="size-5 text-maroon" /> Takeaways</h2>
         <p className="text-xs text-grey-600">Read from the scorecard; every figure is in the table.</p>
       </div>

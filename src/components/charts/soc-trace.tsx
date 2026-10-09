@@ -316,10 +316,10 @@ export function SocTrace({
       legend={legend}
       aside={
         selectable && options ? (
-          <label className="block">
+          <label className="block min-w-0 flex-1 sm:flex-none">
             <span className="mb-1 block font-heading text-xs font-medium uppercase tracking-wide text-grey-600">Drive cycle</span>
             <span className="relative block">
-              <NativeSelect value={ref.key} onChange={(e) => onSelect?.(e.target.value)} className="h-10 w-64 cursor-pointer border-grey-400 bg-white pr-9 font-heading text-sm font-medium text-ink shadow-sm hover:border-maroon focus:border-maroon" aria-label="Choose drive cycle">
+              <NativeSelect value={ref.key} onChange={(e) => onSelect?.(e.target.value)} className="h-10 w-full cursor-pointer border-grey-400 sm:w-64 bg-white pr-9 font-heading text-sm font-medium text-ink shadow-sm hover:border-maroon focus:border-maroon" aria-label="Choose drive cycle">
                 {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
               </NativeSelect>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-maroon" />
@@ -334,8 +334,8 @@ export function SocTrace({
           <div className="inline-flex rounded-brand border border-border p-0.5" role="toolbar" aria-label="Zoom and pan tools">
             {modes.map((t) => (
               <Tip key={t.id} content={t.tip}>
-                <button type="button" aria-pressed={mode === t.id} onClick={() => setMode(t.id)} className={cn("inline-flex items-center gap-1 rounded-[3px] px-2 py-1 font-heading font-medium", mode === t.id ? "bg-maroon text-white" : "text-grey-800 hover:bg-grey-100")}>
-                  <t.icon className="size-3.5" /> {t.label}
+                <button type="button" aria-pressed={mode === t.id} aria-label={t.label} onClick={() => setMode(t.id)} className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-[3px] px-2 py-1 font-heading font-medium", mode === t.id ? "bg-maroon text-white" : "text-grey-800 hover:bg-grey-100")}>
+                  <t.icon className="size-3.5" /> <span className="hidden sm:inline">{t.label}</span>
                 </button>
               </Tip>
             ))}
@@ -378,7 +378,7 @@ export function SocTrace({
               }}
               className="accent-maroon"
             />{" "}
-            Fit SOC axis <span className="text-grey-500">(error axis fits itself when set to Auto)</span>
+            <span className="whitespace-nowrap">Fit SOC axis</span> <span className="hidden text-grey-500 md:inline">(error axis fits itself when set to Auto)</span>
           </label>
           {zoomed ? <span className="ml-auto text-grey-500">Double-click a plot to restore.</span> : null}
         </div>

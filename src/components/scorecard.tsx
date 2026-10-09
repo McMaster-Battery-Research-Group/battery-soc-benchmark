@@ -40,14 +40,14 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full text-sm md:min-w-[640px]">
           <thead className="bg-grey-100 text-left font-heading text-xs uppercase tracking-wide text-grey-700">
             <tr>
-              <th className="px-5 py-2">Test case</th>
+              <th className="px-4 py-2 md:px-5">Test case</th>
               <th className="px-3 py-2 text-right">RMSE</th>
-              <th className="w-[26%] px-3 py-2">Relative</th>
-              <th className="px-3 py-2 text-right">Weight</th>
-              <th className="px-5 py-2 text-right">Weight × RMSE</th>
+              <th className="hidden w-[26%] px-3 py-2 md:table-cell">Relative</th>
+              <th className="hidden px-3 py-2 text-right md:table-cell">Weight</th>
+              <th className="px-3 py-2 text-right md:px-5">Weight × RMSE</th>
             </tr>
           </thead>
           <tbody>
@@ -57,26 +57,27 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
               lastGroup = g;
               return (
                 <tr key={r.key} className={`border-t border-border ${r.w === 0 ? "text-grey-500" : ""}`}>
-                  <td className="px-5 py-2">
+                  <td className="px-4 py-2 md:px-5">
                     {head ? <span className="mb-0.5 block font-heading text-[10px] font-semibold uppercase tracking-wide text-maroon">{g}</span> : null}
                     <span className="mr-1.5 text-xs text-grey-500">T{r.test}</span>
                     <Tooltip content={r.description}><span className={`cursor-help border-b border-dotted border-grey-400 ${r.w === 0 ? "" : "text-grey-900"}`}>{r.label}</span></Tooltip>
-                    {r.w === 0 ? <span className="ml-1.5 text-xs text-grey-500">(reference only; every other test is a subset of it)</span> : null}
+                    {r.w === 0 ? <span className="ml-1.5 hidden text-xs text-grey-500 md:inline">(reference only; every other test is a subset of it)</span> : null}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right font-heading font-semibold tabular text-ink">{fmtPct(r.value)} %</td>
-                  <td className="px-3 py-2">
+                  <td className="hidden px-3 py-2 md:table-cell">
                     <div className="h-2 w-full rounded-full bg-grey-100"><div className="h-2 rounded-full bg-maroon/70" style={{ width: `${Math.max(2, (100 * r.value) / maxRmse)}%` }} /></div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right tabular text-grey-700">{r.w.toFixed(4)}</td>
-                  <td className="whitespace-nowrap px-5 py-2 text-right tabular text-ink">{r.part.toFixed(4)}</td>
+                  <td className="hidden whitespace-nowrap px-3 py-2 text-right tabular text-grey-700 md:table-cell">{r.w.toFixed(4)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular text-ink md:px-5">{r.part.toFixed(4)}</td>
                 </tr>
               );
             })}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-border bg-grey-100/60 font-heading font-semibold text-ink">
-              <td className="px-5 py-2.5" colSpan={4}>Weighted error = Σ (weight × RMSE)</td>
-              <td className="px-5 py-2.5 text-right tabular">{fmtPct(sum)} %</td>
+              <td className="px-5 py-2.5" colSpan={2}><span className="md:hidden">Σ (weight × RMSE)</span><span className="hidden md:inline">Weighted error = Σ (weight × RMSE)</span></td>
+              <td className="hidden md:table-cell" colSpan={2} />
+              <td className="px-3 py-2.5 text-right tabular md:px-5">{fmtPct(sum)} %</td>
             </tr>
           </tfoot>
         </table>

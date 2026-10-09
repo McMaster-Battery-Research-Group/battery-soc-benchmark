@@ -25,22 +25,22 @@ export default async function HomePage() {
         <div className="container-site relative grid gap-10 py-12 md:grid-cols-12 md:py-14">
           <div className="md:col-span-7">
             <p className="font-heading text-xs font-semibold uppercase tracking-[0.16em] text-gold">Open benchmark · Blinded evaluation</p>
-            <h1 className="mt-4 font-heading text-4xl font-bold leading-[1.1] text-white md:text-[50px] md:leading-[55px]">
+            <h1 className="mt-3 font-heading text-[2rem] font-bold leading-[1.12] text-white sm:text-4xl md:mt-4 md:text-[50px] md:leading-[55px]">
               The standardized benchmark for battery state-of-charge estimation.
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg md:mt-6">
               Train on open Tesla Model 3 2170 cell data. Submit your estimator. Get scored on 144 blinded drive cycles from −20 °C to 40 °C.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap md:mt-8">
               <Button asChild variant="gold" size="lg"><Link href="/submit">Submit a model <ArrowRight /></Link></Button>
               <Button asChild size="lg" className="border border-white/40 bg-transparent text-white hover:bg-white hover:text-maroon"><Link href="/leaderboard">View leaderboard</Link></Button>
             </div>
-            <p className="mt-6 text-sm text-white/75">Free for academic and industry use · CC-BY 4.0 dataset · blinded evaluation</p>
+            <p className="mt-5 text-sm text-white/75 md:mt-6">Free for academic and industry use · CC-BY 4.0 dataset · blinded evaluation</p>
             {/* who stands behind it, visible before anyone scrolls */}
-            <div className="mt-9 flex flex-wrap items-start gap-x-12 gap-y-5">
+            <div className="mt-8 flex flex-wrap items-start gap-x-12 gap-y-5 md:mt-9">
               <a href="https://www.eng.mcmaster.ca/ece/" target="_blank" rel="noreferrer" aria-label="McMaster University, Electrical and Computer Engineering">
                 <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Developed at</p>
-                <Image src="/logos/mcmaster-white.svg" alt="" width={556} height={350} className="mt-2 h-16 w-auto" />
+                <Image src="/logos/mcmaster-white.svg" alt="" width={556} height={350} className="mt-2 h-14 w-auto md:h-16" />
               </a>
               <a href="https://www.nserc-crsng.gc.ca" target="_blank" rel="noreferrer" aria-label="NSERC / CRSNG">
                 <p className="font-heading text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">Supported by</p>

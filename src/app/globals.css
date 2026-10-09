@@ -75,13 +75,30 @@
 
 html {
   scroll-behavior: smooth;
+  /* Declaring both schemes makes Chrome's auto-dark and Samsung Internet's forced dark mode leave the
+     page alone (they only recolour pages that declare nothing); the body then renders the one, light, theme. */
+  color-scheme: light dark;
+}
+body {
+  color-scheme: light;
+}
+
+/* Large monitors: everything is sized in rem, so stepping the root size up scales the whole page
+   instead of leaving a small layout floating in wide margins; the content column widens too. */
+@media (min-width: 1920px) {
+  html { font-size: 17px; }
+  :root { --container-site: 1440px; }
+}
+@media (min-width: 2400px) {
+  html { font-size: 18px; }
+  :root { --container-site: 1600px; }
 }
 
 body {
   background: var(--color-surface);
   color: var(--color-body);
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.375;
   -webkit-font-smoothing: antialiased;
 }
@@ -107,6 +124,12 @@ body {
 
 /* Utility layer */
 @layer utilities {
+  /* A grid without an explicit template gets one implicit "auto" column, which stretches to the longest
+     unwrappable line (a truncated model name, a nowrap figure) and pushes the page wider than a phone.
+     Size implicit columns like Tailwind's grid-cols-*: minmax(0, 1fr). */
+  .grid {
+    grid-auto-columns: minmax(0, 1fr);
+  }
   .container-site {
     width: 100%;
     max-width: var(--container-site);

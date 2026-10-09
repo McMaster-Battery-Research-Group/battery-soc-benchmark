@@ -29,7 +29,7 @@ export function TemperatureBars({ series }: { series: { name: string; values: Re
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} margin={{ top: 18, right: 8, left: 0, bottom: 0 }} barCategoryGap="28%" barGap={2}>
           <CartesianGrid {...gridProps} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} interval={0} tick={{ ...axisProps.tick, fontSize: 11 }} />
           <YAxis {...axisProps} width={44} unit="%" domain={[0, Math.ceil(max * 1.15)]} />
           <Tooltip cursor={{ fill: CHART.band }} content={({ active, payload, label }) => <ChartTooltip active={active} label={String(label)} rows={(payload ?? []).map((p) => ({ name: multi ? series[Number(String(p.dataKey).slice(1))].name : "RMSE", value: `${fmtPct(Number(p.value))} %`, color: multi ? String(p.color) : undefined }))} />} />
           {series.map((s, i) => (
