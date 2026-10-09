@@ -20,6 +20,7 @@ import { ResultSummary } from "@/components/result-summary";
 import { ResultTabs } from "@/components/result-tabs";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
 import { TemperatureBars } from "@/components/charts/temperature-bars";
+import { ScoreShare } from "@/components/charts/score-share";
 import { SocTracePicker } from "@/components/charts/soc-trace";
 import { KeyCases } from "@/components/charts/key-cases";
 import { PerCycleTable } from "@/components/charts/per-cycle-table";
@@ -206,9 +207,10 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 id: "charts", label: "Charts", icon: <BarChart3 />,
                 content: (
                   <>
-                    <p className="mb-4 text-sm text-grey-700">The scorecard as bar charts: tests 1 to 8, and RMSE against temperature (test 9).</p>
+                    <p className="mb-4 text-sm text-grey-700">The scorecard as charts: every test case, where the score comes from, and RMSE against temperature (test 9).</p>
                     <div className="grid gap-6 xl:grid-cols-5">
-                      <div className="xl:col-span-3"><TestCaseBars series={[{ name: sub.modelName, values }]} /></div>
+                      <div className="xl:col-span-5"><TestCaseBars series={[{ name: sub.modelName, values }]} /></div>
+                      <div className="xl:col-span-3"><ScoreShare values={values} weights={weights} weightedError={r.weightedError} /></div>
                       <div className="xl:col-span-2"><TemperatureBars series={[{ name: sub.modelName, values }]} /></div>
                     </div>
                   </>
