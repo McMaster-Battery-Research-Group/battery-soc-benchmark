@@ -253,7 +253,10 @@ export function SocTrace({
     });
     return row;
   });
-  const [a, b] = range;
+  // The window is state and the traces are props: when the visitor picks a shorter cycle, one render
+  // happens before the effect above resets the window, so clamp it to the cycle that is on screen.
+  const a = Math.max(0, Math.min(range[0], n - 1));
+  const b = Math.max(a, Math.min(range[1], n - 1));
   const view = data.slice(a, b + 1);
   const zoomed = a > 0 || b < n - 1 || !!yZoom.soc || !!yZoom.err;
   const multi = traces.length > 1;
@@ -309,7 +312,7 @@ export function SocTrace({
       title={ref.label}
       description={
         <>
-          {a > 0 || b < n - 1 ? `Window ${ref.t[a].toFixed(2)}–${ref.t[b].toFixed(2)} h · ` : "Whole cycle · "}
+          {a > 0 || b < n - 1 ? `Window ${(ref.t[a] ?? 0).toFixed(2)}–${(ref.t[b] ?? 0).toFixed(2)} h · ` : "Whole cycle · "}
           {traces.map((_, k) => `${multi ? (names[k] ?? `Model ${k + 1}`) + ": " : ""}RMSE ${fmtPct(stats[k].rmse)} %, max ${fmtPct(stats[k].maxAbs, 1)} %`).join(" · ")}
         </>
       }
