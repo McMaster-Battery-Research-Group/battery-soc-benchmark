@@ -154,7 +154,7 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
       id: "fileSize",
       header: "Size",
       meta: { ...NUMERIC_META, tooltip: "Size of the uploaded package (.zip). Code, weights, and data files." },
-      // carried-over model entries have no package may have no size. just in case
+      // carried-over (legacy) entries have no package, so no size
       cell: (c) => <span className="tabular">{c.getValue() === null ? "—" : fmtBytes(c.getValue()!)}</span>,
     }),
     col.accessor("description", {
@@ -172,4 +172,6 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
 export const DEFAULT_HIDDEN = Object.fromEntries([
   ...TEST_CASES.filter((t) => !t.defaultVisible).map((t) => [t.key, false]),
   ["maxError", false],
+  ["fileSize", false],
+  ["description", false],
 ]) as Record<string, boolean>;
