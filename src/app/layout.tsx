@@ -6,6 +6,9 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ToastProvider } from "@/components/ui/toast";
 import { auth } from "@/lib/auth";
+import { GoogleAnalytics } from "@next/third-parties/google";
+import { AnalyticsEvents } from "@/components/analytics/analytics-events";
+import { gaMeasurementId } from "@/lib/google-analytics";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -32,9 +35,16 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
+  const gaId = gaMeasurementId();
   return (
     <html lang="en" className={poppins.variable}>
       <body className="flex min-h-screen flex-col">
+        {gaId ? (
+          <>
+            <GoogleAnalytics gaId={gaId} />
+            <AnalyticsEvents signedIn={!!session?.user} />
+          </>
+        ) : null}
         <ToastProvider>
           <a
             href="#main"

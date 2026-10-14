@@ -2,18 +2,24 @@ import type { NextConfig } from "next";
 
 /**
  * Security headers. The CSP allows inline scripts/styles because Next.js and
- * Tailwind emit them; everything else is locked to this origin (plus Supabase
- * Storage for direct browser uploads and Google Fonts if ever used).
+ * Tailwind emit them; everything else is locked to this origin, plus the Google
+ * Analytics hosts (Google's documented list) while a measurement ID is configured.
  */
+const analyticsOn = Boolean(process.env.GOOGLE_ANALYTICS_ID || process.env.GOOGLE_ANALYTICS_DEV_ID);
+const ga = {
+  script: analyticsOn ? " https://*.googletagmanager.com" : "",
+  img: analyticsOn ? " https://*.google-analytics.com https://*.googletagmanager.com" : "",
+  connect: analyticsOn ? " https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com" : "",
+};
 const csp = [
   "default-src 'self'",
   // `next dev` evaluates its hot-reload bundles with eval; without this, no client component hydrates locally.
-  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}${ga.script}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  `img-src 'self' data: blob:${ga.img}`,
   "font-src 'self' data:",
-  // the browser only ever talks to this origin; uploads go through /api/upload on this host
-  "connect-src 'self'",
+  // uploads go through /api/upload on this host; the only other destination is Google Analytics
+  `connect-src 'self'${ga.connect}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

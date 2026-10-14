@@ -16,6 +16,7 @@ import { EvaluationError, EvaluationCancelled } from "./types";
 import { recordRevision, getHistory } from "@/lib/history";
 import { getActiveWeights } from "@/lib/scoring-config";
 import { METRIC_KEYS, type MetricKey } from "@/lib/test-cases";
+import { trackEvaluationOutcome } from "@/lib/google-analytics";
 
 export const STALE_LOCK_MS = 30 * 60 * 1000;
 export const MAX_ATTEMPTS = 2;
@@ -183,6 +184,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null } }),
     ]);
     await log(`completed: weighted error ${out.weightedError.toFixed(3)} %`);
+    trackEvaluationOutcome(sub.modelType, "succeeded");
     await recordRevision({ submissionId: sub.id, kind: sub.version > 1 || job.attempts > 1 ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `v${sub.version} · attempt ${job.attempts}`, by: workerId() });
     if (sub.fileKey) await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
     let report: Buffer | undefined;
@@ -231,6 +233,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
       return { submissionId: sub.id, status: "RETRY" };
     }
     await db.submission.update({ where: { id: sub.id }, data: { status: "FAILED", failureMessage: message, completedAt: new Date() } });
+    trackEvaluationOutcome(sub.modelType, "failed");
     await recordRevision({ submissionId: sub.id, kind: "failure", evaluatorVersion: evaluator.name, note: `attempt ${job.attempts}: ${message}`, by: workerId() });
     await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, attempts: MAX_ATTEMPTS } });
     // A tripped security guard (e.g. a forged result rejected by the integrity check): alert admins
