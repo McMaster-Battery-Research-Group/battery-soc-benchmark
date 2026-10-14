@@ -4,8 +4,8 @@ type EvaluationStatus = "succeeded" | "failed";
 
 /** Send aggregate evaluation outcomes through the GA4 Measurement Protocol. */
 export async function trackEvaluationOutcome(modelType: string, status: EvaluationStatus) {
-  const measurementId = process.env.GOOGLE_ANALYTICS_DEV_ID;
-  const apiSecret = process.env.GOOGLE_ANALYTICS_DEV_API_SECRET;
+  const measurementId = process.env.GOOGLE_ANALYTICS_ID;
+  const apiSecret = process.env.GOOGLE_ANALYTICS_API_SECRET;
   if (!measurementId || !apiSecret) return;
 
   try {
@@ -16,8 +16,7 @@ export async function trackEvaluationOutcome(modelType: string, status: Evaluati
       body: JSON.stringify({
         client_id: randomUUID(),
         events: [{
-          name: "evaluation_outcome",
-          params: { model_type: modelType, evaluation_status: status },
+          name: `${modelType} - ${status}`,
         }],
       }),
     });
