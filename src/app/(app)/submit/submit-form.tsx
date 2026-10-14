@@ -205,7 +205,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
                 <p className="font-heading font-semibold text-ink">{file.name}</p>
                 <p className="text-xs text-grey-600">{fmtBytes(file.size)}</p>
               </div>
-              <button type="button" onClick={() => { pick(null); if (inputRef.current) inputRef.current.value = ""; }} className="rounded-brand p-1 text-grey-600 hover:bg-grey-200 hover:text-ink" aria-label="Remove file"><X className="size-4" /></button>
+              <button type="button" data-track="remove_submission_file" onClick={() => { pick(null); if (inputRef.current) inputRef.current.value = ""; }} className="rounded-brand p-1 text-grey-600 hover:bg-grey-200 hover:text-ink" aria-label="Remove file"><X className="size-4" /></button>
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Button type="button" variant="secondary" size="sm" onClick={runTest} disabled={testBusy || testRunning} loading={testBusy}><FlaskConical /> {testId ? "Test again" : "Test it first"}</Button>
                 <label htmlFor="file" className="cursor-pointer text-sm font-medium text-maroon underline">Choose another</label>
@@ -348,7 +348,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
                       <Avatar userId={c.id} name={c.name} hasAvatar={c.avatarVersion !== null} version={c.avatarVersion} size={24} />
                       <span className="font-heading font-medium text-ink">{c.name}</span>
                       <span className="hidden text-xs text-grey-600 sm:inline">· {c.affiliation}</span>
-                      <button type="button" onClick={() => setCollabs((l) => l.filter((x) => x.id !== c.id))} className="rounded-full p-0.5 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`Remove ${c.name}`}><X className="size-3.5" /></button>
+                      <button type="button" data-track="remove_submission_collaborator" onClick={() => setCollabs((l) => l.filter((x) => x.id !== c.id))} className="rounded-full p-0.5 text-grey-500 hover:bg-grey-100 hover:text-danger" aria-label={`Remove ${c.name}`}><X className="size-3.5" /></button>
                     </li>
                   ))}
                 </ul>

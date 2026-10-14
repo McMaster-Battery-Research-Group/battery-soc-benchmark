@@ -52,7 +52,7 @@ export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows
                   <p className="truncate text-xs text-grey-600">{MODEL_TYPE_LABELS[s.modelType]} · {s.author}</p>
                   <p className="mt-1 text-sm"><span className="font-heading font-semibold text-ink tabular">{fmtPct(s.weightedError)} %</span> <span className="text-grey-600">weighted</span></p>
                 </div>
-                <button onClick={() => apply(ids.filter((x) => x !== s.id))} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-ink" aria-label={`Remove ${s.modelName}`}><X className="size-4" /></button>
+                <button data-track="remove_comparison_model" onClick={() => apply(ids.filter((x) => x !== s.id))} className="rounded-brand p-1 text-grey-500 hover:bg-grey-100 hover:text-ink" aria-label={`Remove ${s.modelName}`}><X className="size-4" /></button>
               </div>
             ))}
           </div>

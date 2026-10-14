@@ -19,6 +19,7 @@ const PAGES: Record<string, { title: string; body: { h: string; p: string[] }[] 
       { h: "What is public", p: ["For public submissions: model name, description, model type, author name, affiliation, submission date and evaluation results. Optional profile details and your picture appear on your public researcher page and next to your public submissions; you can remove them at any time from your profile. Private submissions and your email address are never shown to other users."] },
       { h: "Model files", p: ["Uploaded submission packages are stored only until the evaluation has run and are then deleted. They are not shared with third parties."] },
       { h: "Email", p: ["We email you only for account verification, password resets, evaluation results and contest administration."] },
+      { h: "Analytics", p: ["The site uses Google Analytics to understand how it is used: pages visited, links and buttons clicked, and aggregate evaluation outcomes (the model type and whether an evaluation succeeded or failed). Google receives the usual browser request data for this (IP address, device and browser type); we see only aggregate reports. These reports do not identify you and are never combined with your account or your submissions."] },
       { h: "Contact", p: ["For questions or deletion requests use the contact form; it reaches the benchmark administrators at McMaster University."] },
     ],
   },
@@ -45,7 +46,7 @@ export default async function LegalPage({ params }: { params: Promise<{ legal: s
   if (!page) notFound();
   return (
     <>
-      <PageHeader title={page.title} description="Last updated August 2026." />
+      <PageHeader title={page.title} description="Last updated October 2026." />
       <article className="container-site max-w-3xl space-y-8 py-10 text-[0.9375rem] leading-relaxed text-grey-800">
         {page.body.map((s) => (
           <section key={s.h}>
