@@ -5,7 +5,7 @@ import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Lock, EyeOff } from "lucide-react";
 import type { LeaderboardRow } from "@/lib/queries";
 import { TEST_CASES, MODEL_TYPE_LABELS } from "@/lib/test-cases";
-import { fmtPct, fmtDate } from "@/lib/utils";
+import { fmtPct, fmtDate, fmtBytes } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { RankBadge } from "./rank-badge";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -149,6 +149,20 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
       header: "Max error",
       meta: { ...NUMERIC_META, tooltip: "Largest instantaneous SOC error across all blinded cycles (% SOC)." },
       cell: (c) => <span className="tabular">{fmtPct(c.getValue())}</span>,
+    }),
+    col.accessor("fileSize", {
+      id: "fileSize",
+      header: "Size",
+      meta: { ...NUMERIC_META, tooltip: "Size of the uploaded package (.zip). Code, weights, and data files." },
+      // carried-over model entries have no package may have no size. just in case
+      cell: (c) => <span className="tabular">{c.getValue() === null ? "—" : fmtBytes(c.getValue()!)}</span>,
+    }),
+    col.accessor("description", {
+      id: "description",
+      header: "Description",
+
+      enableSorting: false,
+      cell: (c) => <p className="w-72 line-clamp-2 text-xs text-grey-700" title={c.getValue()}>{c.getValue()}</p>,
     }),
   ] as ColumnDef<LeaderboardRow, unknown>[];
 

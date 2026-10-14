@@ -195,11 +195,12 @@ export function LeaderboardTable({
                         return (
                           <th
                             key={h.id}
-                            className={cn("h-11 whitespace-nowrap border-b border-border px-3 font-heading text-xs font-semibold uppercase tracking-wide text-grey-800", meta.align === "right" ? "text-right" : "text-left", h.column.id === "modelName" && "sticky left-0 z-20 bg-grey-100")}
+                            // opt 'description' out of uppercase style
+                            className={cn("h-11 whitespace-nowrap border-b border-border px-3 font-heading text-xs font-semibold uppercase tracking-wide text-grey-800", meta.align === "right" ? "text-right" : "text-left", h.column.id === "modelName" && "sticky left-0 z-20 bg-grey-100", h.column.id === "description" && "normal-case")}
                             aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
                           >
                             {h.column.getCanSort() ? (
-                              <button className={cn("inline-flex items-center gap-1 hover:text-maroon", meta.align === "right" && "flex-row-reverse")} onClick={h.column.getToggleSortingHandler()}>
+                              <button className={cn("inline-flex items-center gap-1 align-top hover:text-maroon", meta.align === "right" && "flex-row-reverse")} onClick={h.column.getToggleSortingHandler()}>
                                 {flexRender(h.column.columnDef.header, h.getContext())}
                                 {sorted === "asc" ? <ArrowUp className="size-3.5" /> : sorted === "desc" ? <ArrowDown className="size-3.5" /> : <ArrowUpDown className="size-3.5 text-grey-400" />}
                                 {meta.tooltip ? (
@@ -322,6 +323,8 @@ function ColumnPicker({ visibility, onChange }: { visibility: VisibilityState; o
           <label className="flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("maxError")} onCheckedChange={(v) => set(["maxError"], !!v)} /> Max error</label>
           <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("complexity")} onCheckedChange={(v) => set(["complexity"], !!v)} /> Complexity</label>
           <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("submittedAt")} onCheckedChange={(v) => set(["submittedAt"], !!v)} /> Submitted date</label>
+          <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("fileSize")} onCheckedChange={(v) => set(["fileSize"], !!v)} /> Size</label>
+          <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("description")} onCheckedChange={(v) => set(["description"], !!v)} /> Description</label>
         </fieldset>
       </PopoverContent>
     </Popover>
