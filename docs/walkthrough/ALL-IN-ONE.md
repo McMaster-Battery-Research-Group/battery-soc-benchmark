@@ -679,6 +679,7 @@ The left-hand navigation enumerates the interface:
 - **Contests**: creation and closure.
 - **Messages**: the contact-form inbox.
 - **Evaluation workers**: every registered machine, the queue, and the evaluation limits.
+- **Analytics**: how the public site is used, read back from Google Analytics (people, visits, pages, sources, countries, devices, events) when a reporting credential is configured; the page explains the one-time setup otherwise.
 - **Scoring weights**: the subject of Section 8.2.
 - **My notifications**: each administrator's own e-mail preferences.
 
@@ -967,7 +968,7 @@ The most common maintenance tasks and where each is performed. Anything not list
 | Database | `DATABASE_URL` (connection pooler, port 6543), `DIRECT_URL` (port 5432, migrations only) |
 | Website | `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `ADMIN_EMAILS`, `CRON_SECRET`, `OPS_HEALTH_TOKEN` |
 | Mail | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `ADMIN_NOTIFY_EMAIL` |
-| Analytics (optional) | `GOOGLE_ANALYTICS_ID`, `GOOGLE_ANALYTICS_DEV_ID` (site); `GOOGLE_ANALYTICS_API_SECRET` (worker only, never committed) |
+| Analytics (optional) | `GOOGLE_ANALYTICS_ID`, `GOOGLE_ANALYTICS_DEV_ID` (site); `GOOGLE_ANALYTICS_API_SECRET` (worker only, never committed); `GOOGLE_ANALYTICS_PROPERTY_ID` + `GOOGLE_ANALYTICS_SERVICE_ACCOUNT_FILE` (web host, for Admin → Analytics) |
 | Storage | `STORAGE` (local / supabase), `UPLOAD_DIR`, `MAX_UPLOAD_MB`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET` |
 | Worker | `SOCBENCH_BLIND_DATA`, `SOCBENCH_PYTHON`, `MATLAB_BIN`, `WORKER_CONCURRENCY`, `WORKER_RUNTIMES` |
 | Sandbox | `EVAL_SANDBOX`, `EVAL_SANDBOX_IMAGE`, `EVAL_SANDBOX_MATLAB_IMAGE`, `EVAL_MATLAB_MHLM_FILE`, `EVAL_MATLAB_NETWORK`, `EVAL_CPUS`, `EVAL_MEMORY` |

@@ -15,6 +15,7 @@ The left-hand navigation enumerates the interface:
 - **Contests**: creation and closure.
 - **Messages**: the contact-form inbox.
 - **Evaluation workers**: every registered machine, the queue, and the evaluation limits.
+- **Analytics**: how the public site is used, read back from Google Analytics (people, visits, pages, sources, countries, devices, events) when a reporting credential is configured; the page explains the one-time setup otherwise.
 - **Scoring weights**: the subject of Section 8.2.
 - **My notifications**: each administrator's own e-mail preferences.
 
