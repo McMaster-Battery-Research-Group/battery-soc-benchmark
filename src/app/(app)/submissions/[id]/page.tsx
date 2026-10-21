@@ -264,7 +264,13 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                     id: "score-history", label: "History", icon: <History />, count: String(history.length),
                     content: (
                       <>
-                        <p className="mb-2 text-sm text-grey-700">Every evaluation attempt and every change to how this submission is scored; the current score is the last row.</p>
+                        <p className="mb-2 text-sm text-grey-700">Every evaluation attempt and every change to how this submission is scored; the current score is the last row.{isAdmin ? " Administrators: each attempt's evaluator console is attached to its row." : ""}</p>
+                        {isAdmin && sub.job?.log && !history.some((h) => h.log) ? (
+                          <details className="mb-3">
+                            <summary className="cursor-pointer text-xs font-medium text-maroon">Evaluator console of the latest attempt ({sub.job.log.split("\n").length} lines; recorded before per-attempt consoles were kept)</summary>
+                            <pre className="mt-1 max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-brand bg-grey-900 p-3 text-[0.6875rem] leading-relaxed text-white">{sub.job.log}</pre>
+                          </details>
+                        ) : null}
                         <ol className="divide-y divide-border text-sm">
                           {history.map((h, i) => {
                             const prev = history.slice(0, i).reverse().find((p) => p.weightedError !== null)?.weightedError ?? null;
@@ -276,6 +282,12 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                                   <span className="font-heading font-medium text-ink">{KIND_LABEL[h.kind as RevisionKind] ?? h.kind}</span>
                                   <span className="text-grey-600"> · {h.evaluatorVersion.split("/")[0]}</span>
                                   {h.note ? <span className="block text-xs text-grey-600">{h.note}</span> : null}
+                                  {isAdmin && h.log ? (
+                                    <details className="mt-1">
+                                      <summary className="cursor-pointer text-xs font-medium text-maroon">Evaluator console ({h.log.split("\n").filter(Boolean).length} lines)</summary>
+                                      <pre className="mt-1 max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-brand bg-grey-900 p-3 text-[0.6875rem] leading-relaxed text-white">{h.log}</pre>
+                                    </details>
+                                  ) : null}
                                 </span>
                                 <span className="tabular sm:text-right">
                                   {h.weightedError === null ? <span className="text-danger">failed</span> : <><span className="font-heading font-semibold text-ink">{fmtPct(h.weightedError)} %</span>{delta !== null && Math.abs(delta) > 0.0005 ? <span className={`ml-2 text-xs ${delta < 0 ? "text-forest" : "text-danger"}`}>{delta < 0 ? "" : "+"}{fmtPct(delta)}</span> : null}</>}

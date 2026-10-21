@@ -145,6 +145,9 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     // by another worker while it is still making progress.
     await db.evaluationJob.update({ where: { id: jobId }, data: { log: cur.log + stamped, lockedAt: new Date() } }).catch(() => {});
   };
+  // the console of this attempt, attached to its score-history row so it survives the job log being
+  // reset by a resubmission or re-run (administrators read it on the History tab); tail-capped
+  const jobLog = async () => (await db.evaluationJob.findUnique({ where: { id: jobId }, select: { log: true } }).catch(() => null))?.log?.slice(-200_000) ?? null;
   const cancelPoll = setInterval(async () => {
     const j = await db.evaluationJob.findUnique({ where: { id: jobId }, select: { cancelRequestedAt: true } }).catch(() => undefined);
     if ((j === null || j?.cancelRequestedAt) && !abort.signal.aborted) abort.abort();
@@ -185,7 +188,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     ]);
     await log(`completed: weighted error ${out.weightedError.toFixed(3)} %`);
     trackEvaluationOutcome(sub.modelType, "succeeded");
-    await recordRevision({ submissionId: sub.id, kind: sub.version > 1 || job.attempts > 1 ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `v${sub.version} · attempt ${job.attempts}`, by: workerId() });
+    await recordRevision({ submissionId: sub.id, log: await jobLog(), kind: sub.version > 1 || job.attempts > 1 ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `v${sub.version} · attempt ${job.attempts}`, by: workerId() });
     // packages are deleted immediately after evaluation, unless the authors chose to share the model files
     if (sub.fileKey && !sub.shareFiles) await storage.remove(sub.fileKey);
     else if (sub.fileKey) await log("package kept: the authors share the model files (downloadable from the submission page)");
@@ -219,7 +222,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
         process.stdout.write(`[${sub.seq}] v${sub.version} cancelled by the submitter; evaluator stopped, previous score kept\n`);
         await db.submission.update({ where: { id: sub.id }, data: { status: "COMPLETED", version: sub.version - 1, completedAt: new Date() } }).catch(() => {});
         await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, cancelRequestedAt: null } }).catch(() => {});
-        await recordRevision({ submissionId: sub.id, kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} evaluation cancelled; v${sub.version - 1} score kept`, by: workerId() }).catch(() => {});
+        await recordRevision({ submissionId: sub.id, log: await jobLog(), kind: "cancelled", evaluatorVersion: "-", note: `v${sub.version} evaluation cancelled; v${sub.version - 1} score kept`, by: workerId() }).catch(() => {});
         return { submissionId: sub.id, status: "CANCELLED" };
       }
       process.stdout.write(`[${sub.seq}] cancelled by the submitter; evaluator stopped, submission removed\n`);
@@ -236,7 +239,7 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     }
     await db.submission.update({ where: { id: sub.id }, data: { status: "FAILED", failureMessage: message, completedAt: new Date() } });
     trackEvaluationOutcome(sub.modelType, "failed");
-    await recordRevision({ submissionId: sub.id, kind: "failure", evaluatorVersion: evaluator.name, note: `attempt ${job.attempts}: ${message}`, by: workerId() });
+    await recordRevision({ submissionId: sub.id, log: await jobLog(), kind: "failure", evaluatorVersion: evaluator.name, note: `attempt ${job.attempts}: ${message}`, by: workerId() });
     await db.evaluationJob.update({ where: { id: jobId }, data: { lockedAt: null, lockedBy: null, attempts: MAX_ATTEMPTS } });
     // A tripped security guard (e.g. a forged result rejected by the integrity check): alert admins
     // with metadata only — the package is already deleted and is never retained or quoted.

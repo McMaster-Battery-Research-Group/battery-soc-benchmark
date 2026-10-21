@@ -192,6 +192,10 @@ model ScoreRevision {
   metrics          Json? // the 18 per-test values at that time
   note             String? // reason / failure message
   by               String? // worker id, script, or admin user id
+  /// The evaluator console of this attempt (worker lines + the model's own stdout/stderr), kept per
+  /// attempt so a failure can be debugged long after the job log was reset by a resubmission.
+  /// Shown to administrators only.
+  log              String?
 
   @@index([submissionId, createdAt])
 }

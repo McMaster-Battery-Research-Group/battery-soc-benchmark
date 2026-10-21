@@ -253,7 +253,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
       <section className="space-y-5 p-6 md:p-8">
         <StepHeader n={2} icon={Info} title="About the model" sub="What appears on the leaderboard and the results page." />
         <div className="grid gap-5 sm:grid-cols-[1fr_220px]">
-          <Field label="Model name" name="modelName" required maxLength={50} placeholder="e.g. LSTM-64 with OCV warm-start" value={modelName} error={errors.modelName} onChange={(e) => { setModelName(e.currentTarget.value); clearErr("modelName"); }} hint={<span className="tabular">{modelName.length}/50. Name it after the method.</span>} />
+          <Field label="Model name" name="modelName" required maxLength={50} placeholder="e.g. LSTM-64 with OCV warm-start" value={modelName} error={errors.modelName} onChange={(e) => { setModelName(e.currentTarget.value); clearErr("modelName"); }} hint={<span className="tabular">{modelName.length}/50. Name it after the method, never after yourself: author names are not accepted here.</span>} />
           <div>
             <Label htmlFor="modelType" required>Model type</Label>
             <NativeSelect id="modelType" name="modelType" value={modelType} onChange={(e) => { setModelType(e.target.value); clearErr("modelType"); }} required aria-invalid={!!errors.modelType}>

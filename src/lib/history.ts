@@ -24,6 +24,8 @@ export interface RevisionInput {
   note?: string | null;
   /** who/what triggered it: worker id, "scripts/rescore.ts", admin user id */
   by?: string | null;
+  /** the evaluator console of this attempt (administrators only on the page) */
+  log?: string | null;
 }
 
 export async function recordRevision(input: RevisionInput) {
@@ -39,6 +41,7 @@ export async function recordRevision(input: RevisionInput) {
       metrics,
       note: input.note ?? null,
       by: input.by ?? null,
+      log: input.log ?? null,
     },
   });
 }

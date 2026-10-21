@@ -131,6 +131,7 @@ export function nameInDescription(description: string, names: string[]): string 
   return null;
 }
 export const NAME_IN_DESCRIPTION_MESSAGE = (found: string) => `Describe the model, not its author: "${found}" is an author's name and the authors are already listed next to the description. Say what the model does and how it was built instead.`;
+export const NAME_IN_MODEL_NAME_MESSAGE = (found: string) => `Name the model after the method, not after its author: "${found}" is an author's name and the authors are shown next to it already (e.g. "EKF with 2-RC model", "LSTM-64").`;
 
 /** Attachments to a model description: a diagram and a write-up (tracker 2026-10-14 #1). */
 export const FIGURE_MAX_BYTES = 3 * 1024 * 1024;

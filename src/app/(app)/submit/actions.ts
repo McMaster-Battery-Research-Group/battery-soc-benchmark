@@ -13,7 +13,7 @@ import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage, runtimeOf } from "@/lib/package-check";
 import { contestPhase, runtimeAllowed, RUNTIME_LABEL } from "@/lib/contest";
 import { parseAvatarDataUrl, type OwnerDisplay } from "@/lib/authors";
-import { submissionMetaSchema, zodErrors, nameInDescription, NAME_IN_DESCRIPTION_MESSAGE, sniffAttachment, FIGURE_MAX_BYTES, DOC_MAX_BYTES, type FieldErrors } from "@/lib/validation";
+import { submissionMetaSchema, zodErrors, nameInDescription, NAME_IN_DESCRIPTION_MESSAGE, NAME_IN_MODEL_NAME_MESSAGE, sniffAttachment, FIGURE_MAX_BYTES, DOC_MAX_BYTES, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail, submissionDeletedEmail } from "@/lib/mail";
 import { recordRevision } from "@/lib/history";
 import { randomBytes } from "crypto";
@@ -55,7 +55,10 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   // the description is about the model, never its author (tracker 2026-10-14 #19); co-authors are checked once resolved below
   const ownName = (await db.user.findUnique({ where: { id: session.user.id }, select: { name: true } }))?.name ?? session.user.name ?? "";
   {
-    const found = nameInDescription(parsed.data.description, [ownName, String(fd.get("behalfName") ?? "")]);
+    const names = [ownName, String(fd.get("behalfName") ?? "")];
+    const inName = nameInDescription(parsed.data.modelName, names);
+    if (inName) return { errors: { modelName: NAME_IN_MODEL_NAME_MESSAGE(inName) }, values };
+    const found = nameInDescription(parsed.data.description, names);
     if (found) return { errors: { description: NAME_IN_DESCRIPTION_MESSAGE(found) }, values };
   }
 
@@ -130,10 +133,12 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
   }
   const ownerDisplay = onBehalf ? (fd.get("showMe") === "on" ? "coauthor" : "hidden") : null;
   {
-    const found = nameInDescription(parsed.data.description, [...collaborators.map((c) => c.name), behalfAccount?.name ?? ""]);
-    if (found) {
+    const names = [...collaborators.map((c) => c.name), behalfAccount?.name ?? ""];
+    const inName = nameInDescription(parsed.data.modelName, names);
+    const found = nameInDescription(parsed.data.description, names);
+    if (inName || found) {
       if (preUploadedKey) await storage.remove(preUploadedKey);
-      return { errors: { description: NAME_IN_DESCRIPTION_MESSAGE(found) }, values };
+      return { errors: inName ? { modelName: NAME_IN_MODEL_NAME_MESSAGE(inName) } : { description: NAME_IN_DESCRIPTION_MESSAGE(found!) }, values };
     }
   }
 
@@ -334,10 +339,12 @@ export async function updateSubmissionDetailsAction(id: string, input: { modelNa
   if (session.user.role !== "ADMIN") return { ok: false, errors: { form: "Only administrators can change a submission's details. Use the contact form if something needs correcting." } };
   const parsed = submissionMetaSchema.pick({ modelName: true, description: true, paperUrl: true, codeUrl: true, modelType: true }).safeParse({ ...input, paperUrl: input.paperUrl ?? "", codeUrl: input.codeUrl ?? "" });
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
-  if (parsed.data.description !== sub.description) {
+  if (parsed.data.description !== sub.description || parsed.data.modelName !== sub.modelName) {
     const people = await db.submission.findUnique({ where: { id }, select: { user: { select: { name: true } }, creditName: true, collaborators: { select: { name: true, user: { select: { name: true } } } } } });
     const names = [people?.user.name ?? "", people?.creditName ?? "", ...(people?.collaborators.map((c) => c.user?.name ?? c.name ?? "") ?? [])];
-    const found = nameInDescription(parsed.data.description, names);
+    const inName = parsed.data.modelName !== sub.modelName ? nameInDescription(parsed.data.modelName, names) : null;
+    if (inName) return { ok: false, errors: { modelName: NAME_IN_MODEL_NAME_MESSAGE(inName) } };
+    const found = parsed.data.description !== sub.description ? nameInDescription(parsed.data.description, names) : null;
     if (found) return { ok: false, errors: { description: NAME_IN_DESCRIPTION_MESSAGE(found) } };
   }
   const contest = sub.contestId ? await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, startsAt: true, endsAt: true } }) : null;
