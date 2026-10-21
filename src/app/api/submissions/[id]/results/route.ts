@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canViewSubmission, getPublicAuthors } from "@/lib/queries";
 import { TEST_CASES } from "@/lib/test-cases";
+import { normalizeTraces } from "@/lib/traces";
+import type { TimeSeriesTrace } from "@/evaluator/types";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     leaderboard: { weightedError: r.weightedError, complexity: r.complexity, complexityUncertainty: r.complexityUncertainty, maxError: r.maxError },
     testCases: TEST_CASES.map((t) => ({ test: t.test, key: t.key, label: t.label, weight: weights[t.key] ?? t.weight, rmse: r[t.key as keyof typeof r] })),
     perCycle: r.perCycle,
-    timeSeries: r.timeSeries,
+    timeSeries: normalizeTraces(r.timeSeries as unknown as TimeSeriesTrace[]), // older results stored "Wrong initial SOC" labels (tracker #18)
     evaluatorVersion: r.evaluatorVersion,
     citation: "P. J. Kollmeyer, M. Naguib, F. Khanum, A. Emadi, ITEC 2022, doi:10.1109/ITEC53557.2022.9813996",
   };
