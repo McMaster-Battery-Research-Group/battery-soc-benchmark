@@ -184,21 +184,24 @@ export function LeaderboardTable({
           </div>
         ) : (
           <>
-            {/* Desktop table; the scrollbar above it mirrors the one below (tracker #16) */}
+            {/* Desktop table. Sideways scrolling is done by the bar ABOVE the header (tracker #16); the box itself
+                only scrolls vertically, so there is no second bar at the bottom. The table is sized to its content
+                (never narrower than the box) so the last column is never clipped. */}
             <TopScrollbar target={scrollRef} />
-            <div ref={scrollRef} className="hidden max-h-[72vh] overflow-auto md:block">
-              <table className="w-full border-separate border-spacing-0 text-sm">
+            <div ref={scrollRef} className="hidden max-h-[72vh] overflow-x-hidden overflow-y-auto md:block">
+              <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-10 bg-grey-100">
                   {table.getHeaderGroups().map((hg) => (
                     <tr key={hg.id}>
-                      {hg.headers.map((h) => {
+                      {hg.headers.map((h, i, all) => {
                         const meta = (h.column.columnDef.meta ?? {}) as { align?: "right"; tooltip?: string };
+                        const last = i === all.length - 1;
                         const sorted = h.column.getIsSorted();
                         return (
                           <th
                             key={h.id}
                             // opt 'description' out of uppercase style
-                            className={cn("h-11 whitespace-nowrap border-b border-border px-3 font-heading text-xs font-semibold uppercase tracking-wide text-grey-800", meta.align === "right" ? "text-right" : "text-left", h.column.id === "modelName" && "sticky left-0 z-20 bg-grey-100", h.column.id === "description" && "normal-case")}
+                            className={cn("h-11 whitespace-nowrap border-b border-border px-3 font-heading text-xs font-semibold uppercase tracking-wide text-grey-800", meta.align === "right" ? "text-right" : "text-left", h.column.id === "modelName" && "sticky left-0 z-20 bg-grey-100", h.column.id === "description" && "normal-case", last && "pr-6")}
                             aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
                           >
                             {h.column.getCanSort() ? (
@@ -233,10 +236,10 @@ export function LeaderboardTable({
                       )}
                       title={row.original.isPrivate ? "Private; visible only to you, not on the public leaderboard" : undefined}
                     >
-                      {row.getVisibleCells().map((cell) => {
+                      {row.getVisibleCells().map((cell, i, all) => {
                         const meta = (cell.column.columnDef.meta ?? {}) as { align?: "right" };
                         return (
-                          <td key={cell.id} className={cn("border-b border-border px-3 py-3 align-middle", meta.align === "right" && "text-right", cell.column.id === "rank" && "pl-4", cell.column.id === "rank" && row.original.isPrivate && "border-l-4 border-l-gold-400", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : row.original.ownerId === viewerId ? "bg-[#fffbf5]" : "bg-white"))}>
+                          <td key={cell.id} className={cn("border-b border-border px-3 py-3 align-middle", meta.align === "right" && "text-right", i === all.length - 1 && "pr-6", cell.column.id === "rank" && "pl-4", cell.column.id === "rank" && row.original.isPrivate && "border-l-4 border-l-gold-400", cell.column.id === "modelName" && "sticky left-0 z-[1] pr-4", cell.column.id === "modelName" && (row.original.isPrivate ? "bg-[#fdf6e3]" : row.original.ownerId === viewerId ? "bg-[#fffbf5]" : "bg-white"))}>
                             {cell.column.id === "rank" ? <RankBadge rank={rankById.get(row.original.id)!.rank} ghost={rankById.get(row.original.id)!.ghost} unranked={rankById.get(row.original.id)!.unranked} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         );
@@ -335,9 +338,11 @@ function ColumnPicker({ visibility, onChange }: { visibility: VisibilityState; o
 }
 
 /**
- * A horizontal scrollbar ABOVE the table that mirrors the real one at the bottom of the scroll box,
- * so the hidden columns on the right can be reached without scrolling down first (tracker #16).
- * Shown only while the table is wider than its box; width follows the table as columns are toggled.
+ * The table's horizontal scrollbar, placed ABOVE the header so the columns on the right can be
+ * reached without scrolling down first (tracker #16). The box below scrolls vertically only; this bar
+ * drives its scrollLeft, and sideways wheel / trackpad gestures over the table are forwarded here.
+ * A native scrollbar, so it looks like the vertical one. Shown only while the table is wider than
+ * its box; width follows the table as columns are toggled.
  */
 function TopScrollbar({ target }: { target: React.RefObject<HTMLDivElement | null> }) {
   const bar = React.useRef<HTMLDivElement>(null);
@@ -356,15 +361,23 @@ function TopScrollbar({ target }: { target: React.RefObject<HTMLDivElement | nul
     ro.observe(el);
     const table = el.querySelector("table");
     if (table) ro.observe(table);
-    let lock = false;
-    const fromTable = () => { if (lock) return; lock = true; b.scrollLeft = el.scrollLeft; lock = false; };
-    const fromBar = () => { if (lock) return; lock = true; el.scrollLeft = b.scrollLeft; lock = false; };
-    el.addEventListener("scroll", fromTable, { passive: true });
+    const fromBar = () => { el.scrollLeft = b.scrollLeft; };
+    const fromTable = () => { if (Math.abs(b.scrollLeft - el.scrollLeft) > 1) b.scrollLeft = el.scrollLeft; }; // e.g. keyboard focus moving a cell into view
+    const wheel = (e: WheelEvent) => {
+      if (!e.deltaX || e.shiftKey) {
+        // shift + vertical wheel is the sideways gesture on a mouse
+        if (!e.shiftKey || !e.deltaY) return;
+        b.scrollLeft += e.deltaY;
+      } else b.scrollLeft += e.deltaX;
+      e.preventDefault();
+    };
     b.addEventListener("scroll", fromBar, { passive: true });
-    return () => { ro.disconnect(); el.removeEventListener("scroll", fromTable); b.removeEventListener("scroll", fromBar); };
+    el.addEventListener("scroll", fromTable, { passive: true });
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => { ro.disconnect(); b.removeEventListener("scroll", fromBar); el.removeEventListener("scroll", fromTable); el.removeEventListener("wheel", wheel); };
   }, [target]);
   return (
-    <div ref={bar} className={cn("hidden overflow-x-auto overflow-y-hidden border-b border-border bg-grey-100/60 md:block", visible ? "" : "md:hidden")} aria-hidden style={{ scrollbarWidth: "thin" }} title="Scroll sideways to see more columns">
+    <div ref={bar} className={cn("hidden overflow-x-auto overflow-y-hidden md:block", visible ? "" : "md:hidden")} aria-label="Scroll sideways to see more columns" title="Scroll sideways to see more columns">
       <div style={{ width, height: 1 }} />
     </div>
   );
