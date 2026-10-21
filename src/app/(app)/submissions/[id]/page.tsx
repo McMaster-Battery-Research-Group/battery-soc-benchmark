@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Lock, ArrowLeft, Trophy, Download, FileText, Settings2, ChevronDown, Table2, Crosshair, BarChart3, ListOrdered, History, Info, ExternalLink, FolderDown } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { getSubmissionDetail, canViewSubmission, publicRankOf } from "@/lib/queries";
+import { getSubmissionDetail, canViewSubmission, publicRankOf, leaderboardMedians } from "@/lib/queries";
 import { getActiveWeights } from "@/lib/scoring-config";
 import { TEST_CASES, MODEL_TYPE_LABELS, type MetricKey } from "@/lib/test-cases";
 import { fmtPct, fmtDateTime, fmtBytes } from "@/lib/utils";
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function SubmissionPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ new?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
-  const [session, sub, history, rank, weights] = await Promise.all([auth(), getSubmissionDetail(id), getHistory(id), publicRankOf(id), getActiveWeights()]);
+  const [session, sub, history, rank, weights, medians] = await Promise.all([auth(), getSubmissionDetail(id), getHistory(id), publicRankOf(id), getActiveWeights(), leaderboardMedians()]);
   if (!sub || !canViewSubmission(sub, session?.user)) notFound();
   const isOwner = session?.user?.id === sub.userId;
   const isAdmin = session?.user?.role === "ADMIN";
@@ -215,7 +215,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
       {r && values ? (
         <div className="mt-6 space-y-6">
-          <ResultSummary values={values} weightedError={r.weightedError} rank={rank} legacy={legacy} />
+          <ResultSummary values={values} weightedError={r.weightedError} maxError={r.maxError} rank={rank} medians={medians} legacy={legacy} isPrivate={sub.isPrivate} />
           <ResultInsights values={values} weights={weights} />
           <ResultTabs
             tabs={[

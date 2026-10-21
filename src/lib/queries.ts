@@ -168,6 +168,24 @@ export async function getOpenContest() {
   return db.contest.findFirst({ where: { status: { in: ["OPEN", "CLOSED"] }, endsAt: { gte: new Date() } }, orderBy: { startsAt: "asc" } });
 }
 
+export type LeaderboardMedians = { n: number; weightedError: number; allCells: number; blindedCell: number; maxError: number };
+
+/** Median of the headline numbers over every ranked model (current benchmark, public, visible, completed): the yardstick on a results page's summary cards. */
+export async function leaderboardMedians(): Promise<LeaderboardMedians | null> {
+  const rows = await db.evaluationResult.findMany({
+    where: { evaluatorVersion: { startsWith: BENCHMARK_VERSION }, submission: { isPrivate: false, isHidden: false, status: "COMPLETED" } },
+    select: { weightedError: true, allCells: true, blindedCell: true, maxError: true },
+  });
+  if (!rows.length) return null;
+  const median = (xs: (number | null)[]) => {
+    const s = xs.filter((x): x is number => typeof x === "number" && Number.isFinite(x)).sort((a, b) => a - b);
+    if (!s.length) return NaN;
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  return { n: rows.length, weightedError: median(rows.map((r) => r.weightedError)), allCells: median(rows.map((r) => r.allCells)), blindedCell: median(rows.map((r) => r.blindedCell)), maxError: median(rows.map((r) => r.maxError)) };
+}
+
 /** 1-based public rank (lower weighted error is better) among current-benchmark, public, visible, completed submissions; null when the submission itself is not ranked. */
 export async function publicRankOf(submissionId: string): Promise<number | null> {
   const me = await db.submission.findUnique({ where: { id: submissionId }, select: { isPrivate: true, isHidden: true, status: true, submittedAt: true, result: { select: { weightedError: true, allCells: true, evaluatorVersion: true } } } });
