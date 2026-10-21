@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
-import { Lock, EyeOff } from "lucide-react";
+import { Lock, EyeOff, FolderDown } from "lucide-react";
 import type { LeaderboardRow } from "@/lib/queries";
 import { TEST_CASES, MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { fmtPct, fmtDate, fmtBytes } from "@/lib/utils";
@@ -50,6 +50,11 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
             ) : null}
             {row.original.isHidden ? (
               <Tooltip content="Hidden by an administrator"><EyeOff className="size-3 text-danger" /></Tooltip>
+            ) : null}
+            {row.original.shareFiles ? (
+              <Tooltip content="The authors shared the model files: download the package from the submission page.">
+                <a href={`/api/submissions/${row.original.id}/package`} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-grey-100 px-1.5 py-0.5 font-heading text-[0.625rem] font-semibold uppercase tracking-wide text-grey-800 hover:border-maroon hover:text-maroon" aria-label="Download the shared model files"><FolderDown className="size-3" /> files</a>
+              </Tooltip>
             ) : null}
             {!isCurrentBenchmark(row.original.evaluatorVersion) ? (
               <Tooltip content={`Scored by ${benchmarkOf(row.original.evaluatorVersion)}; the current benchmark is ${BENCHMARK_VERSION}. Kept for reference but NOT ranked; submit a new version to be scored on the current benchmark and ranked again.`}>
@@ -152,10 +157,17 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
     }),
     col.accessor("fileSize", {
       id: "fileSize",
-      header: "Size",
-      meta: { ...NUMERIC_META, tooltip: "Size of the uploaded package (.zip). Code, weights, and data files." },
+      header: "Model size",
+      meta: { ...NUMERIC_META, tooltip: "Size of the uploaded package (.zip): code, weights and data files. A proxy for the memory the model's parameters need." },
       // carried-over (legacy) entries have no package, so no size
       cell: (c) => <span className="tabular">{c.getValue() === null ? "—" : fmtBytes(c.getValue()!)}</span>,
+    }),
+    col.accessor("peakMemMb", {
+      id: "peakMemMb",
+      header: "Peak RAM",
+      meta: { ...NUMERIC_META, tooltip: "Peak memory of the model process while it was evaluated (MB), sampled in the evaluation sandbox. Includes the MATLAB or Python runtime itself. Dash: not measured (results from before this was recorded)." },
+      cell: (c) => <span className="tabular">{c.getValue() === null ? "—" : `${Math.round(c.getValue()!)} MB`}</span>,
+      sortUndefined: "last",
     }),
     col.accessor("description", {
       id: "description",
@@ -172,6 +184,5 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
 export const DEFAULT_HIDDEN = Object.fromEntries([
   ...TEST_CASES.filter((t) => !t.defaultVisible).map((t) => [t.key, false]),
   ["maxError", false],
-  ["fileSize", false],
   ["description", false],
 ]) as Record<string, boolean>;

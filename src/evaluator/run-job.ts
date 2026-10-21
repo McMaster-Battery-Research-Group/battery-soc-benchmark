@@ -186,7 +186,9 @@ export async function runJob(jobId: string): Promise<{ submissionId: string; sta
     await log(`completed: weighted error ${out.weightedError.toFixed(3)} %`);
     trackEvaluationOutcome(sub.modelType, "succeeded");
     await recordRevision({ submissionId: sub.id, kind: sub.version > 1 || job.attempts > 1 ? "reevaluation" : "evaluation", evaluatorVersion, weightedError: out.weightedError, complexity: out.complexity, maxError: out.maxError, metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, (out as unknown as Record<MetricKey, number>)[k]])), note: `v${sub.version} · attempt ${job.attempts}`, by: workerId() });
-    if (sub.fileKey) await storage.remove(sub.fileKey); // packages are deleted immediately after evaluation
+    // packages are deleted immediately after evaluation, unless the authors chose to share the model files
+    if (sub.fileKey && !sub.shareFiles) await storage.remove(sub.fileKey);
+    else if (sub.fileKey) await log("package kept: the authors share the model files (downloadable from the submission page)");
     let report: Buffer | undefined;
     try {
       const fresh = await db.submission.findUnique({ where: { id: sub.id }, include: { result: true, collaborators: { where: { acceptedAt: { not: null } }, select: { name: true, affiliation: true, user: { select: { name: true, affiliation: true } } }, orderBy: { addedAt: "asc" } } } });

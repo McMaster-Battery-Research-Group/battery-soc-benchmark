@@ -24,9 +24,12 @@ import { randomBytes } from "crypto";
  * `submissions/1724600000000-ab12cd.zip` for Supabase. Remote keys are the web host's local keys.
  * `materialize(key)` always returns a readable local path for the evaluator.
  */
+/** zip = package, mat = full traces, py = (legacy) single-file model; png/jpg/webp/pdf = description attachments */
+export type StoredExt = "zip" | "mat" | "py" | "png" | "jpg" | "webp" | "pdf";
+
 export interface ModelStorage {
   readonly mode: "local" | "supabase" | "remote";
-  put(bytes: Buffer, ext: "zip" | "mat" | "py"): Promise<string>;
+  put(bytes: Buffer, ext: StoredExt): Promise<string>;
   getBytes(key: string): Promise<Buffer>;
   materialize(key: string): Promise<string>;
   remove(key: string): Promise<void>;
@@ -42,7 +45,7 @@ class LocalStorage implements ModelStorage {
   private p(key: string) {
     return path.join(this.dir, path.basename(key));
   }
-  async put(bytes: Buffer, ext: "zip" | "mat" | "py") {
+  async put(bytes: Buffer, ext: StoredExt) {
     await mkdir(this.dir, { recursive: true });
     const key = newName(ext);
     await writeFile(this.p(key), bytes);
@@ -88,7 +91,7 @@ export class SupabaseStorage implements ModelStorage {
   }
 
   /** Server-side upload (examples, tests). */
-  async put(bytes: Buffer, ext: "zip" | "mat" | "py") {
+  async put(bytes: Buffer, ext: StoredExt) {
     const key = `submissions/${newName(ext)}`;
     const res = await fetch(this.obj(key), { method: "POST", headers: this.headers({ "Content-Type": "application/octet-stream", "x-upsert": "false" }), body: new Uint8Array(bytes) });
     if (!res.ok) throw new Error(`Supabase upload failed (${res.status}): ${await res.text()}`);
@@ -152,7 +155,7 @@ class RemoteStorage implements ModelStorage {
   private headers(extra: Record<string, string> = {}) {
     return { Authorization: `Bearer ${process.env.STORAGE_REMOTE_TOKEN}`, ...extra };
   }
-  async put(bytes: Buffer, ext: "zip" | "mat" | "py") {
+  async put(bytes: Buffer, ext: StoredExt) {
     const res = await fetch(this.url(`ext=${ext}`), { method: "POST", headers: this.headers({ "Content-Type": "application/octet-stream" }), body: new Uint8Array(bytes) });
     if (!res.ok) throw new Error(`Remote upload failed (${res.status}): ${await res.text()}`);
     return ((await res.json()) as { key: string }).key;

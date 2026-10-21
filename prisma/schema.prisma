@@ -125,6 +125,17 @@ model Submission {
   fileName        String?
   fileType        FileType?
   fileSize        Int?
+  /// The author chose to share the model files: the package is KEPT after evaluation and anyone who
+  /// can see the submission can download it from its page. Off (default): deleted right after the run.
+  shareFiles      Boolean         @default(false)
+
+  /// How the model was built, beyond the text description (tracker 2026-10-14 #1): a link to the
+  /// paper or code, a diagram (PNG/JPEG/WebP) and a longer write-up (PDF). Files live in model storage.
+  paperUrl   String?
+  figureKey  String?
+  figureName String?
+  docKey     String?
+  docName    String?
 
   /// Administrator-set display credit. When present it REPLACES the owner's name and affiliation
   /// everywhere the submission is shown, while `userId` still governs permissions, e-mail and

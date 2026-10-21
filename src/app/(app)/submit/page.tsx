@@ -26,7 +26,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader eyebrow="Blinded evaluation" title="Submit a model" description="Upload your package, name the model, and it is queued for evaluation on the blinded dataset. The package is deleted as soon as the run finishes." />
+      <PageHeader eyebrow="Blinded evaluation" title="Submit a model" description="Upload your package, describe the model, and it is queued for evaluation on the blinded dataset. The package is deleted as soon as the run finishes unless you choose to share your model files." />
       <div className="container-site grid gap-8 py-10 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <SubmitForm contests={contests.map((c) => ({ id: c.id, title: c.title, remaining: c.maxSubmissionsPerUser - c._count.submissions }))} preselectContest={sp.contest} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} directUpload={(process.env.STORAGE ?? "local") === "supabase"} isAdmin={session?.user?.role === "ADMIN"} />
@@ -46,7 +46,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             <ol className="mt-3 space-y-3 text-sm text-grey-800">
               <li className="flex gap-3"><ListChecks className="mt-0.5 size-4 shrink-0 text-maroon" /><span>The layout and file names are checked the moment you submit.</span></li>
               <li className="flex gap-3"><Hourglass className="mt-0.5 size-4 shrink-0 text-maroon" /><span>The model runs on the blinded data, in order of arrival, within a {hours}-hour limit. The reference models finish in minutes.</span></li>
-              <li className="flex gap-3"><Mail className="mt-0.5 size-4 shrink-0 text-maroon" /><span>You get the results and PDF report by e-mail. Your source code is never shown to anyone; use <code className="rounded bg-grey-100 px-1">Model.p</code> to protect it further.</span></li>
+              <li className="flex gap-3"><Mail className="mt-0.5 size-4 shrink-0 text-maroon" /><span>You get the results and PDF report by e-mail. Your source code is never shown to anyone unless you tick &ldquo;Share the model files&rdquo;; use <code className="rounded bg-grey-100 px-1">Model.p</code> to protect it further.</span></li>
             </ol>
           </div>
           <EvaluatorStatusLine className="rounded-brand border border-border bg-white px-4 py-3 text-sm" />

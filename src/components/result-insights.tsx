@@ -36,10 +36,10 @@ function buildInsights(v: Record<MetricKey, number>, weights: Partial<Record<Met
   // charging
   if (v.charging / Math.max(v.allCells, 0.01) > 2.5) out.push({ icon: BatteryCharging, tone: "warn", title: "Charging is much worse than driving", text: `${vs(v.charging, v.allCells)} overall: typical of estimators tuned only on discharge.` });
 
-  // robustness: wrong initial SOC
+  // robustness: incorrect initial SOC
   const r10 = v.initialSocError / Math.max(v.allCells, 0.01);
-  if (r10 > 3) out.push({ icon: TrendingDown, tone: "warn", title: "Does not recover from a wrong start", text: `${fmtPct(v.initialSocError)} % on test 10. Pure current integration cannot correct a bad initial SOC; voltage feedback fixes this.` });
-  else if (r10 < 1.8) out.push({ icon: TrendingUp, tone: "good", title: "Recovers from a wrong start", text: `${fmtPct(v.initialSocError)} % on test 10: the estimator pulls itself back using voltage.` });
+  if (r10 > 3) out.push({ icon: TrendingDown, tone: "warn", title: "Does not recover from an incorrect start", text: `${fmtPct(v.initialSocError)} % on test 10. Pure current integration cannot correct a bad initial SOC; voltage feedback fixes this.` });
+  else if (r10 < 1.8) out.push({ icon: TrendingUp, tone: "good", title: "Recovers from an incorrect start", text: `${fmtPct(v.initialSocError)} % on test 10: the estimator pulls itself back using voltage.` });
 
   // robustness: sensor bias
   const r11 = v.currentSensorOffset / Math.max(v.allCells, 0.01);

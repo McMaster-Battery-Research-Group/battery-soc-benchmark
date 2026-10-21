@@ -15,7 +15,7 @@ const ORDER: MetricKey[] = ["allCells", "blindedCell", "nonBlindedCells", "charg
 export function TestCaseBars({
   series,
   title = "Error by test case",
-  description = "Average RMS error (% SOC) for each blinded test case. Lower is better.",
+  description = "Average RMS error (% SOC) for each blinded test case, labelled by what the case is (cell, charging, payload, cycle type, robustness). Lower is better. Hover a bar for the test number and definition.",
 }: {
   series: { name: string; values: Values }[];
   title?: string;
@@ -23,7 +23,7 @@ export function TestCaseBars({
 }) {
   const data = ORDER.map((key) => {
     const tc = TEST_CASES.find((t) => t.key === key)!;
-    const row: Record<string, string | number> = { key, label: tc.short, test: tc.test };
+    const row: Record<string, string | number> = { key, label: tc.chart, test: tc.test };
     series.forEach((s, i) => (row[`s${i}`] = s.values[key]));
     return row;
   });
@@ -35,17 +35,17 @@ export function TestCaseBars({
 
   return (
     <ChartFrame title={title} description={description} legend={multi ? series.map((s, i) => ({ label: s.name, color: SERIES[i] })) : undefined}>
-      <ResponsiveContainer width="100%" height={narrow ? data.length * (multi ? 18 * series.length + 14 : 30) + 40 : multi ? 340 : 300}>
+      <ResponsiveContainer width="100%" height={narrow ? data.length * (multi ? 18 * series.length + 14 : 30) + 40 : multi ? 360 : 320}>
         <BarChart data={data} layout={narrow ? "vertical" : "horizontal"} margin={narrow ? { top: 4, right: 36, left: 0, bottom: 0 } : { top: 18, right: 8, left: 0, bottom: 4 }} barCategoryGap={multi ? "22%" : "30%"} barGap={2}>
           <CartesianGrid {...gridProps} vertical={narrow} horizontal={!narrow} />
           {narrow ? (
             <>
               <XAxis type="number" {...axisProps} unit="%" domain={domain} tickCount={4} height={24} />
-              <YAxis type="category" dataKey="label" {...axisProps} tick={{ ...axisProps.tick, fontSize: 11 }} width={118} interval={0} />
+              <YAxis type="category" dataKey="label" {...axisProps} tick={{ ...axisProps.tick, fontSize: 11 }} width={132} interval={0} />
             </>
           ) : (
             <>
-              <XAxis dataKey="label" {...axisProps} interval={0} angle={-28} textAnchor="end" height={64} />
+              <XAxis dataKey="label" {...axisProps} interval={0} height={64} tick={<CaseTick />} />
               <YAxis {...axisProps} width={44} unit="%" domain={domain} />
             </>
           )}
@@ -68,5 +68,26 @@ export function TestCaseBars({
         </BarChart>
       </ResponsiveContainer>
     </ChartFrame>
+  );
+}
+
+/**
+ * Two-line category tick: the test number on top, then the case ("Payload 448 kg, HVAC on",
+ * "Incorrect initial SOC", …), so the axis reads without the legend or a tooltip (tracker 2026-10-14 #21).
+ * Long labels wrap on a comma; everything is slanted a little so twelve of them fit side by side.
+ */
+function CaseTick(props: { x?: number; y?: number; payload?: { value: string; index: number }; index?: number }) {
+  const { x = 0, y = 0, payload } = props;
+  const label = payload?.value ?? "";
+  const test = ORDER[payload?.index ?? props.index ?? 0] ? TEST_CASES.find((t) => t.key === ORDER[payload?.index ?? props.index ?? 0])?.test : undefined;
+  const [first, ...rest] = label.split(", ");
+  const lines = rest.length ? [first, rest.join(", ")] : [label];
+  return (
+    <g transform={`translate(${x},${y}) rotate(-24)`}>
+      <text textAnchor="end" fontFamily="Arial, sans-serif" fill={CHART.text}>
+        {test !== undefined ? <tspan x={0} dy={10} fontSize={9.5} fill={CHART.axis}>{`Test ${test}`}</tspan> : null}
+        {lines.map((l, i) => <tspan key={i} x={0} dy={11} fontSize={11} fill={CHART.textStrong}>{l}</tspan>)}
+      </text>
+    </g>
   );
 }

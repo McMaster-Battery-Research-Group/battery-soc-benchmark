@@ -7,26 +7,27 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input, Textarea, Label, NativeSelect, FieldError, Hint } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { MODEL_TYPES } from "@/lib/validation";
+import { MODEL_TYPES, DESCRIPTION_MIN, DESCRIPTION_MAX } from "@/lib/validation";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { cn, fmtBytes } from "@/lib/utils";
 import { uploadPackage } from "@/lib/upload-client";
 import { updateSubmissionDetailsAction, resubmitAction } from "../../submit/actions";
 
 /** Owner/admin: edit the descriptive fields. Score-relevant data never changes here. */
-export function EditDetailsDialog({ id, modelName, description, modelType, locked }: { id: string; modelName: string; description: string; modelType: string; locked: boolean }) {
+export function EditDetailsDialog({ id, modelName, description, paperUrl = "", modelType, locked }: { id: string; modelName: string; description: string; paperUrl?: string; modelType: string; locked: boolean }) {
   const router = useRouter();
   const { push } = useToast();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState(modelName);
   const [desc, setDesc] = React.useState(description);
+  const [paper, setPaper] = React.useState(paperUrl);
   const [type, setType] = React.useState(modelType);
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>({});
   const [pending, start] = React.useTransition();
 
   const save = () =>
     start(async () => {
-      const res = await updateSubmissionDetailsAction(id, { modelName: name, description: desc, modelType: type });
+      const res = await updateSubmissionDetailsAction(id, { modelName: name, description: desc, paperUrl: paper, modelType: type });
       if (!res.ok) return setErrors(res.errors);
       setErrors({});
       setOpen(false);
@@ -47,9 +48,14 @@ export function EditDetailsDialog({ id, modelName, description, modelType, locke
           </div>
           <div>
             <Label htmlFor="ed-desc" required>Description</Label>
-            <Textarea id="ed-desc" rows={5} value={desc} maxLength={1000} onChange={(e) => setDesc(e.target.value)} aria-invalid={!!errors.description} />
-            <Hint>{desc.length}/1000</Hint>
+            <Textarea id="ed-desc" rows={7} value={desc} maxLength={DESCRIPTION_MAX} onChange={(e) => setDesc(e.target.value)} aria-invalid={!!errors.description} />
+            <Hint>{desc.length}/{DESCRIPTION_MAX} (at least {DESCRIPTION_MIN}; about the model, never the author)</Hint>
             <FieldError>{errors.description}</FieldError>
+          </div>
+          <div>
+            <Label htmlFor="ed-paper">Paper or code link</Label>
+            <Input id="ed-paper" type="url" value={paper} maxLength={300} placeholder="https://doi.org/… or https://github.com/…" onChange={(e) => setPaper(e.target.value)} aria-invalid={!!errors.paperUrl} />
+            <FieldError>{errors.paperUrl}</FieldError>
           </div>
           <div>
             <Label htmlFor="ed-type" required>Model type</Label>

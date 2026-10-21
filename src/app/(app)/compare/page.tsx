@@ -5,6 +5,7 @@ import { getLeaderboardRows } from "@/lib/queries";
 import { PageHeader } from "@/components/ui/misc";
 import { CompareClient } from "./compare-client";
 import type { TimeSeriesTrace } from "@/evaluator/types";
+import { normalizeTraces } from "@/lib/traces";
 
 export const metadata: Metadata = { title: "Compare models" };
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const traces = ids.length
     ? await db.evaluationResult.findMany({ where: { submissionId: { in: ids } }, select: { submissionId: true, timeSeries: true } })
     : [];
-  const tracesById = Object.fromEntries(traces.map((t) => [t.submissionId, t.timeSeries as unknown as TimeSeriesTrace[]]));
+  const tracesById = Object.fromEntries(traces.map((t) => [t.submissionId, normalizeTraces(t.timeSeries as unknown as TimeSeriesTrace[])]));
 
   return (
     <>

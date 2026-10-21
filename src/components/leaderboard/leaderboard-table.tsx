@@ -44,6 +44,7 @@ export function LeaderboardTable({
   help?: React.ReactNode;
 }) {
   const router = useRouter();
+  const scrollRef = React.useRef<HTMLDivElement>(null);
   const columns = React.useMemo(() => buildColumns(), []);
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "weightedError", desc: false }]);
   const [visibility, setVisibility] = React.useState<VisibilityState>(DEFAULT_HIDDEN);
@@ -183,8 +184,9 @@ export function LeaderboardTable({
           </div>
         ) : (
           <>
-            {/* Desktop table */}
-            <div className="hidden max-h-[72vh] overflow-auto md:block">
+            {/* Desktop table; the scrollbar above it mirrors the one below (tracker #16) */}
+            <TopScrollbar target={scrollRef} />
+            <div ref={scrollRef} className="hidden max-h-[72vh] overflow-auto md:block">
               <table className="w-full border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-10 bg-grey-100">
                   {table.getHeaderGroups().map((hg) => (
@@ -323,10 +325,47 @@ function ColumnPicker({ visibility, onChange }: { visibility: VisibilityState; o
           <label className="flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("maxError")} onCheckedChange={(v) => set(["maxError"], !!v)} /> Max error</label>
           <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("complexity")} onCheckedChange={(v) => set(["complexity"], !!v)} /> Complexity</label>
           <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("submittedAt")} onCheckedChange={(v) => set(["submittedAt"], !!v)} /> Submitted date</label>
-          <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("fileSize")} onCheckedChange={(v) => set(["fileSize"], !!v)} /> Size</label>
+          <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("fileSize")} onCheckedChange={(v) => set(["fileSize"], !!v)} /> Model size</label>
+          <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("peakMemMb")} onCheckedChange={(v) => set(["peakMemMb"], !!v)} /> Peak RAM</label>
           <label className="mt-1.5 flex items-center gap-2 text-sm text-grey-900"><Checkbox checked={isOn("description")} onCheckedChange={(v) => set(["description"], !!v)} /> Description</label>
         </fieldset>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * A horizontal scrollbar ABOVE the table that mirrors the real one at the bottom of the scroll box,
+ * so the hidden columns on the right can be reached without scrolling down first (tracker #16).
+ * Shown only while the table is wider than its box; width follows the table as columns are toggled.
+ */
+function TopScrollbar({ target }: { target: React.RefObject<HTMLDivElement | null> }) {
+  const bar = React.useRef<HTMLDivElement>(null);
+  const [width, setWidth] = React.useState(0);
+  const [visible, setVisible] = React.useState(false);
+  React.useEffect(() => {
+    const el = target.current;
+    const b = bar.current;
+    if (!el || !b) return;
+    const measure = () => {
+      setWidth(el.scrollWidth);
+      setVisible(el.scrollWidth > el.clientWidth + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const table = el.querySelector("table");
+    if (table) ro.observe(table);
+    let lock = false;
+    const fromTable = () => { if (lock) return; lock = true; b.scrollLeft = el.scrollLeft; lock = false; };
+    const fromBar = () => { if (lock) return; lock = true; el.scrollLeft = b.scrollLeft; lock = false; };
+    el.addEventListener("scroll", fromTable, { passive: true });
+    b.addEventListener("scroll", fromBar, { passive: true });
+    return () => { ro.disconnect(); el.removeEventListener("scroll", fromTable); b.removeEventListener("scroll", fromBar); };
+  }, [target]);
+  return (
+    <div ref={bar} className={cn("hidden overflow-x-auto overflow-y-hidden border-b border-border bg-grey-100/60 md:block", visible ? "" : "md:hidden")} aria-hidden style={{ scrollbarWidth: "thin" }} title="Scroll sideways to see more columns">
+      <div style={{ width, height: 1 }} />
+    </div>
   );
 }

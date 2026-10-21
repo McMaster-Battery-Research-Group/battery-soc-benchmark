@@ -71,7 +71,7 @@ export default async function DocsPage() {
 
           <section id="test-cases">
             <H2 id="test-cases">The blinded test cases</H2>
-            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the evaluation runs: the 144 blinded drive cycles (36 per cell: six cycle types at six temperatures) plus the robustness runs (test 4 uses charging profiles, test 10 restarts three cycles from a wrong initial SOC of 90 / 60 / 30 %, and test 11 re-runs three cycles with a constant current-sensor offset of ±0.05, ±0.1, ±0.3 A): 195 runs in all. The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
+            <p className="mt-3">Each test case is an average of the per-cycle RMSE (in % SOC) over a subset of the evaluation runs: the 144 blinded drive cycles (36 per cell: six cycle types at six temperatures) plus the robustness runs (test 4 uses charging profiles, test 10 restarts three cycles from an incorrect initial SOC of 90 / 60 / 30 %, and test 11 re-runs three cycles with a constant current-sensor offset of ±0.05, ±0.1, ±0.3 A): 195 runs in all. The three headline groups are <strong>estimation accuracy</strong>, <strong>operating conditions</strong> and <strong>model robustness</strong>.</p>
             {groups.map((g) => (
               <div key={g} className="mt-6">
                 <h3 className="font-heading text-lg font-semibold">{GROUP_LABELS[g]}</h3>

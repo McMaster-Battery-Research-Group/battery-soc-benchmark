@@ -166,7 +166,7 @@ def main(argv=None) -> None:
         s, per_cell, detail = score(data, preds)
         cat, t_sample = complexity(preds, runtime, calibration)
         rows, traces = per_cycle_rows(per_cell)
-        traces += robustness_traces(data, preds)  # key robustness cases (wrong initial SOC, sensor offset)
+        traces += robustness_traces(data, preds)  # key robustness cases (incorrect initial SOC, sensor offset)
         result = {
             "evaluatorVersion": f"socbench-eval-{__version__}/{runtime}",
             "runtime": runtime,

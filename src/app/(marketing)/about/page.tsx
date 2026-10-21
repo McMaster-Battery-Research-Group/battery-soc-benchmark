@@ -37,6 +37,7 @@ export default function AboutPage() {
         <section>
           <SectionTitle>The lab</SectionTitle>
           <p>The benchmark is run by Dr. Phillip Kollmeyer&apos;s battery research group in the Department of Electrical and Computer Engineering at McMaster University (Hamilton, Ontario). The group works on battery modelling, state estimation and testing for electrified transportation. All data on this site was collected on an Arbin LBT cycler inside an Envirotronics SH16 thermal chamber.</p>
+          <p className="mt-3">More about the group, its facilities and publications: <a href="https://battery.mcmaster.ca/" target="_blank" rel="noreferrer" className="font-medium text-maroon underline">battery.mcmaster.ca</a> · <a href="https://www.eng.mcmaster.ca/ece/faculty/dr-phil-kollmeyer/" target="_blank" rel="noreferrer" className="font-medium text-maroon underline">Dr. Kollmeyer&apos;s faculty page</a>.</p>
         </section>
         <section id="people" className="scroll-mt-24">
           <SectionTitle>People</SectionTitle>

@@ -2,7 +2,7 @@ import { contestPhase } from "@/lib/contest";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Lock, ArrowLeft, Trophy, Download, FileText, Settings2, ChevronDown, Table2, Crosshair, BarChart3, ListOrdered, History, Info } from "lucide-react";
+import { Lock, ArrowLeft, Trophy, Download, FileText, Settings2, ChevronDown, Table2, Crosshair, BarChart3, ListOrdered, History, Info, ExternalLink, FolderDown } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getSubmissionDetail, canViewSubmission, publicRankOf } from "@/lib/queries";
 import { getActiveWeights } from "@/lib/scoring-config";
@@ -19,8 +19,9 @@ import { ResultInsights } from "@/components/result-insights";
 import { ResultSummary } from "@/components/result-summary";
 import { ResultTabs } from "@/components/result-tabs";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
-import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { ScoreShare } from "@/components/charts/score-share";
+import { FigureGallery } from "@/components/charts/figure-gallery";
+import { normalizeTraces } from "@/lib/traces";
 import { SocTracePicker } from "@/components/charts/soc-trace";
 import { KeyCases } from "@/components/charts/key-cases";
 import { PerCycleTable } from "@/components/charts/per-cycle-table";
@@ -34,6 +35,7 @@ import { EditAuthorship } from "@/app/(admin)/admin/submissions/authorship";
 import { ResourceChart, type ResourceSeries } from "./resource-chart";
 import { isCurrentBenchmark, BENCHMARK_VERSION } from "@/lib/benchmark-version";
 import { getHistory, KIND_LABEL, type RevisionKind } from "@/lib/history";
+import { storage } from "@/lib/storage";
 import { EditDetailsDialog, NewVersionDialog } from "./edit-and-resubmit";
 
 export const dynamic = "force-dynamic";
@@ -65,18 +67,41 @@ export default async function SubmissionPage({ params, searchParams }: { params:
   const authors = publicAuthors(sub);
   const firstAuthor = authors[0];
   const legacy = r ? !isCurrentBenchmark(r.evaluatorVersion) : false;
-  const traces = (r?.timeSeries ?? []) as unknown as TimeSeriesTrace[];
+  const traces = normalizeTraces((r?.timeSeries ?? []) as unknown as TimeSeriesTrace[]);
+  const hasFiles = !!sub.fileKey && (await storage.exists(sub.fileKey).catch(() => false));
+  const shared = sub.shareFiles && hasFiles && sub.status === "COMPLETED"; // downloadable by whoever can see the page
   const perCycle = (r?.perCycle ?? []) as unknown as PerCycleRow[];
   const worstRow = perCycle.length ? perCycle.reduce((m, x) => (x.maxErr > m.maxErr ? x : m)) : null;
 
   const aboutSection = (
       <section className="card p-5">
         <h2 className="font-heading font-semibold text-ink">About this submission</h2>
-        <p className="mt-2 max-w-3xl text-[0.9375rem] leading-relaxed text-grey-800">{sub.description}</p>
+        <p className="mt-2 max-w-3xl whitespace-pre-line text-[0.9375rem] leading-relaxed text-grey-800">{sub.description}</p>
+        {sub.figureKey ? (
+          <figure className="mt-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- served by this app from model storage */}
+            <img src={`/api/submissions/${sub.id}/attachment/figure`} alt={`Diagram of ${sub.modelName}`} className="max-h-96 w-auto max-w-full rounded-brand border border-border bg-white" />
+            <figcaption className="mt-1 text-xs text-grey-600">Model diagram provided by the authors{sub.figureName ? ` (${sub.figureName})` : ""}.</figcaption>
+          </figure>
+        ) : null}
+        {sub.paperUrl || sub.docKey ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {sub.paperUrl ? <Button asChild variant="outline" size="sm"><a href={sub.paperUrl} target="_blank" rel="noreferrer noopener"><ExternalLink /> Paper / code</a></Button> : null}
+            {sub.docKey ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/attachment/doc`} target="_blank" rel="noreferrer"><FileText /> Write-up (PDF{sub.docName ? `: ${sub.docName}` : ""})</a></Button> : null}
+          </div>
+        ) : null}
         <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           {sub.fileName && sub.fileSize !== null ? (
             <>
-              <Row k="Package" v={`${sub.fileName}, deleted after evaluation`} />
+              {shared ? (
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <dt className="text-grey-600">Package</dt>
+                  <dd className="text-ink">{sub.fileName} · shared by the authors</dd>
+                  <dd><Button asChild variant="secondary" size="sm"><a href={`/api/submissions/${sub.id}/package`} download><FolderDown /> Download model files</a></Button></dd>
+                </div>
+              ) : (
+                <Row k="Package" v={`${sub.fileName}, ${packageNote(sub.status, sub.shareFiles, hasFiles)}`} />
+              )}
               <Row k="Package size" v={fmtBytes(sub.fileSize)} />
             </>
           ) : (
@@ -151,6 +176,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/results`} download><Download /> JSON</a></Button>
             </>
           ) : null}
+          {shared ? <Button asChild variant="outline" size="sm" title="The authors share their model files"><a href={`/api/submissions/${sub.id}/package`} download><FolderDown /> Model files</a></Button> : null}
           {canManage ? (
           <details className="group relative shrink-0">
             <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-brand border border-border bg-white px-3 py-2 font-heading text-sm font-medium text-grey-900 hover:bg-grey-100 [&::-webkit-details-marker]:hidden">
@@ -158,12 +184,12 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             </summary>
             <div className="absolute right-0 z-20 mt-2 w-max min-w-64 rounded-brand border border-border bg-white p-3 shadow-lg">
               <div className="flex flex-col items-stretch gap-2 [&_button]:w-full [&_button]:justify-start">
-                {isAdmin ? <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} modelType={sub.modelType} locked={!!sub.contest && contestPhase(sub.contest) !== "open"} /> : null}
+                {isAdmin ? <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} paperUrl={sub.paperUrl ?? ""} modelType={sub.modelType} locked={!!sub.contest && contestPhase(sub.contest) !== "open"} /> : null}
                 {sub.status === "COMPLETED" || sub.status === "FAILED" ? (
                   <NewVersionDialog id={sub.id} version={sub.version} directUpload={(process.env.STORAGE ?? "local") === "supabase"} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} disabledReason={sub.contest && contestPhase(sub.contest) !== "open" ? "Contest closed; its entries are frozen. Submit a new (non-contest) submission instead." : undefined} />
                 ) : null}
                 <div className="my-1 h-px bg-border" />
-                <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} isOwner={isOwner} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} />
+                <OwnerActions id={sub.id} status={sub.status} isPrivate={sub.isPrivate} isHidden={sub.isHidden} isAdmin={isAdmin} isOwner={isOwner} inContest={!!sub.contestId} cancelRequested={!!sub.job?.cancelRequestedAt} shareFiles={sub.shareFiles} hasFiles={hasFiles} />
               </div>
             </div>
           </details>
@@ -201,7 +227,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 id: "key-cases", label: "Key cases", icon: <Crosshair />,
                 content: (
                   <>
-                    <p className="mb-4 text-sm text-grey-700">The runs that separate estimators: cold and hot cycles, the blinded cell, a wrong initial SOC, a biased current sensor. Each plot says why it is there.</p>
+                    <p className="mb-4 text-sm text-grey-700">The runs that separate estimators: cold and hot cycles, the blinded cell, an incorrect initial SOC, a biased current sensor. Each plot says why it is there.</p>
                     <KeyCases traces={traces} modelName={sub.modelName} robustness={r.robustness as { initialSocRmse: number[]; currentOffsetRmse: number[] } | null} perCycle={perCycle} />
                   </>
                 ),
@@ -210,11 +236,11 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                 id: "charts", label: "Charts", icon: <BarChart3 />,
                 content: (
                   <>
-                    <p className="mb-4 text-sm text-grey-700">The scorecard as charts: every test case, where the score comes from, and RMSE against temperature (test 9).</p>
-                    <div className="grid gap-6 xl:grid-cols-5">
-                      <div className="xl:col-span-5"><TestCaseBars series={[{ name: sub.modelName, values }]} /></div>
-                      <div className="xl:col-span-3"><ScoreShare values={values} weights={weights} weightedError={r.weightedError} /></div>
-                      <div className="xl:col-span-2"><TemperatureBars series={[{ name: sub.modelName, values }]} /></div>
+                    <p className="mb-4 text-sm text-grey-700">The scorecard as charts, then every figure the lab&apos;s original MATLAB evaluation script produced: the drive cycles that illustrate each test, the temperature bars, the incorrect-initial-SOC and sensor-offset runs. The same cycles can be zoomed under Key cases and All 144 cycles.</p>
+                    <div className="space-y-6">
+                      <TestCaseBars series={[{ name: sub.modelName, values }]} />
+                      <ScoreShare values={values} weights={weights} weightedError={r.weightedError} />
+                      <FigureGallery traces={traces} perCycle={perCycle} robustness={r.robustness as { initialSocRmse: number[]; currentOffsetRmse: number[] } | null} values={values} modelName={sub.modelName} />
                     </div>
                   </>
                 ),
@@ -261,8 +287,8 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                     ),
                   }]
                 : []),
-              ...(canSee ? [{
-                id: "details", label: "Details", icon: <Info />,
+              {
+                id: "details", label: "About", icon: <Info />,
                 content: (
                   <div className="space-y-5">
                     {aboutSection}
@@ -282,7 +308,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
                     </section>
                   </div>
                 ),
-              }] : []),
+              },
             ]}
           />
         </div>
@@ -306,4 +332,12 @@ function Row({ k, v }: { k: string; v: string }) {
       <dd className="text-right text-ink">{v}</dd>
     </div>
   );
+}
+
+/** What became of the uploaded package (tracker 2026-10-14 #2): shared packages are kept, the rest are deleted after the run. */
+function packageNote(status: string, shareFiles: boolean, hasFiles: boolean) {
+  if (status === "QUEUED" || status === "RUNNING") return shareFiles ? "will be shared once the evaluation finishes" : "deleted after evaluation";
+  if (status === "FAILED") return hasFiles ? "kept for a re-run" : "deleted";
+  if (shareFiles) return "no longer available";
+  return "deleted after evaluation (the authors did not share the model files)";
 }

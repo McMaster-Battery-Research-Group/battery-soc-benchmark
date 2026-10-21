@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
-import { storage, MAX_UPLOAD_BYTES } from "@/lib/storage";
+import { storage, MAX_UPLOAD_BYTES, type StoredExt } from "@/lib/storage";
+
+const EXTS: StoredExt[] = ["zip", "mat", "py", "png", "jpg", "webp", "pdf"];
 
 /**
  * Package storage for the evaluation worker when the web host keeps the files
@@ -13,7 +15,7 @@ import { storage, MAX_UPLOAD_BYTES } from "@/lib/storage";
  *
  * Disabled (404) unless STORAGE_REMOTE_TOKEN is set on a STORAGE=local host.
  */
-const KEY_RE = /^\d{10,16}-[a-f0-9]{12}\.(zip|mat|py)$/;
+const KEY_RE = /^\d{10,16}-[a-f0-9]{12}\.(zip|mat|py|png|jpg|webp|pdf)$/;
 
 function guard(req: Request): NextResponse | null {
   const secret = process.env.STORAGE_REMOTE_TOKEN;
@@ -55,8 +57,8 @@ export async function DELETE(req: Request) {
 export async function POST(req: Request) {
   const denied = guard(req);
   if (denied) return denied;
-  const ext = new URL(req.url).searchParams.get("ext");
-  if (ext !== "zip" && ext !== "mat" && ext !== "py") return NextResponse.json({ error: "Bad extension" }, { status: 400 });
+  const ext = new URL(req.url).searchParams.get("ext") as StoredExt | null;
+  if (!ext || !EXTS.includes(ext)) return NextResponse.json({ error: "Bad extension" }, { status: 400 });
   const bytes = Buffer.from(await req.arrayBuffer());
   if (!bytes.length || bytes.length > MAX_UPLOAD_BYTES) return NextResponse.json({ error: "Bad size" }, { status: 400 });
   return NextResponse.json({ key: await storage.put(bytes, ext) });

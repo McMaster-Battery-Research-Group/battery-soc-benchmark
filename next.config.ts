@@ -41,7 +41,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // Only relevant when STORAGE=local (multipart upload through a server action).
     // On Vercel, STORAGE=supabase uploads directly from the browser instead.
-    serverActions: { bodySizeLimit: `${Number(process.env.MAX_UPLOAD_MB ?? 50) + 2}mb` },
+    // Package, plus the optional description attachments (3 MB diagram + 10 MB PDF) and form overhead.
+    serverActions: { bodySizeLimit: `${Number(process.env.MAX_UPLOAD_MB ?? 50) + 16}mb` },
   },
   poweredByHeader: false,
   // scripts/web-update.sh builds into a side directory (NEXT_DIST_DIR=.next-build) and swaps it in once the

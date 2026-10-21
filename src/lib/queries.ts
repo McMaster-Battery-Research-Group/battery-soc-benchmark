@@ -35,6 +35,10 @@ export type LeaderboardRow = {
   description: string;
   /** size in bytes of the latest uploaded package, null for entries without size */
   fileSize: number | null;
+  /** peak memory of the model process during evaluation (MB), null when it was not measured (older results, non-Docker worker) */
+  peakMemMb: number | null;
+  /** the authors chose to share the package: downloadable from the submission page */
+  shareFiles: boolean;
   weightedError: number;
   complexity: number;
   complexityUncertainty: number;
@@ -48,6 +52,7 @@ const resultSelect = {
   complexityUncertainty: true,
   maxError: true,
   evaluatorVersion: true,
+  resourceUsage: true,
   ...Object.fromEntries(METRIC_KEYS.map((k) => [k, true])),
 } as Prisma.EvaluationResultSelect;
 
@@ -103,6 +108,8 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       contestId: s.contestId,
       description: s.description,
       fileSize: s.fileSize,
+      peakMemMb: typeof (s.result!.resourceUsage as { peakMemMb?: unknown } | null)?.peakMemMb === "number" ? ((s.result!.resourceUsage as { peakMemMb: number }).peakMemMb) : null,
+      shareFiles: s.shareFiles,
       ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string }),
       };
     });

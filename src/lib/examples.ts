@@ -95,7 +95,7 @@ def Model(X, z=None):
     tagline: "A third-order equivalent-circuit model corrected by voltage measurements.",
     description: [
       "The battery is modelled as an open-circuit voltage source in series with an ohmic resistance R0 and three RC pairs. The state vector holds the three RC voltages and SOC. Each second the filter predicts the state with the circuit equations, then corrects it using the difference between measured and predicted terminal voltage.",
-      "OCV–SOC curves come from the HPPC rests at each temperature, and the ECM parameters were fitted to the open data with a genetic algorithm. Parameters depend on temperature (selected once at initialisation from X(3)) and SOC (re-interpolated whenever SOC moves by more than 2 %). Because the filter trusts voltage, it recovers from a wrong initial SOC and from a current offset, the two robustness tests where coulomb counting fails.",
+      "OCV–SOC curves come from the HPPC rests at each temperature, and the ECM parameters were fitted to the open data with a genetic algorithm. Parameters depend on temperature (selected once at initialisation from X(3)) and SOC (re-interpolated whenever SOC moves by more than 2 %). Because the filter trusts voltage, it recovers from an incorrect initial SOC and from a current offset, the two robustness tests where coulomb counting fails.",
     ],
     files: [
       { name: "Model.m", note: "the estimator" },
@@ -253,7 +253,7 @@ def Model(X, z=None):
 `,
     codePyNote: "Same parameter files as the MATLAB package; scipy reads them directly.",
     spec: { kind: "ecm", rcPairs: 3, states: ["V₁", "V₂", "V₃", "SOC"], filter: "EKF" },
-    strengths: ["Self-correcting: recovers from wrong initial SOC and sensor offset", "Physically interpretable parameters from HPPC", "Moderate compute: runs on a BMS microcontroller"],
+    strengths: ["Self-correcting: recovers from an incorrect initial SOC and a sensor offset", "Physically interpretable parameters from HPPC", "Moderate compute: runs on a BMS microcontroller"],
     weaknesses: ["Accuracy limited by ECM fidelity, especially below 0 °C", "Needs Q/R tuning per temperature", "Flat OCV region (mid-SOC) gives weak voltage feedback"],
     complexity: 8,
   },

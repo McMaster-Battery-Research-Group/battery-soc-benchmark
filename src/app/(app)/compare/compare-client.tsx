@@ -15,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
 import { TemperatureBars } from "@/components/charts/temperature-bars";
-import { SocTracePicker } from "@/components/charts/soc-trace";
+import { SocTrace } from "@/components/charts/soc-trace";
+import { isWorstCase, sameRun } from "@/lib/traces";
 import { SERIES } from "@/components/charts/palette";
 
 export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows: LeaderboardRow[]; initialIds: string[]; tracesById: Record<string, TimeSeriesTrace[]>; viewerId?: string }) {
@@ -85,7 +86,7 @@ export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows
           </div>
           <TestCaseBars series={selected.map((s) => ({ name: s.modelName, values: values(s) }))} />
           <TemperatureBars series={selected.map((s) => ({ name: s.modelName, values: values(s) }))} />
-          {haveTraces ? <SocTracePicker tracesByModel={selected.map((s) => tracesById[s.id].filter((t) => (t.group ?? "cycle") === "cycle"))} names={selected.map((s) => s.modelName)} /> : null}
+          {haveTraces ? <CompareTraces ids={selected.map((s) => s.id)} tracesByModel={selected.map((s) => tracesById[s.id].filter((t) => (t.group ?? "cycle") === "cycle"))} names={selected.map((s) => s.modelName)} /> : null}
         </>
       )}
     </div>
@@ -180,6 +181,58 @@ function Picker({ rows, ids, onApply, viewerId, label, primary = false }: { rows
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Time-domain overlay for the compared models. The cycle list is every cycle all of them have a
+ * stored trace for, plus each model's own worst case. A worst case is the cycle where THAT model
+ * erred most, so the others rarely have a stored trace of it (tracker 2026-10-14 #23): those are
+ * fetched from their full-resolution traces on demand, and a model that still has none says why.
+ */
+function CompareTraces({ ids, tracesByModel, names }: { ids: string[]; tracesByModel: TimeSeriesTrace[][]; names: string[] }) {
+  const options = React.useMemo(() => {
+    const first = tracesByModel[0] ?? [];
+    const common = first.filter((t) => !isWorstCase(t) && tracesByModel.every((l) => l.some((u) => u.key === t.key))).map((t) => ({ key: t.key, label: t.label }));
+    const worst = tracesByModel.flatMap((l, i) => l.filter(isWorstCase).map((t) => ({ key: t.key, label: `Worst case of ${names[i]}: ${t.label.replace(/^Worst case — /, "")}` })));
+    return [...common, ...worst];
+  }, [tracesByModel, names]);
+  const [key, setKey] = React.useState(options[0]?.key ?? "");
+  React.useEffect(() => { if (!options.some((o) => o.key === key)) setKey(options[0]?.key ?? ""); }, [options, key]);
+  const target = tracesByModel.flatMap((l) => l).find((t) => t.key === key);
+  // what each model has for the chosen cycle: the exact key, or any stored trace of the same run
+  const own = tracesByModel.map((l) => (target ? l.find((t) => t.key === key) ?? l.find((t) => sameRun(t, target)) ?? null : null));
+  const [fetched, setFetched] = React.useState<Record<string, { traces: Record<string, TimeSeriesTrace | null>; reasons: Record<string, string>; error?: string }>>({});
+  const needFetch = !!target && isWorstCase(target) && own.some((t) => !t);
+  const fetchKey = needFetch ? `${key}|${ids.join(",")}` : "";
+  const [loading, setLoading] = React.useState(false);
+  React.useEffect(() => {
+    if (!fetchKey || fetched[fetchKey]) return;
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/compare/trace?ids=${encodeURIComponent(ids.join(","))}&key=${encodeURIComponent(key)}`)
+      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json().catch(() => ({})))?.error ?? `HTTP ${r.status}`))))
+      .then((data) => { if (!cancelled) setFetched((f) => ({ ...f, [fetchKey]: data })); })
+      .catch((e) => { if (!cancelled) setFetched((f) => ({ ...f, [fetchKey]: { traces: {}, reasons: {}, error: e instanceof Error ? e.message : String(e) } })); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [fetchKey, fetched, ids, key]);
+  const got = fetchKey ? fetched[fetchKey] : undefined;
+  const resolved = own.map((t, i) => t ?? got?.traces?.[ids[i]] ?? null);
+  const shown = resolved.map((t, i) => ({ t, name: names[i] })).filter((x) => x.t) as { t: TimeSeriesTrace; name: string }[];
+  const missing = resolved.map((t, i) => ({ t, i })).filter((x) => !x.t);
+  if (!target || !shown.length) return null;
+  return (
+    <div>
+      <SocTrace traces={shown.map((x) => x.t)} names={shown.map((x) => x.name)} selectable options={options} onSelect={setKey} />
+      {missing.length ? (
+        <ul className="mt-2 space-y-1 text-xs text-grey-700">
+          {missing.map(({ i }) => (
+            <li key={ids[i]}><span className="font-heading font-medium text-ink">{names[i]}</span>: {loading && !got ? "loading this cycle from the model's full-resolution traces…" : got?.error ? got.error : got?.reasons?.[ids[i]] ?? "no stored trace of this cycle."}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

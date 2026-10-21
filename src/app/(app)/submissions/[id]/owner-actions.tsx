@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Unlock, RotateCcw, Trash2, Ban } from "lucide-react";
+import { Lock, Unlock, RotateCcw, Trash2, Ban, FolderDown, FolderX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { togglePrivateAction, deleteSubmissionAction, requeueSubmissionAction, cancelSubmissionAction } from "../../submit/actions";
+import { togglePrivateAction, deleteSubmissionAction, requeueSubmissionAction, cancelSubmissionAction, setShareFilesAction } from "../../submit/actions";
 import { ModerateButtons } from "@/app/(admin)/admin/submissions/moderate";
 
-export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, isOwner = true, inContest, cancelRequested }: { id: string; status: string; isPrivate: boolean; isHidden: boolean; isAdmin: boolean; isOwner?: boolean; inContest: boolean; cancelRequested?: boolean }) {
+export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, isOwner = true, inContest, cancelRequested, shareFiles = false, hasFiles = false }: { id: string; status: string; isPrivate: boolean; isHidden: boolean; isAdmin: boolean; isOwner?: boolean; inContest: boolean; cancelRequested?: boolean; /** the authors share the package */ shareFiles?: boolean; /** the package still exists in storage */ hasFiles?: boolean }) {
   const { push } = useToast();
   const router = useRouter();
   const [pending, start] = React.useTransition();
@@ -48,6 +48,14 @@ export function OwnerActions({ id, status, isPrivate, isHidden, isAdmin, isOwner
       ) : null}
       {status === "FAILED" ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => run(() => requeueSubmissionAction(id), "Re-queued for evaluation")}><RotateCcw /> Re-run</Button>
+      ) : null}
+      {/* model files: can be shared while the package exists (always before the run; afterwards only if it was kept) */}
+      {hasFiles && (isOwner || isAdmin) ? (
+        shareFiles ? (
+          <Button variant="outline" size="sm" disabled={pending} title="Delete the package; nobody will be able to download the model files" onClick={() => run(() => setShareFilesAction(id, false), "Model files are no longer shared; the package was deleted")}><FolderX /> Stop sharing files</Button>
+        ) : (
+          <Button variant="outline" size="sm" disabled={pending} title="Keep the package and let anyone who can see this submission download it" onClick={() => run(() => setShareFilesAction(id, true), "Model files are now shared")}><FolderDown /> Share model files</Button>
+        )
       ) : null}
       {isAdmin && !isOwner ? <ModerateButtons id={id} isPrivate={isPrivate} isHidden={isHidden} status={status} /> : null}
       {inProgress ? (

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useActionState } from "react";
-import { UploadCloud, FileArchive, X, Trophy, Camera, Users, FlaskConical, Package, Info, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { UploadCloud, FileArchive, X, Trophy, Camera, Users, FlaskConical, Package, Info, SlidersHorizontal, ChevronDown, Image as ImageIcon, FileText, FolderDown } from "lucide-react";
 import { createSubmissionAction, type SubmitState } from "./actions";
 import { startDryRunAction } from "./dry-run-actions";
 import { DryRunResult, useDryRunPoll } from "@/components/dry-run-result";
@@ -11,7 +11,7 @@ import { Field, SubmitButton } from "@/components/forms/field";
 import { Label, NativeSelect, FieldError, Input } from "@/components/ui/input";
 import { Checkbox, Switch } from "@/components/ui/checkbox";
 import { Alert } from "@/components/ui/misc";
-import { MODEL_TYPES, submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
+import { MODEL_TYPES, submissionMetaSchema, zodErrors, DESCRIPTION_MIN, DESCRIPTION_MAX, DESCRIPTION_GUIDE, FIGURE_MAX_BYTES, DOC_MAX_BYTES, type FieldErrors } from "@/lib/validation";
 import { MODEL_TYPE_LABELS } from "@/lib/test-cases";
 import { cn, fmtBytes } from "@/lib/utils";
 import { uploadPackage } from "@/lib/upload-client";
@@ -48,6 +48,10 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
   // Controlled fields
   const [modelName, setModelName] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [paperUrl, setPaperUrl] = React.useState("");
+  const [figure, setFigure] = React.useState<File | null>(null);
+  const [doc, setDoc] = React.useState<File | null>(null);
+  const [shareFiles, setShareFiles] = React.useState(false);
   const [modelType, setModelType] = React.useState("");
   const [evaluationLevel] = React.useState("DYNAMIC"); // single evaluation mode today (tracker #9)
   const [isPrivate, setIsPrivate] = React.useState(false);
@@ -136,7 +140,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
 
   const action = async (fd: FormData) => {
     // 1) Client-side validation — same schema as the server, plus the file.
-    const parsed = submissionMetaSchema.safeParse({ modelName, description, modelType, evaluationLevel, isPrivate, contestId: contestId || null, acceptTerms });
+    const parsed = submissionMetaSchema.safeParse({ modelName, description, paperUrl, modelType, evaluationLevel, isPrivate, shareFiles, contestId: contestId || null, acceptTerms });
     const errs: FieldErrors = parsed.success ? {} : zodErrors(parsed.error);
     if (!file) errs.file = "Choose your submission package (.zip containing Model.m, Model.p or Model.py).";
     if (behalf && behalfKind === "account" && !behalfUser) errs.behalf = "Choose the author's account.";
@@ -147,6 +151,12 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
     // 2) Build the payload from state (not from the DOM, which may have been reset).
     fd.set("modelName", modelName);
     fd.set("description", description);
+    fd.set("paperUrl", paperUrl);
+    fd.set("shareFiles", shareFiles ? "on" : "");
+    if (figure) fd.set("figure", figure);
+    else fd.delete("figure");
+    if (doc) fd.set("doc", doc);
+    else fd.delete("doc");
     fd.set("modelType", modelType);
     fd.set("evaluationLevel", evaluationLevel);
     fd.set("isPrivate", isPrivate ? "on" : "");
@@ -251,7 +261,15 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
             <FieldError>{errors.modelType}</FieldError>
           </div>
         </div>
-        <Field label="Description" name="description" textarea required maxLength={1000} rows={4} placeholder="Architecture, inputs, training data used, key design choices…" value={description} error={errors.description} onChange={(e) => { setDescription(e.currentTarget.value); clearErr("description"); }} hint={<span className="tabular">{description.length}/1000</span>} />
+        <Field label="Description" name="description" textarea required maxLength={DESCRIPTION_MAX} rows={6} placeholder={DESCRIPTION_GUIDE} value={description} error={errors.description} onChange={(e) => { setDescription(e.currentTarget.value); clearErr("description"); }}
+          hint={<span><span className="tabular">{description.length}/{DESCRIPTION_MAX}</span> (at least {DESCRIPTION_MIN}). Describe the model, not yourself: the authors are listed next to it, and a description containing an author&apos;s name is not accepted.</span>} />
+        <div className="grid gap-5 sm:grid-cols-[1fr_1fr]">
+          <Field label="Paper or code link" name="paperUrl" type="url" inputMode="url" maxLength={300} placeholder="https://doi.org/… or https://github.com/…" value={paperUrl} error={errors.paperUrl} onChange={(e) => { setPaperUrl(e.currentTarget.value); clearErr("paperUrl"); }} hint="Optional. Where readers can learn how the model was made: a DOI, arXiv, GitHub or similar." />
+          <div className="grid gap-3">
+            <AttachmentPicker id="figure" label="Model diagram" icon={ImageIcon} accept="image/png,image/jpeg,image/webp" maxBytes={FIGURE_MAX_BYTES} hint="Optional. PNG, JPEG or WebP: a block diagram, network architecture or equations as an image." file={figure} onChange={(f) => { setFigure(f); clearErr("figure"); }} error={errors.figure} />
+            <AttachmentPicker id="doc" label="Write-up (PDF)" icon={FileText} accept="application/pdf,.pdf" maxBytes={DOC_MAX_BYTES} hint="Optional. A longer description, a report or the paper itself." file={doc} onChange={(f) => { setDoc(f); clearErr("doc"); }} error={errors.doc} />
+          </div>
+        </div>
         {/* "Evaluation level" (DYNAMIC | STATIC) is kept in the schema for the historical data but is not offered:
             every submission is evaluated the same way. Re-add a control here if a second evaluation mode is defined. */}
       </section>
@@ -274,6 +292,13 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
           <span className="text-sm">
             <span className="font-heading font-medium text-ink">Keep the results private</span>
             <span className="block text-grey-700">Visible only to you and your co-authors, off the public leaderboard. You can change this later.{contestId ? " Contest entries must be public." : ""}</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3">
+          <Switch name="shareFiles" checked={shareFiles} onCheckedChange={setShareFiles} />
+          <span className="text-sm">
+            <span className="inline-flex items-center gap-1.5 font-heading font-medium text-ink"><FolderDown className="size-4 text-maroon" /> Share the model files</span>
+            <span className="block text-grey-700">Keep the package after evaluation and let anyone who can see this submission download it from its page, so others can study and build on the model. Off: the package is deleted the moment the evaluation finishes and nobody, including us, can retrieve it. You can stop sharing later; you cannot start sharing once the package is gone.</span>
           </span>
         </label>
 
@@ -380,5 +405,32 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
         </div>
       </section>
     </form>
+  );
+}
+
+/** A single optional file next to the description (diagram or PDF): pick, see the name and size, remove. */
+function AttachmentPicker({ id, label, icon: Icon, accept, maxBytes, hint, file, onChange, error }: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; accept: string; maxBytes: number; hint: string; file: File | null; onChange: (f: File | null) => void; error?: string }) {
+  const [localErr, setLocalErr] = React.useState<string | undefined>();
+  const ref = React.useRef<HTMLInputElement>(null);
+  const pick = (f: File | null) => {
+    setLocalErr(undefined);
+    if (f && f.size > maxBytes) { setLocalErr(`Larger than ${Math.round(maxBytes / 1024 / 1024)} MB.`); return; }
+    onChange(f);
+  };
+  return (
+    <div data-error={!!(error || localErr)}>
+      <Label htmlFor={id}><span className="inline-flex items-center gap-1.5"><Icon className="size-4 text-maroon" /> {label}</span></Label>
+      <input ref={ref} id={id} name={id} type="file" accept={accept} className="sr-only" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
+      {file ? (
+        <div className="flex items-center gap-2 rounded-brand border border-border bg-grey-100/60 px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1 truncate text-ink">{file.name} <span className="text-grey-600">· {fmtBytes(file.size)}</span></span>
+          <button type="button" onClick={() => { onChange(null); if (ref.current) ref.current.value = ""; }} className="rounded-brand p-1 text-grey-600 hover:bg-grey-200 hover:text-ink" aria-label={`Remove ${label.toLowerCase()}`}><X className="size-4" /></button>
+        </div>
+      ) : (
+        <label htmlFor={id} className="flex cursor-pointer items-center gap-2 rounded-brand border border-dashed border-border bg-grey-100/40 px-3 py-2 text-sm text-grey-700 hover:border-maroon hover:text-maroon"><UploadCloud className="size-4" /> Choose a file…</label>
+      )}
+      <p className="mt-1 text-xs text-grey-600">{hint}</p>
+      <FieldError>{localErr ?? error}</FieldError>
+    </div>
   );
 }

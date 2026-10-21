@@ -13,7 +13,7 @@ import { storage, MAX_UPLOAD_BYTES, OBJECT_KEY_RE } from "@/lib/storage";
 import { checkSubmissionPackage, runtimeOf } from "@/lib/package-check";
 import { contestPhase, runtimeAllowed, RUNTIME_LABEL } from "@/lib/contest";
 import { parseAvatarDataUrl, type OwnerDisplay } from "@/lib/authors";
-import { submissionMetaSchema, zodErrors, type FieldErrors } from "@/lib/validation";
+import { submissionMetaSchema, zodErrors, nameInDescription, NAME_IN_DESCRIPTION_MESSAGE, sniffAttachment, FIGURE_MAX_BYTES, DOC_MAX_BYTES, type FieldErrors } from "@/lib/validation";
 import { collaboratorInviteEmail, collaboratorAcceptedEmail, collaboratorDeclinedEmail, submissionDeletedEmail } from "@/lib/mail";
 import { recordRevision } from "@/lib/history";
 import { randomBytes } from "crypto";
@@ -42,13 +42,21 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     description: String(fd.get("description") ?? ""),
     modelType: String(fd.get("modelType") ?? ""),
     evaluationLevel: String(fd.get("evaluationLevel") ?? "DYNAMIC"),
+    paperUrl: String(fd.get("paperUrl") ?? ""),
     isPrivate: fd.get("isPrivate") === "on",
+    shareFiles: fd.get("shareFiles") === "on",
     contestId: (fd.get("contestId") as string) || null,
     acceptTerms: fd.get("acceptTerms") === "on",
   };
-  const values = { modelName: raw.modelName, description: raw.description, modelType: raw.modelType, evaluationLevel: raw.evaluationLevel, contestId: raw.contestId ?? "" };
+  const values = { modelName: raw.modelName, description: raw.description, paperUrl: raw.paperUrl, modelType: raw.modelType, evaluationLevel: raw.evaluationLevel, contestId: raw.contestId ?? "" };
   const parsed = submissionMetaSchema.safeParse(raw);
   if (!parsed.success) return { errors: zodErrors(parsed.error), values };
+  // the description is about the model, never its author (tracker 2026-10-14 #19); co-authors are checked once resolved below
+  const ownName = (await db.user.findUnique({ where: { id: session.user.id }, select: { name: true } }))?.name ?? session.user.name ?? "";
+  {
+    const found = nameInDescription(parsed.data.description, [ownName, String(fd.get("behalfName") ?? "")]);
+    if (found) return { errors: { description: NAME_IN_DESCRIPTION_MESSAGE(found) }, values };
+  }
 
   // The package arrives either as a multipart file (STORAGE=local) or as the
   // object key of a file the browser uploaded directly (STORAGE=supabase).
@@ -120,6 +128,13 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     }
   }
   const ownerDisplay = onBehalf ? (fd.get("showMe") === "on" ? "coauthor" : "hidden") : null;
+  {
+    const found = nameInDescription(parsed.data.description, [...collaborators.map((c) => c.name), behalfAccount?.name ?? ""]);
+    if (found) {
+      if (preUploadedKey) await storage.remove(preUploadedKey);
+      return { errors: { description: NAME_IN_DESCRIPTION_MESSAGE(found) }, values };
+    }
+  }
 
   // Contest checks
   let contestId: string | null = null;
@@ -146,6 +161,19 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     contestId = contest.id;
   }
 
+  // description attachments (diagram, PDF): checked by content, stored next to the packages
+  const figure = await storeAttachment(fd, "figure");
+  if (!figure.ok) {
+    if (preUploadedKey) await storage.remove(preUploadedKey);
+    return { errors: { figure: figure.error }, values };
+  }
+  const doc = await storeAttachment(fd, "doc");
+  if (!doc.ok) {
+    if (preUploadedKey) await storage.remove(preUploadedKey);
+    if (figure.key) await storage.remove(figure.key).catch(() => {});
+    return { errors: { doc: doc.error }, values };
+  }
+
   const key = preUploadedKey ?? (await storage.put(bytes, "zip"));
   const sub = await db.submission.create({
     data: {
@@ -153,9 +181,15 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
       runtime: runtimeOf(check.modelFile),
       modelName: parsed.data.modelName,
       description: parsed.data.description,
+      paperUrl: parsed.data.paperUrl || null,
+      figureKey: figure.key,
+      figureName: figure.name,
+      docKey: doc.key,
+      docName: doc.name,
       modelType: parsed.data.modelType,
       evaluationLevel: parsed.data.evaluationLevel,
       isPrivate: parsed.data.isPrivate,
+      shareFiles: parsed.data.shareFiles,
       fileKey: key,
       fileName,
       fileType: "ZIP",
@@ -172,9 +206,43 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     },
   });
   // Collaborators start as pending; the owner confirms the e-mails on the submission page.
-  logEvent("submission.created", { seq: sub.seq, id: sub.id, userId: session.user.id, modelType: parsed.data.modelType, fileKB: Math.round(fileSize / 1024), contestId, collaborators: collaborators.length, onBehalf: onBehalf ? (credit ? "guest" : "account") : undefined, ownerDisplay });
+  logEvent("submission.created", { seq: sub.seq, id: sub.id, userId: session.user.id, modelType: parsed.data.modelType, fileKB: Math.round(fileSize / 1024), contestId, collaborators: collaborators.length, onBehalf: onBehalf ? (credit ? "guest" : "account") : undefined, ownerDisplay, shareFiles: parsed.data.shareFiles, attachments: [figure.key && "figure", doc.key && "doc"].filter(Boolean).join("+") || undefined });
   revalidatePath("/submissions");
   redirect(`/submissions/${sub.id}?new=1`);
+}
+
+/**
+ * A description attachment from the form (tracker 2026-10-14 #1): the diagram (PNG / JPEG / WebP)
+ * or the write-up (PDF). The real type is sniffed from the bytes, never taken from the browser.
+ */
+async function storeAttachment(fd: FormData, field: "figure" | "doc"): Promise<{ ok: true; key: string | null; name: string | null } | { ok: false; error: string }> {
+  const f = fd.get(field);
+  if (!(f instanceof File) || f.size === 0) return { ok: true, key: null, name: null };
+  const max = field === "figure" ? FIGURE_MAX_BYTES : DOC_MAX_BYTES;
+  if (f.size > max) return { ok: false, error: `${field === "figure" ? "The diagram" : "The write-up"} is larger than ${Math.round(max / 1024 / 1024)} MB.` };
+  const bytes = Buffer.from(await f.arrayBuffer());
+  const ext = sniffAttachment(bytes);
+  const okType = field === "figure" ? ext === "png" || ext === "jpg" || ext === "webp" : ext === "pdf";
+  if (!ext || !okType) return { ok: false, error: field === "figure" ? "The diagram must be a PNG, JPEG or WebP image." : "The write-up must be a PDF." };
+  return { ok: true, key: await storage.put(bytes, ext), name: f.name.replace(/[\r\n\t]/g, " ").trim().slice(0, 120) || null };
+}
+
+/**
+ * Owner/admin: share or stop sharing the model files (tracker 2026-10-14 #2). Sharing needs the
+ * package to still exist: before the run it always does; afterwards only if it was kept. Stopping
+ * deletes a kept package of a finished evaluation, exactly as if sharing had never been chosen.
+ */
+export async function setShareFilesAction(id: string, share: boolean) {
+  const { sub, session } = await ownedSubmission(id);
+  if (share === sub.shareFiles) return;
+  if (share && !(sub.fileKey && (await storage.exists(sub.fileKey)))) throw new Error("The package was deleted after evaluation, so it cannot be shared now. Tick \"Share the model files\" when you submit a new version.");
+  await db.submission.update({ where: { id }, data: { shareFiles: share } });
+  if (!share && sub.fileKey && sub.status === "COMPLETED") await storage.remove(sub.fileKey).catch(() => {});
+  await recordRevision({ submissionId: id, kind: "edit", evaluatorVersion: "-", note: share ? "model files shared (package kept for download)" : "model files no longer shared (package deleted)", by: session.user.id });
+  logEvent("submission.share-files", { id, seq: sub.seq, by: session.user.id, share });
+  revalidatePath("/leaderboard");
+  revalidatePath("/submissions");
+  revalidatePath(`/submissions/${id}`);
 }
 
 async function ownedSubmission(id: string) {
@@ -259,11 +327,17 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
  * (they can upload a new version); corrections go through an administrator. Never touches scores;
  * noted in the score history.
  */
-export async function updateSubmissionDetailsAction(id: string, input: { modelName: string; description: string; modelType: string }): Promise<{ ok: true } | { ok: false; errors: Record<string, string | undefined> }> {
+export async function updateSubmissionDetailsAction(id: string, input: { modelName: string; description: string; paperUrl?: string; modelType: string }): Promise<{ ok: true } | { ok: false; errors: Record<string, string | undefined> }> {
   const { sub, session } = await ownedSubmission(id);
   if (session.user.role !== "ADMIN") return { ok: false, errors: { form: "Only administrators can change a submission's details. Use the contact form if something needs correcting." } };
-  const parsed = submissionMetaSchema.pick({ modelName: true, description: true, modelType: true }).safeParse(input);
+  const parsed = submissionMetaSchema.pick({ modelName: true, description: true, paperUrl: true, modelType: true }).safeParse({ ...input, paperUrl: input.paperUrl ?? "" });
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
+  if (parsed.data.description !== sub.description) {
+    const people = await db.submission.findUnique({ where: { id }, select: { user: { select: { name: true } }, creditName: true, collaborators: { select: { name: true, user: { select: { name: true } } } } } });
+    const names = [people?.user.name ?? "", people?.creditName ?? "", ...(people?.collaborators.map((c) => c.user?.name ?? c.name ?? "") ?? [])];
+    const found = nameInDescription(parsed.data.description, names);
+    if (found) return { ok: false, errors: { description: NAME_IN_DESCRIPTION_MESSAGE(found) } };
+  }
   const contest = sub.contestId ? await db.contest.findUnique({ where: { id: sub.contestId }, select: { status: true, startsAt: true, endsAt: true } }) : null;
   const locked = !!contest && contestPhase(contest) !== "open";
   if (locked && (parsed.data.modelName !== sub.modelName || parsed.data.modelType !== sub.modelType)) return { ok: false, errors: { form: "This contest has closed: the name and model type are frozen." } };
@@ -271,8 +345,9 @@ export async function updateSubmissionDetailsAction(id: string, input: { modelNa
   if (parsed.data.modelName !== sub.modelName) changes.push(`name "${sub.modelName}" → "${parsed.data.modelName}"`);
   if (parsed.data.modelType !== sub.modelType) changes.push(`type ${sub.modelType} → ${parsed.data.modelType}`);
   if (parsed.data.description !== sub.description) changes.push("description updated");
+  if ((parsed.data.paperUrl || null) !== (sub.paperUrl ?? null)) changes.push(parsed.data.paperUrl ? "paper/code link set" : "paper/code link removed");
   if (!changes.length) return { ok: true };
-  await db.submission.update({ where: { id }, data: parsed.data });
+  await db.submission.update({ where: { id }, data: { ...parsed.data, paperUrl: parsed.data.paperUrl || null } });
   await recordRevision({ submissionId: id, kind: "edit", evaluatorVersion: "-", note: changes.join("; "), by: session.user.id });
   logEvent("submission.edited", { id, seq: sub.seq, by: session.user.id, changes: changes.join("; ") });
   revalidatePath("/leaderboard");
@@ -332,6 +407,7 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
   }
 
   const key = preUploadedKey ?? (await storage.put(bytes, "zip"));
+  if (sub.fileKey && sub.fileKey !== key) await storage.remove(sub.fileKey).catch(() => {}); // a package kept for sharing is replaced by the new version
   const version = sub.version + 1;
   await db.$transaction([
     db.submission.update({ where: { id }, data: { version, fileKey: key, fileName, fileSize: bytes.length, runtime: runtimeOf(check.modelFile), status: "QUEUED", failureMessage: null, completedAt: null } }),
@@ -355,6 +431,7 @@ export async function deleteSubmissionAction(id: string) {
   ]);
   if (sub.fileKey) await storage.remove(sub.fileKey);
   if (result?.tracesKey) await storage.remove(result.tracesKey).catch(() => {});
+  for (const k of [sub.figureKey, sub.docKey]) if (k) await storage.remove(k).catch(() => {});
   await db.submission.delete({ where: { id } });
   logEvent("submission.deleted", { id, seq: sub.seq, by: session.user.id, owner: sub.userId });
   if (owner && actor) after(() => submissionDeletedEmail({ ...sub, weightedError: result?.weightedError ?? null, owner }, actor).catch(() => {}));

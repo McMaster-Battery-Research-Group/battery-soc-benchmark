@@ -254,7 +254,7 @@ def _trace(key: str, label: str, cell: str, cycle: str, temp_c: float, actual: n
 
 
 def robustness_traces(data: BlindData, preds: dict[str, Prediction]) -> list[dict]:
-    """The robustness cases the original MATLAB tool plotted: wrong initial SOC (test 10) and current-sensor offset (test 11).
+    """The robustness cases the original MATLAB tool plotted: incorrect initial SOC (test 10) and current-sensor offset (test 11).
     These are the traces that separate estimators — a drive cycle at 25 °C rarely does."""
     traces: list[dict] = []
     for b, (base, temp) in enumerate(ISOC_CYCLES):
@@ -263,7 +263,7 @@ def robustness_traces(data: BlindData, preds: dict[str, Prediction]) -> list[dic
             idx = int(np.argmax(cyc.SOC < target))
             pct = int(round(target * 100))
             traces.append(_trace(
-                f"isoc-{base}-{int(temp)}-{pct}", f"Wrong initial SOC {pct} % — m80 {base} at {int(temp)} °C", "m80", base, temp,
+                f"isoc-{base}-{int(temp)}-{pct}", f"Incorrect initial SOC {pct} % — m80 {base} at {int(temp)} °C", "m80", base, temp,
                 cyc.SOC[idx:], preds[f"isoc:{b}:{q}:{idx}"].soc, "initialSoc",
                 f"The cycle is joined at the point where the true SOC has already fallen to {pct} %, so a model that assumes a full battery at start-up begins {100 - pct} % off. What matters is how fast the estimate converges onto the truth.",
             ))

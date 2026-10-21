@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { normalizeTraces } from "@/lib/traces";
 import { existsSync } from "fs";
 import path from "path";
 import { TEST_CASES, MODEL_TYPE_LABELS, COMPLEXITY_LABELS, type MetricKey } from "@/lib/test-cases";
@@ -280,7 +281,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       para("Per-cycle errors", "For each blinded drive cycle the estimate is compared with the reference SOC measured in the laboratory: RMSE = sqrt(mean((SOC_est − SOC_ref)²)), MAE = mean(|SOC_est − SOC_ref|) and max error = max(|SOC_est − SOC_ref|), all in % SOC over the samples of that cycle. The appendix lists all three for every cycle.");
       para("Tests 1–8: accuracy and operating conditions", "Each test case is the arithmetic mean of the per-cycle RMSE values of the cycles that belong to it: all cells; the blinded m448 cell; the three non-blinded cells; the charging profiles; the m80 / m448 / m448-N / m1000 payload conditions; the standard UDDS, HWFET, LA92 and US06 cycles; the non-standard HWCUST and HWGRADE cycles.");
       para("Test 9: temperature", "For the m80 cell, the mean per-cycle RMSE at each chamber temperature (−20, −10, 0, 10, 25 and 40 °C) is reported as six separate entries, each with one sixth of the test's weight.");
-      para("Test 10: initial-SOC error", "Three blinded cycles are re-run with the model started at a wrong initial SOC of 90 %, 60 % and 30 % instead of 100 %. The nine RMSE values are averaged with weights 3 : 2 : 1 for the 90 / 60 / 30 % starts, so the smaller, more realistic offsets count more.");
+      para("Test 10: incorrect initial SOC", "Three blinded cycles are re-run with the model started at an incorrect initial SOC of 90 %, 60 % and 30 % instead of 100 %. The nine RMSE values are averaged with weights 3 : 2 : 1 for the 90 / 60 / 30 % starts, so the smaller, more realistic offsets count more.");
       para("Test 11: current-sensor offset", "Blinded cycles are re-run with a constant offset added to the measured current (±0.05, ±0.1 and ±0.3 A). The test value is the mean RMSE of the runs that count towards the score, the ±0.1 A and ±0.3 A cases.");
       para("Weighted error", `The leaderboard score is the sum over the test cases of weight × RMSE. Test 1 (all cells) carries weight 0 because every other test is a subset of it. The weights sum to 1 and were ${input.weights ? "set by the benchmark administrators; the site's change log records every change." : "published with the Blind Modeling Tool V2."}`);
       para("Complexity", "Wall-clock time per sample of the model divided by the time per sample of a plain coulomb counter measured on the same machine, placed into one of ten bins one third of a decade wide. Informational; it does not enter the weighted error.");
@@ -327,8 +328,9 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
     heatGrids(doc, F, MX, y, W, r.perCycle);
 
     // ============================================================ time-domain traces
-    const cycleTraces = r.timeSeries.filter((t) => (t.group ?? "cycle") === "cycle");
-    const robust = r.timeSeries.filter((t) => t.group === "initialSoc" || t.group === "offset");
+    const all = normalizeTraces(r.timeSeries);
+    const cycleTraces = all.filter((t) => (t.group ?? "cycle") === "cycle");
+    const robust = all.filter((t) => t.group === "initialSoc" || t.group === "offset");
     const traceGrid = (list: TimeSeriesTrace[], title: string, sub: string) => {
       const colW = (W - 16) / 2, cellH = 150;
       let first = true;
@@ -347,7 +349,7 @@ export function buildSubmissionReport(input: ReportInput): Promise<Buffer> {
       }
     };
     traceGrid(cycleTraces, "Time-domain results", "Estimated against reference SOC on representative blinded cycles (down-sampled). For the blinded cell (m448) the reference SOC is never released, so its panels show the estimation error instead. One hour of padding precedes every cycle and is excluded from the metrics.");
-    traceGrid(robust, "Robustness cases", "Test 10: cycles restarted from a wrong initial SOC (90, 60 and 30 %). Test 11: cycles with a constant current-sensor offset (±0.3 A shown). Estimated against reference SOC, down-sampled.");
+    traceGrid(robust, "Robustness cases", "Test 10: cycles restarted from an incorrect initial SOC (90, 60 and 30 %). Test 11: cycles with a constant current-sensor offset (±0.3 A shown). Estimated against reference SOC, down-sampled.");
 
     // ============================================================ appendix: per-cycle table, two columns per page
     newPage();
