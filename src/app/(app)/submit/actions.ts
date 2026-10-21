@@ -43,12 +43,13 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
     modelType: String(fd.get("modelType") ?? ""),
     evaluationLevel: String(fd.get("evaluationLevel") ?? "DYNAMIC"),
     paperUrl: String(fd.get("paperUrl") ?? ""),
+    codeUrl: String(fd.get("codeUrl") ?? ""),
     isPrivate: fd.get("isPrivate") === "on",
     shareFiles: fd.get("shareFiles") === "on",
     contestId: (fd.get("contestId") as string) || null,
     acceptTerms: fd.get("acceptTerms") === "on",
   };
-  const values = { modelName: raw.modelName, description: raw.description, paperUrl: raw.paperUrl, modelType: raw.modelType, evaluationLevel: raw.evaluationLevel, contestId: raw.contestId ?? "" };
+  const values = { modelName: raw.modelName, description: raw.description, paperUrl: raw.paperUrl, codeUrl: raw.codeUrl, modelType: raw.modelType, evaluationLevel: raw.evaluationLevel, contestId: raw.contestId ?? "" };
   const parsed = submissionMetaSchema.safeParse(raw);
   if (!parsed.success) return { errors: zodErrors(parsed.error), values };
   // the description is about the model, never its author (tracker 2026-10-14 #19); co-authors are checked once resolved below
@@ -182,6 +183,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
       modelName: parsed.data.modelName,
       description: parsed.data.description,
       paperUrl: parsed.data.paperUrl || null,
+      codeUrl: parsed.data.codeUrl || null,
       figureKey: figure.key,
       figureName: figure.name,
       docKey: doc.key,
@@ -327,10 +329,10 @@ export async function cancelSubmissionAction(id: string): Promise<{ ok: true; im
  * (they can upload a new version); corrections go through an administrator. Never touches scores;
  * noted in the score history.
  */
-export async function updateSubmissionDetailsAction(id: string, input: { modelName: string; description: string; paperUrl?: string; modelType: string }): Promise<{ ok: true } | { ok: false; errors: Record<string, string | undefined> }> {
+export async function updateSubmissionDetailsAction(id: string, input: { modelName: string; description: string; paperUrl?: string; codeUrl?: string; modelType: string }): Promise<{ ok: true } | { ok: false; errors: Record<string, string | undefined> }> {
   const { sub, session } = await ownedSubmission(id);
   if (session.user.role !== "ADMIN") return { ok: false, errors: { form: "Only administrators can change a submission's details. Use the contact form if something needs correcting." } };
-  const parsed = submissionMetaSchema.pick({ modelName: true, description: true, paperUrl: true, modelType: true }).safeParse({ ...input, paperUrl: input.paperUrl ?? "" });
+  const parsed = submissionMetaSchema.pick({ modelName: true, description: true, paperUrl: true, codeUrl: true, modelType: true }).safeParse({ ...input, paperUrl: input.paperUrl ?? "", codeUrl: input.codeUrl ?? "" });
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   if (parsed.data.description !== sub.description) {
     const people = await db.submission.findUnique({ where: { id }, select: { user: { select: { name: true } }, creditName: true, collaborators: { select: { name: true, user: { select: { name: true } } } } } });
@@ -345,9 +347,10 @@ export async function updateSubmissionDetailsAction(id: string, input: { modelNa
   if (parsed.data.modelName !== sub.modelName) changes.push(`name "${sub.modelName}" → "${parsed.data.modelName}"`);
   if (parsed.data.modelType !== sub.modelType) changes.push(`type ${sub.modelType} → ${parsed.data.modelType}`);
   if (parsed.data.description !== sub.description) changes.push("description updated");
-  if ((parsed.data.paperUrl || null) !== (sub.paperUrl ?? null)) changes.push(parsed.data.paperUrl ? "paper/code link set" : "paper/code link removed");
+  if ((parsed.data.paperUrl || null) !== (sub.paperUrl ?? null)) changes.push(parsed.data.paperUrl ? "paper link set" : "paper link removed");
+  if ((parsed.data.codeUrl || null) !== (sub.codeUrl ?? null)) changes.push(parsed.data.codeUrl ? "code link set" : "code link removed");
   if (!changes.length) return { ok: true };
-  await db.submission.update({ where: { id }, data: { ...parsed.data, paperUrl: parsed.data.paperUrl || null } });
+  await db.submission.update({ where: { id }, data: { ...parsed.data, paperUrl: parsed.data.paperUrl || null, codeUrl: parsed.data.codeUrl || null } });
   await recordRevision({ submissionId: id, kind: "edit", evaluatorVersion: "-", note: changes.join("; "), by: session.user.id });
   logEvent("submission.edited", { id, seq: sub.seq, by: session.user.id, changes: changes.join("; ") });
   revalidatePath("/leaderboard");

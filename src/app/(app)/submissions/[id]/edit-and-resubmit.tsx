@@ -14,20 +14,21 @@ import { uploadPackage } from "@/lib/upload-client";
 import { updateSubmissionDetailsAction, resubmitAction } from "../../submit/actions";
 
 /** Owner/admin: edit the descriptive fields. Score-relevant data never changes here. */
-export function EditDetailsDialog({ id, modelName, description, paperUrl = "", modelType, locked }: { id: string; modelName: string; description: string; paperUrl?: string; modelType: string; locked: boolean }) {
+export function EditDetailsDialog({ id, modelName, description, paperUrl = "", codeUrl = "", modelType, locked }: { id: string; modelName: string; description: string; paperUrl?: string; codeUrl?: string; modelType: string; locked: boolean }) {
   const router = useRouter();
   const { push } = useToast();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState(modelName);
   const [desc, setDesc] = React.useState(description);
   const [paper, setPaper] = React.useState(paperUrl);
+  const [code, setCode] = React.useState(codeUrl);
   const [type, setType] = React.useState(modelType);
   const [errors, setErrors] = React.useState<Record<string, string | undefined>>({});
   const [pending, start] = React.useTransition();
 
   const save = () =>
     start(async () => {
-      const res = await updateSubmissionDetailsAction(id, { modelName: name, description: desc, paperUrl: paper, modelType: type });
+      const res = await updateSubmissionDetailsAction(id, { modelName: name, description: desc, paperUrl: paper, codeUrl: code, modelType: type });
       if (!res.ok) return setErrors(res.errors);
       setErrors({});
       setOpen(false);
@@ -52,10 +53,17 @@ export function EditDetailsDialog({ id, modelName, description, paperUrl = "", m
             <Hint>{desc.length}/{DESCRIPTION_MAX} (at least {DESCRIPTION_MIN}; about the model, never the author)</Hint>
             <FieldError>{errors.description}</FieldError>
           </div>
-          <div>
-            <Label htmlFor="ed-paper">Paper or code link</Label>
-            <Input id="ed-paper" type="url" value={paper} maxLength={300} placeholder="https://doi.org/… or https://github.com/…" onChange={(e) => setPaper(e.target.value)} aria-invalid={!!errors.paperUrl} />
-            <FieldError>{errors.paperUrl}</FieldError>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="ed-paper">Paper</Label>
+              <Input id="ed-paper" type="url" value={paper} maxLength={300} placeholder="https://doi.org/…" onChange={(e) => setPaper(e.target.value)} aria-invalid={!!errors.paperUrl} />
+              <FieldError>{errors.paperUrl}</FieldError>
+            </div>
+            <div>
+              <Label htmlFor="ed-code">Code</Label>
+              <Input id="ed-code" type="url" value={code} maxLength={300} placeholder="https://github.com/…" onChange={(e) => setCode(e.target.value)} aria-invalid={!!errors.codeUrl} />
+              <FieldError>{errors.codeUrl}</FieldError>
+            </div>
           </div>
           <div>
             <Label htmlFor="ed-type" required>Model type</Label>

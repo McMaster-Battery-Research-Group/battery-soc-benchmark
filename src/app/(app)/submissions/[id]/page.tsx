@@ -2,7 +2,7 @@ import { contestPhase } from "@/lib/contest";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Lock, ArrowLeft, Trophy, Download, FileText, Settings2, ChevronDown, Table2, Crosshair, BarChart3, ListOrdered, History, Info, ExternalLink, FolderDown } from "lucide-react";
+import { Lock, ArrowLeft, Trophy, Download, FileText, Settings2, ChevronDown, Table2, Crosshair, BarChart3, ListOrdered, History, Info, BookOpen, Code2, FolderDown } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getSubmissionDetail, canViewSubmission, publicRankOf, leaderboardMedians } from "@/lib/queries";
 import { getActiveWeights } from "@/lib/scoring-config";
@@ -84,9 +84,10 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             <figcaption className="mt-1 text-xs text-grey-600">Model diagram provided by the authors{sub.figureName ? ` (${sub.figureName})` : ""}.</figcaption>
           </figure>
         ) : null}
-        {sub.paperUrl || sub.docKey ? (
+        {sub.paperUrl || sub.codeUrl || sub.docKey ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            {sub.paperUrl ? <Button asChild variant="outline" size="sm"><a href={sub.paperUrl} target="_blank" rel="noreferrer noopener"><ExternalLink /> Paper / code</a></Button> : null}
+            {sub.paperUrl ? <Button asChild variant="outline" size="sm"><a href={sub.paperUrl} target="_blank" rel="noreferrer noopener"><BookOpen /> Paper</a></Button> : null}
+            {sub.codeUrl ? <Button asChild variant="outline" size="sm"><a href={sub.codeUrl} target="_blank" rel="noreferrer noopener"><Code2 /> Code</a></Button> : null}
             {sub.docKey ? <Button asChild variant="outline" size="sm"><a href={`/api/submissions/${sub.id}/attachment/doc`} target="_blank" rel="noreferrer"><FileText /> Write-up (PDF{sub.docName ? `: ${sub.docName}` : ""})</a></Button> : null}
           </div>
         ) : null}
@@ -184,7 +185,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
             </summary>
             <div className="absolute right-0 z-20 mt-2 w-max min-w-64 rounded-brand border border-border bg-white p-3 shadow-lg">
               <div className="flex flex-col items-stretch gap-2 [&_button]:w-full [&_button]:justify-start">
-                {isAdmin ? <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} paperUrl={sub.paperUrl ?? ""} modelType={sub.modelType} locked={!!sub.contest && contestPhase(sub.contest) !== "open"} /> : null}
+                {isAdmin ? <EditDetailsDialog id={sub.id} modelName={sub.modelName} description={sub.description} paperUrl={sub.paperUrl ?? ""} codeUrl={sub.codeUrl ?? ""} modelType={sub.modelType} locked={!!sub.contest && contestPhase(sub.contest) !== "open"} /> : null}
                 {sub.status === "COMPLETED" || sub.status === "FAILED" ? (
                   <NewVersionDialog id={sub.id} version={sub.version} directUpload={(process.env.STORAGE ?? "local") === "supabase"} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 50)} disabledReason={sub.contest && contestPhase(sub.contest) !== "open" ? "Contest closed; its entries are frozen. Submit a new (non-contest) submission instead." : undefined} />
                 ) : null}

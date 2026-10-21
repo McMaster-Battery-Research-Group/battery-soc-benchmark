@@ -60,6 +60,7 @@ export const submissionMetaSchema = z.object({
   modelName: z.string().trim().min(3, "At least 3 characters").max(50, "At most 50 characters"),
   description: z.string().trim().min(DESCRIPTION_MIN, `Describe the model in at least ${DESCRIPTION_MIN} characters: ${DESCRIPTION_GUIDE}`).max(DESCRIPTION_MAX, `At most ${DESCRIPTION_MAX} characters`),
   paperUrl: optionalUrl(),
+  codeUrl: optionalUrl(),
   modelType: z.enum(MODEL_TYPES),
   evaluationLevel: z.enum(["DYNAMIC", "STATIC"]).default("DYNAMIC"),
   isPrivate: z.boolean().default(false),

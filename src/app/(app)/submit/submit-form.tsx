@@ -49,6 +49,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
   const [modelName, setModelName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [paperUrl, setPaperUrl] = React.useState("");
+  const [codeUrl, setCodeUrl] = React.useState("");
   const [figure, setFigure] = React.useState<File | null>(null);
   const [doc, setDoc] = React.useState<File | null>(null);
   const [shareFiles, setShareFiles] = React.useState(false);
@@ -140,7 +141,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
 
   const action = async (fd: FormData) => {
     // 1) Client-side validation — same schema as the server, plus the file.
-    const parsed = submissionMetaSchema.safeParse({ modelName, description, paperUrl, modelType, evaluationLevel, isPrivate, shareFiles, contestId: contestId || null, acceptTerms });
+    const parsed = submissionMetaSchema.safeParse({ modelName, description, paperUrl, codeUrl, modelType, evaluationLevel, isPrivate, shareFiles, contestId: contestId || null, acceptTerms });
     const errs: FieldErrors = parsed.success ? {} : zodErrors(parsed.error);
     if (!file) errs.file = "Choose your submission package (.zip containing Model.m, Model.p or Model.py).";
     if (behalf && behalfKind === "account" && !behalfUser) errs.behalf = "Choose the author's account.";
@@ -152,6 +153,7 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
     fd.set("modelName", modelName);
     fd.set("description", description);
     fd.set("paperUrl", paperUrl);
+    fd.set("codeUrl", codeUrl);
     fd.set("shareFiles", shareFiles ? "on" : "");
     if (figure) fd.set("figure", figure);
     else fd.delete("figure");
@@ -263,12 +265,11 @@ export function SubmitForm({ contests, preselectContest, maxMb, directUpload, is
         </div>
         <Field label="Description" name="description" textarea required maxLength={DESCRIPTION_MAX} rows={6} placeholder={DESCRIPTION_GUIDE} value={description} error={errors.description} onChange={(e) => { setDescription(e.currentTarget.value); clearErr("description"); }}
           hint={<span><span className="tabular">{description.length}/{DESCRIPTION_MAX}</span> (at least {DESCRIPTION_MIN}). Describe the model, not yourself: the authors are listed next to it, and a description containing an author&apos;s name is not accepted.</span>} />
-        <div className="grid gap-5 sm:grid-cols-[1fr_1fr]">
-          <Field label="Paper or code link" name="paperUrl" type="url" inputMode="url" maxLength={300} placeholder="https://doi.org/… or https://github.com/…" value={paperUrl} error={errors.paperUrl} onChange={(e) => { setPaperUrl(e.currentTarget.value); clearErr("paperUrl"); }} hint="Optional. Where readers can learn how the model was made: a DOI, arXiv, GitHub or similar." />
-          <div className="grid gap-3">
-            <AttachmentPicker id="figure" label="Model diagram" icon={ImageIcon} accept="image/png,image/jpeg,image/webp" maxBytes={FIGURE_MAX_BYTES} hint="Optional. PNG, JPEG or WebP: a block diagram, network architecture or equations as an image." file={figure} onChange={(f) => { setFigure(f); clearErr("figure"); }} error={errors.figure} />
-            <AttachmentPicker id="doc" label="Write-up (PDF)" icon={FileText} accept="application/pdf,.pdf" maxBytes={DOC_MAX_BYTES} hint="Optional. A longer description, a report or the paper itself." file={doc} onChange={(f) => { setDoc(f); clearErr("doc"); }} error={errors.doc} />
-          </div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Paper" name="paperUrl" type="url" inputMode="url" maxLength={300} placeholder="https://doi.org/… or https://arxiv.org/…" value={paperUrl} error={errors.paperUrl} onChange={(e) => { setPaperUrl(e.currentTarget.value); clearErr("paperUrl"); }} hint="Optional. The paper, thesis or report that describes the model: a DOI, arXiv or publisher link." />
+          <Field label="Code" name="codeUrl" type="url" inputMode="url" maxLength={300} placeholder="https://github.com/…" value={codeUrl} error={errors.codeUrl} onChange={(e) => { setCodeUrl(e.currentTarget.value); clearErr("codeUrl"); }} hint="Optional. A public repository with the source, training scripts or notebooks." />
+          <AttachmentPicker id="figure" label="Model diagram" icon={ImageIcon} accept="image/png,image/jpeg,image/webp" maxBytes={FIGURE_MAX_BYTES} hint="Optional. PNG, JPEG or WebP: a block diagram, network architecture or equations as an image." file={figure} onChange={(f) => { setFigure(f); clearErr("figure"); }} error={errors.figure} />
+          <AttachmentPicker id="doc" label="Write-up (PDF)" icon={FileText} accept="application/pdf,.pdf" maxBytes={DOC_MAX_BYTES} hint="Optional. A longer description, a report or the paper itself." file={doc} onChange={(f) => { setDoc(f); clearErr("doc"); }} error={errors.doc} />
         </div>
         {/* "Evaluation level" (DYNAMIC | STATIC) is kept in the schema for the historical data but is not offered:
             every submission is evaluated the same way. Re-add a control here if a second evaluation mode is defined. */}
