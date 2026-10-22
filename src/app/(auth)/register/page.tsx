@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { RegisterForm } from "./register-form";
 
-export const metadata: Metadata = { title: "Create account" };
+export const metadata: Metadata = { title: "Create account", robots: { index: false, follow: true } }; // an account page has no place in search results
 
 export default async function RegisterPage() {
   // existing affiliations as suggestions, so spellings stay consistent for the leaderboard filter

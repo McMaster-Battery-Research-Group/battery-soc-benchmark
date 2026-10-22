@@ -28,9 +28,9 @@ export const metadata: Metadata = {
   description:
     "A standardized, blinded evaluation platform for battery state-of-charge estimation algorithms, built on the Tesla Model 3 2170 cell dataset from McMaster University.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  // states which address is authoritative, so an old indexed URL resolves to this one rather
-  // than competing with it
-  alternates: { canonical: "/" },
+  // No site-wide canonical here: a root-level `alternates.canonical` is inherited by EVERY page and
+  // told Google each page was a copy of the homepage (Search Console: "duplicate without
+  // user-selected canonical", 2026-10). Old hosts (www, stg) redirect here instead.
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

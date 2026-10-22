@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/misc";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Sign in", robots: { index: false, follow: true } }; // an account page has no place in search results
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; reset?: string; verified?: string }> }) {
   const sp = await searchParams;

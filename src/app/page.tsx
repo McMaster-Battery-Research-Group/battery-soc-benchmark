@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Download, FlaskConical, UploadCloud, Trophy, Thermometer, Database, ShieldCheck, BarChart3 } from "lucide-react";
@@ -11,6 +12,8 @@ import { RankBadge } from "@/components/leaderboard/rank-badge";
 import { CellGlyph } from "@/components/layout/logo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function HomePage() {
   const [stats, rows, showcase] = await Promise.all([getSiteStats(), getLeaderboardRows(), getShowcase()]);
