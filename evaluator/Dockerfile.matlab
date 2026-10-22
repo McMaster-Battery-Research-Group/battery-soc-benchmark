@@ -1,8 +1,9 @@
 # Sandbox image for evaluating *MATLAB* submissions (Model.m / Model.p).
 #
 # Base: MathWorks' official "matlab-deep-learning" image (Ubuntu + MATLAB + Deep Learning, Signal Processing,
-# Statistics & ML, Parallel Computing, Image Processing, Computer Vision, Text Analytics, MATLAB/GPU Coder).
-# That already covers every toolbox submissions have needed, so nothing is downloaded with mpm. Linux x86-64 only.
+# Statistics & ML, Parallel Computing, Image Processing, Computer Vision, Text Analytics, MATLAB/GPU Coder),
+# plus Control System Toolbox added below with mpm (tracker 2026-08-31 #15: submissions that build ss/tf models
+# or call lsim/c2d). Linux x86-64 only.
 #
 #   # build context is the REPO ROOT (the harness lives in evaluator/python, the MATLAB shim in matlab/)
 #   sudo docker build -t socbench-eval-matlab -f evaluator/Dockerfile.matlab \
@@ -29,6 +30,13 @@ USER root
 RUN if ! python3 -c "import numpy, scipy" 2>/dev/null; then \
       apt-get update && apt-get install -y --no-install-recommends python3 python3-pip && rm -rf /var/lib/apt/lists/* \
       && pip3 install --no-cache-dir --break-system-packages "numpy>=1.26" "scipy>=1.11"; fi
+# Control System Toolbox (tracker #15, Ahnaf): installed into the existing MATLAB with MathWorks' package manager.
+# Skipped once present, so a rebuild for a harness change does not download it again. Licensed at run time like
+# every other product (the campus licence covers it).
+RUN if [ ! -d /opt/matlab/R2026a/toolbox/control ]; then \
+      wget -q https://www.mathworks.com/mpm/glnxa64/mpm -O /tmp/mpm && chmod +x /tmp/mpm \
+      && /tmp/mpm install --release=R2026a --destination=/opt/matlab/R2026a --products Control_System_Toolbox \
+      && rm -rf /tmp/mpm /tmp/mathworks_root.log; fi
 # Make the `matlab` user's uid/gid match the worker's service account (see above). We do NOT use
 # `usermod -u`: changing an existing user's uid makes usermod rewrite ownership across the image
 # (traversing the 13 GB /opt/matlab tree), which on Arbutus rbd storage takes 30-45 min. Instead we
