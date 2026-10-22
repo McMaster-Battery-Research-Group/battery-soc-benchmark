@@ -322,7 +322,7 @@ export async function roleChangedEmail(user: { name: string; email: string }, ro
       sendMail({
         to,
         subject: `[SOC Benchmark] ${granted ? "Administrator access granted" : "Administrator access revoked"}: ${user.name}`,
-        html: layout(granted ? "Administrator access granted" : "Administrator access revoked", `<p>${esc(line)}.</p><p style="font-size:13px;color:#6d7a84">Every administrator receives this notice; it cannot be switched off.</p>${button(`${site()}/admin/users`, "Open user list")}`),
+        html: layout(granted ? "Administrator access granted" : "Administrator access revoked", `<p>${esc(line)}.</p><p style="font-size:13px;color:#6d7a84">Every administrator receives this notice by default; you can switch it off under Admin → My notifications.</p>${button(`${site()}/admin/users`, "Open user list")}`),
         text: line,
       }),
     ),
