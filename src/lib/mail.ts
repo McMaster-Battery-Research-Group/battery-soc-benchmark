@@ -39,7 +39,7 @@ export interface MailAttachment {
 }
 
 /** Recipient as it appears in the log: first two characters of the local part, then the domain. */
-const maskAddr = (to: string) => to.replace(/^.*<|>.*$/g, "").replace(/^(..)[^@]*@/, "$1***@");
+const maskAddr = (to: string) => to.split(",").map((t) => t.trim().replace(/^.*<|>.*$/g, "").replace(/^(..)[^@]*@/, "$1***@")).join(",");
 
 /**
  * Every message is logged with a masked recipient and whether the relay accepted it, so "did that
@@ -316,9 +316,10 @@ export async function roleChangedEmail(user: { name: string; email: string }, ro
     ),
     text: granted ? `${byName} made you an administrator: ${href}` : `${byName} removed your administrator access.`,
   });
+  // one message with every administrator in the To line, so each copy shows who else was told
   const admins = (await adminNotifyTargets("roles")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   await Promise.all(
-    admins.map((to) =>
+    (admins.length ? [admins.join(", ")] : []).map((to) =>
       sendMail({
         to,
         subject: `[SOC Benchmark] ${granted ? "Administrator access granted" : "Administrator access revoked"}: ${user.name}`,
