@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import nodemailer, { type Transporter } from "nodemailer";
 import { LOGOS, ACKNOWLEDGEMENT, logoPngPath } from "@/lib/logos";
+import { logEvent } from "@/lib/log";
 
 let transporter: Transporter | null = null;
 let usingEthereal = false;
@@ -37,17 +38,29 @@ export interface MailAttachment {
   cid?: string;
 }
 
+/** Recipient as it appears in the log: first two characters of the local part, then the domain. */
+const maskAddr = (to: string) => to.replace(/^.*<|>.*$/g, "").replace(/^(..)[^@]*@/, "$1***@");
+
+/**
+ * Every message is logged with a masked recipient and whether the relay accepted it, so "did that
+ * e-mail go out?" can be answered from `journalctl -u socbench-web` (event=mail.sent / mail.failed).
+ */
 export async function sendMail(opts: { to: string; cc?: string; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) {
   try {
     const t = await getTransport();
     const info = await t.sendMail({ from: process.env.MAIL_FROM ?? "no-reply@batterysocbenchmark.ca", ...opts });
     if (usingEthereal) console.log(`[mail] "${opts.subject}" → ${opts.to}: ${nodemailer.getTestMessageUrl(info)}`);
+    logEvent("mail.sent", { to: maskAddr(opts.to), subject: opts.subject.slice(0, 80), id: info.messageId ?? undefined });
     return true;
   } catch (err) {
     console.error("[mail] send failed", err);
+    logEvent("mail.failed", { to: maskAddr(opts.to), subject: opts.subject.slice(0, 80), error: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200) });
     return false;
   }
 }
+
+/** Text with user-supplied parts (names, e-mail addresses in angle brackets) made safe for an HTML body. */
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const site = () => process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -309,7 +322,7 @@ export async function roleChangedEmail(user: { name: string; email: string }, ro
       sendMail({
         to,
         subject: `[SOC Benchmark] ${granted ? "Administrator access granted" : "Administrator access revoked"}: ${user.name}`,
-        html: layout(granted ? "Administrator access granted" : "Administrator access revoked", `<p>${line}.</p><p style="font-size:13px;color:#6d7a84">You can change which admin e-mails you receive under Admin → My notifications.</p>${button(`${site()}/admin/users`, "Open user list")}`),
+        html: layout(granted ? "Administrator access granted" : "Administrator access revoked", `<p>${esc(line)}.</p><p style="font-size:13px;color:#6d7a84">Every administrator receives this notice; it cannot be switched off.</p>${button(`${site()}/admin/users`, "Open user list")}`),
         text: line,
       }),
     ),
