@@ -19,13 +19,29 @@ const CYCLES: Record<string, { icon: React.ComponentType<{ className?: string }>
   HWGRADE: { icon: Mountain, text: "HWGRADE · highway with grade" },
 };
 
-function tempChip(t: number) {
+export function tempChip(t: number) {
   if (t <= -20) return { icon: ThermometerSnowflake, text: `${t} °C · coldest` };
   if (t < 0) return { icon: ThermometerSnowflake, text: `${t} °C · cold` };
   if (t === 0) return { icon: ThermometerSnowflake, text: "0 °C · freezing" };
   if (t <= 10) return { icon: Thermometer, text: `${t} °C · cool` };
   if (t <= 25) return { icon: Thermometer, text: `${t} °C · room temperature` };
   return { icon: ThermometerSun, text: `${t} °C · hottest` };
+}
+
+/** The six chamber temperatures as the same chips the plots use. */
+export function TemperatureChips({ temps, className }: { temps: readonly number[]; className?: string }) {
+  return (
+    <ul className={cn("flex flex-wrap gap-1.5", className)} aria-label="Chamber temperatures">
+      {temps.map((t) => {
+        const c = tempChip(t);
+        return (
+          <li key={t} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-grey-100/70 px-2.5 py-1 font-heading text-xs font-medium text-grey-800">
+            <c.icon className="size-4 shrink-0 text-grey-600" aria-hidden /> {c.text}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export function RunChips({ run, className, size = "sm" }: { run: RunContext; className?: string; size?: "sm" | "md" }) {

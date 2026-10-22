@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, ExternalLink, Lock, Unlock } from "lucide-react";
+import { Download, ExternalLink, Eye, EyeOff, Battery, Weight, Wind, Route, Zap, Mountain, BatteryCharging, Gauge, Activity, Shuffle } from "lucide-react";
+import { TemperatureChips } from "@/components/charts/run-context";
 import { PageHeader, SectionTitle } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
-import { CELLS, CELL_INFO } from "@/lib/test-cases";
+import { CELLS, CELL_INFO, TEMPERATURES_C } from "@/lib/test-cases";
 
 export const metadata: Metadata = { title: "Dataset" };
 
@@ -17,15 +18,16 @@ const FILES = [
   { name: "4-SOC estimation Model Examples.zip", size: "54 KB", d: "Four complete submission packages: coulomb counter, EKF, FNN and LSTM, the reference for the required format." },
 ];
 
-const SPLIT: { test: string; m80: string; m448: string; m448N: string; m1000: string; note?: string }[] = [
-  { test: "C/20 discharge capacity (at 40 °C)", m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
-  { test: "C/3, C/2, 1C discharge", m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
-  { test: "C/20 charge and discharge", m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
-  { test: "HPPC (four pulse magnitudes)", m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
-  { test: "UDDS, HWFET, LA92, US06", m80: "Blind", m448: "Blind", m448N: "Blind", m1000: "Blind" },
-  { test: "Eight reordered drive cycles", m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
-  { test: "HWCUST 1 / 2", m80: "Open / Blind", m448: "Blind", m448N: "Open / Blind", m1000: "Open / Blind" },
-  { test: "HWGRADE 1 / 2", m80: "Open / Blind", m448: "Blind", m448N: "Open / Blind", m1000: "Open / Blind" },
+// the icons are the ones the result plots use for the same things (src/components/charts/run-context.tsx)
+const SPLIT: { test: string; icon: React.ComponentType<{ className?: string }>; m80: string; m448: string; m448N: string; m1000: string; note?: string }[] = [
+  { test: "C/20 discharge capacity (at 40 °C)", icon: Gauge, m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
+  { test: "C/3, C/2, 1C discharge", icon: Gauge, m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
+  { test: "C/20 charge and discharge", icon: BatteryCharging, m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
+  { test: "HPPC (four pulse magnitudes)", icon: Activity, m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
+  { test: "UDDS, HWFET (standard) · LA92, US06 (aggressive)", icon: Zap, m80: "Blind", m448: "Blind", m448N: "Blind", m1000: "Blind" },
+  { test: "Eight reordered drive cycles", icon: Shuffle, m80: "Open", m448: "Blind", m448N: "Open", m1000: "Open" },
+  { test: "HWCUST 1 / 2 (custom highway)", icon: Route, m80: "Open / Blind", m448: "Blind", m448N: "Open / Blind", m1000: "Open / Blind" },
+  { test: "HWGRADE 1 / 2 (highway with grade)", icon: Mountain, m80: "Open / Blind", m448: "Blind", m448N: "Open / Blind", m1000: "Open / Blind" },
 ];
 
 const COLUMNS = [
@@ -34,11 +36,25 @@ const COLUMNS = [
   ["Cycle_Label", "e.g. UDDS"], ["Test_Cell", "e.g. m80"],
 ];
 
+/** Open / blind as the eye symbols the rest of the site uses: an open eye for released data, a crossed eye for blinded. */
 function Cell({ v }: { v: string }) {
   const blind = v.startsWith("Blind");
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${blind ? "bg-maroon-100 text-maroon-800" : v.includes("/") ? "bg-gold-200 text-grey-900" : "bg-[#e8f5ee] text-forest"}`}>
-      {blind ? <Lock className="size-3" /> : <Unlock className="size-3" />}{v}
+      {blind ? <EyeOff className="size-3" /> : <Eye className="size-3" />}{v}
+    </span>
+  );
+}
+
+/** A cell with the symbols its runs carry on the result plots: a battery, badged with the crossed eye when blinded. */
+function CellName({ c }: { c: (typeof CELLS)[number] }) {
+  return (
+    <span className="inline-flex items-center gap-2 font-heading font-semibold text-ink">
+      <span className="relative flex size-7 items-center justify-center rounded-full bg-maroon-100 text-maroon">
+        <Battery className="size-4" />
+        {CELL_INFO[c].blind ? <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-white text-maroon ring-1 ring-maroon-100" title="blinded cell"><EyeOff className="size-2.5" /></span> : null}
+      </span>
+      {c}
     </span>
   );
 }
@@ -58,9 +74,9 @@ export default function DatasetPage() {
                 <tbody>
                   {CELLS.map((c) => (
                     <tr key={c} className="border-b border-border">
-                      <td className="px-3 py-2.5 font-heading font-semibold text-ink">{c}</td>
-                      <td className="px-3 py-2.5 tabular">{CELL_INFO[c].payloadKg} kg</td>
-                      <td className="px-3 py-2.5">{CELL_INFO[c].hvac ? "On" : "Off"}</td>
+                      <td className="px-3 py-2.5"><CellName c={c} /></td>
+                      <td className="px-3 py-2.5 tabular"><span className="inline-flex items-center gap-1.5"><Weight className="size-4 text-grey-600" aria-hidden />{CELL_INFO[c].payloadKg} kg</span></td>
+                      <td className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5"><Wind className={`size-4 ${CELL_INFO[c].hvac ? "text-grey-600" : "text-grey-400"}`} aria-hidden />{CELL_INFO[c].hvac ? "On" : "Off"}</span></td>
                       <td className="px-3 py-2.5 tabular">Ch {CELL_INFO[c].channel}</td>
                       <td className="px-3 py-2.5">{CELL_INFO[c].blind ? <Cell v="Blind, evaluation only" /> : <Cell v="Open + blind cycles" />}</td>
                     </tr>
@@ -84,14 +100,15 @@ export default function DatasetPage() {
         </section>
 
         <section>
-          <SectionTitle sub="Tests run at −20, −10, 0, 10, 25 and 40 °C, hottest first. Before every test the cell is returned to 25 °C and CC-CV charged to 4.2 V / 0.1 A so all tests start at 100 % SOC.">Open versus blind data</SectionTitle>
+          <SectionTitle sub="Every test runs at each of the six chamber temperatures, hottest first. Before every test the cell is returned to 25 °C and CC-CV charged to 4.2 V / 0.1 A so all tests start at 100 % SOC.">Open versus blind data</SectionTitle>
+          <TemperatureChips temps={TEMPERATURES_C} className="mb-4" />
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-grey-100"><tr className="border-b border-border"><th className="h-10 px-3 text-left font-heading text-xs font-semibold uppercase tracking-wide text-grey-800">Test</th>{CELLS.map((c) => <th key={c} className="h-10 px-3 text-left font-heading text-xs font-semibold uppercase tracking-wide text-grey-800">{c}</th>)}</tr></thead>
               <tbody>
                 {SPLIT.map((r) => (
                   <tr key={r.test} className="border-b border-border">
-                    <td className="px-3 py-2.5 text-grey-900">{r.test}</td>
+                    <td className="px-3 py-2.5 text-grey-900"><span className="inline-flex items-center gap-2"><r.icon className="size-4 shrink-0 text-grey-600" aria-hidden />{r.test}</span></td>
                     <td className="px-3 py-2.5"><Cell v={r.m80} /></td><td className="px-3 py-2.5"><Cell v={r.m448} /></td><td className="px-3 py-2.5"><Cell v={r.m448N} /></td><td className="px-3 py-2.5"><Cell v={r.m1000} /></td>
                   </tr>
                 ))}
