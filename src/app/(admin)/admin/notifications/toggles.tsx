@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { saveAdminNotifyAction } from "../actions";
 
-export function NotifyToggles({ kinds, initial }: { kinds: { key: string; label: string; desc: string }[]; initial: Record<string, boolean> }) {
+export function NotifyToggles({ kinds, initial }: { kinds: { key: string; label: string; desc: string; always?: boolean }[]; initial: Record<string, boolean> }) {
   const { push } = useToast();
   const [prefs, setPrefs] = React.useState(initial);
   const [pending, start] = React.useTransition();
@@ -30,7 +30,11 @@ export function NotifyToggles({ kinds, initial }: { kinds: { key: string; label:
             <p className="font-heading font-medium text-ink">{k.label}</p>
             <p className="text-sm text-grey-700">{k.desc}</p>
           </div>
-          <Switch checked={prefs[k.key]} onCheckedChange={(v) => toggle(k.key, !!v)} disabled={pending} aria-label={`E-mails for ${k.label}`} />
+          {k.always ? (
+            <span className="shrink-0 rounded-full border border-border bg-grey-100 px-2.5 py-1 font-heading text-xs font-semibold uppercase tracking-wide text-grey-700" title="Every administrator receives these; the setting cannot be changed">Always on</span>
+          ) : (
+            <Switch checked={prefs[k.key]} onCheckedChange={(v) => toggle(k.key, !!v)} disabled={pending} aria-label={`E-mails for ${k.label}`} />
+          )}
         </li>
       ))}
     </ul>

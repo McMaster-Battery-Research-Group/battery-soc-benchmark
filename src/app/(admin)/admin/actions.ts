@@ -16,7 +16,7 @@ import { getLeaderboardRows } from "@/lib/queries";
 import { moderationEmail, bulkModerationEmail, contestResultsEmail } from "@/lib/mail";
 import { storage } from "@/lib/storage";
 import { rescoreAll } from "@/lib/rescore";
-import { ADMIN_NOTIFY_KINDS, recordAdminEvent } from "@/lib/admin-notify";
+import { ADMIN_NOTIFY_KINDS, ALWAYS_NOTIFY, recordAdminEvent } from "@/lib/admin-notify";
 import { normalise, validateWeights, sameWeights, getActiveScoring, DEFAULT_WEIGHTS } from "@/lib/scoring-config";
 
 // ---- bulk delete (admin table): one reason, many submissions; running evaluations are skipped
@@ -89,7 +89,7 @@ export async function saveEvalSettingsAction(input: { evalTimeoutMin: number; dr
 
 export async function saveAdminNotifyAction(prefs: Record<string, boolean>): Promise<{ ok: true }> {
   const me = await requireAdmin();
-  const clean = Object.fromEntries(ADMIN_NOTIFY_KINDS.map((k) => [k.key, prefs[k.key] !== false]));
+  const clean = Object.fromEntries(ADMIN_NOTIFY_KINDS.map((k) => [k.key, ALWAYS_NOTIFY.includes(k.key) || prefs[k.key] !== false])); // the always-on kinds cannot be muted
   await db.user.update({ where: { id: me.id }, data: { adminNotify: clean } });
   logEvent("admin.notify_prefs", { by: me.id, ...clean });
   revalidatePath("/admin/notifications");
