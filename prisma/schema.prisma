@@ -125,6 +125,9 @@ model Submission {
   fileName        String?
   fileType        FileType?
   fileSize        Int?
+  /// Total size of the files inside the package, uncompressed (code + weights + data): what the
+  /// leaderboard shows as "Model size". Null for entries uploaded before this was recorded.
+  unpackedSize    Int?
   /// The author chose to share the model files: the package is KEPT after evaluation and anyone who
   /// can see the submission can download it from its page. Off (default): deleted right after the run.
   shareFiles      Boolean         @default(false)

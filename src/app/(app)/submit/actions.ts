@@ -201,6 +201,7 @@ export async function createSubmissionAction(_prev: SubmitState, fd: FormData): 
       fileName,
       fileType: "ZIP",
       fileSize,
+      unpackedSize: check.unpackedBytes ?? null,
       contestId,
       ownerDisplay,
       creditName: credit?.name ?? null,
@@ -420,7 +421,7 @@ export async function resubmitAction(id: string, fd: FormData): Promise<{ ok: tr
   if (sub.fileKey && sub.fileKey !== key) await storage.remove(sub.fileKey).catch(() => {}); // a package kept for sharing is replaced by the new version
   const version = sub.version + 1;
   await db.$transaction([
-    db.submission.update({ where: { id }, data: { version, fileKey: key, fileName, fileSize: bytes.length, runtime: runtimeOf(check.modelFile), status: "QUEUED", failureMessage: null, completedAt: null } }),
+    db.submission.update({ where: { id }, data: { version, fileKey: key, fileName, fileSize: bytes.length, unpackedSize: check.unpackedBytes ?? null, runtime: runtimeOf(check.modelFile), status: "QUEUED", failureMessage: null, completedAt: null } }),
     db.evaluationJob.upsert({ where: { submissionId: id }, create: { submissionId: id }, update: { attempts: 0, lockedAt: null, lockedBy: null, log: "", cancelRequestedAt: null } }),
   ]);
   await recordRevision({ submissionId: id, kind: "resubmission", evaluatorVersion: "-", note: `v${version}: ${fileName} (${Math.round(bytes.length / 1024)} KB) uploaded, queued for evaluation`, by: session.user.id });

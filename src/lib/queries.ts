@@ -33,8 +33,10 @@ export type LeaderboardRow = {
   isLegacy: boolean;
   contestId: string | null;
   description: string;
-  /** size in bytes of the latest uploaded package, null for entries without size */
+  /** size in bytes of the latest uploaded package (zipped), null for entries without a package */
   fileSize: number | null;
+  /** total size of the files inside the package, uncompressed; null for entries uploaded before this was recorded */
+  unpackedSize: number | null;
   /** peak memory of the model process during evaluation (MB), null when it was not measured (older results, non-Docker worker) */
   peakMemMb: number | null;
   /** the authors chose to share the package: downloadable from the submission page */
@@ -108,6 +110,7 @@ export async function getLeaderboardRows(opts: { viewerId?: string; isAdmin?: bo
       contestId: s.contestId,
       description: s.description,
       fileSize: s.fileSize,
+      unpackedSize: s.unpackedSize,
       peakMemMb: typeof (s.result!.resourceUsage as { peakMemMb?: unknown } | null)?.peakMemMb === "number" ? ((s.result!.resourceUsage as { peakMemMb: number }).peakMemMb) : null,
       shareFiles: s.shareFiles,
       ...(s.result as unknown as Record<MetricKey, number> & { weightedError: number; complexity: number; complexityUncertainty: number; maxError: number; evaluatorVersion: string }),

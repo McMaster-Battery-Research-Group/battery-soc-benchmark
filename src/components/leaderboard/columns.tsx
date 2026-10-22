@@ -155,12 +155,12 @@ export function buildColumns(): ColumnDef<LeaderboardRow, unknown>[] {
       meta: { ...NUMERIC_META, tooltip: "Largest instantaneous SOC error across all blinded cycles (% SOC)." },
       cell: (c) => <span className="tabular">{fmtPct(c.getValue())}</span>,
     }),
-    col.accessor("fileSize", {
+    col.accessor((r) => r.unpackedSize ?? r.fileSize, {
       id: "fileSize",
       header: "Model size",
-      meta: { ...NUMERIC_META, tooltip: "Size of the uploaded package (.zip): code, weights and data files. A proxy for the memory the model's parameters need." },
-      // carried-over (legacy) entries have no package, so no size
-      cell: (c) => <span className="tabular">{c.getValue() === null ? "—" : fmtBytes(c.getValue()!)}</span>,
+      meta: { ...NUMERIC_META, tooltip: "Total size of the files inside the package, uncompressed: code, weights and data. Entries uploaded before this was recorded show the zipped size instead, marked (zip). Carried-over entries have no package." },
+      cell: ({ row }) => <span className="tabular">{row.original.unpackedSize !== null ? fmtBytes(row.original.unpackedSize) : row.original.fileSize !== null ? <>{fmtBytes(row.original.fileSize)} <span className="text-grey-500">(zip)</span></> : "—"}</span>,
+      sortUndefined: "last",
     }),
     col.accessor("peakMemMb", {
       id: "peakMemMb",

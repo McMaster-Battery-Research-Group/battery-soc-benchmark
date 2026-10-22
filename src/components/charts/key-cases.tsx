@@ -6,6 +6,7 @@ import { SocTrace } from "@/components/charts/soc-trace";
 import { OffsetRmseChart } from "@/components/charts/offset-rmse";
 import type { PerCycleRow } from "@/evaluator/types";
 import { Alert } from "@/components/ui/misc";
+import { RunChips } from "./run-context";
 
 const GROUPS: { id: NonNullable<TimeSeriesTrace["group"]>; title: string; blurb: string }[] = [
   { id: "cycle", title: "Selected drive cycles", blurb: "The thirteen cycles the original MATLAB tool plotted, one per test: blinded vs non-blinded cell (tests 1–3), drive vs charge (test 4), the three payloads on one cycle (tests 5–6), standard vs non-standard highway profiles (tests 7–8) and the temperature extremes (test 9)." },
@@ -49,6 +50,7 @@ function KeyCasePicker({ traces, modelName }: { traces: TimeSeriesTrace[]; model
   return (
     <div>
       <SocTrace traces={[current]} names={[modelName]} selectable options={options} onSelect={setKey} />
+      <RunChips run={current} size="md" className="mt-3" />
       {current.note ? <p className="mt-2 text-sm text-grey-700"><span className="font-heading font-medium text-ink">Why this case:</span> {current.note}</p> : null}
     </div>
   );

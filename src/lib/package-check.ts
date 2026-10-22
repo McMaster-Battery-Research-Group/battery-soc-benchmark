@@ -13,6 +13,8 @@ export interface PackageCheck {
   warnings: string[];
   files: string[];
   modelFile?: "Model.m" | "Model.p" | "Model.py";
+  /** total size of the files inside the archive, uncompressed */
+  unpackedBytes?: number;
 }
 
 /** Which evaluation runtime a package needs, from the model file the checker found. */
@@ -73,6 +75,6 @@ export function checkSubmissionPackage(bytes: Buffer): PackageCheck {
     if (!/^\s*def\s+Model\s*\(/m.test(src)) problems.push('Model.py must define "def Model(X, z=None)" returning (Y_est, z).');
     if (/^\s*(import|from)\s+(torch|tensorflow|keras|sklearn|jax)/m.test(src)) warnings.push("Model.py imports a deep-learning framework; the evaluator's Python environment provides numpy and scipy only. Bundle weights and implement inference with numpy, or confirm the framework is installed on the evaluation host.");
   }
-  return { ok: problems.length === 0, problems, warnings, files, modelFile };
+  return { ok: problems.length === 0, problems, warnings, files, modelFile, unpackedBytes: total };
 }
 

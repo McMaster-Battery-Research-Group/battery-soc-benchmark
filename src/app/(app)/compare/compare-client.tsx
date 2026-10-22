@@ -17,6 +17,7 @@ import { TestCaseBars } from "@/components/charts/test-case-bars";
 import { TemperatureBars } from "@/components/charts/temperature-bars";
 import { SocTrace } from "@/components/charts/soc-trace";
 import { isWorstCase, sameRun } from "@/lib/traces";
+import { RunChips } from "@/components/charts/run-context";
 import { SERIES } from "@/components/charts/palette";
 
 export function CompareClient({ rows, initialIds, tracesById, viewerId }: { rows: LeaderboardRow[]; initialIds: string[]; tracesById: Record<string, TimeSeriesTrace[]>; viewerId?: string }) {
@@ -225,6 +226,7 @@ function CompareTraces({ ids, tracesByModel, names }: { ids: string[]; tracesByM
   return (
     <div>
       <SocTrace traces={shown.map((x) => x.t)} names={shown.map((x) => x.name)} selectable options={options} onSelect={setKey} />
+      <RunChips run={target} size="md" className="mt-3" />
       {missing.length ? (
         <ul className="mt-2 space-y-1 text-xs text-grey-700">
           {missing.map(({ i }) => (

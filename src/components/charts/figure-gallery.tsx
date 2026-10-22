@@ -11,6 +11,8 @@ import { ChartFrame, axisProps, gridProps } from "./chart-primitives";
 import { TemperatureBars } from "./temperature-bars";
 import { OffsetRmseChart } from "./offset-rmse";
 import { Alert } from "@/components/ui/misc";
+import { EyeOff } from "lucide-react";
+import { RunChips, type RunContext } from "./run-context";
 
 /**
  * Every figure of the lab's original Create_Figures.m, as one gallery (tracker 2026-10-14 #22):
@@ -23,6 +25,8 @@ type Pt = { t: number; v: number };
 type LineSpec = { label: string; color: string; points: Pt[]; width?: number; dashed?: boolean };
 type PanelSpec = {
   title: string;
+  /** what the run is, shown as icon chips under the title */
+  run: RunContext;
   /** the SOC plot: actual + one or more estimates; absent on the blinded cell (error only) */
   soc?: LineSpec[];
   err: LineSpec[];
@@ -61,10 +65,11 @@ export function FigureGallery({ traces, perCycle, robustness, values, modelName 
     const err = errorOf(t);
     return {
       title,
+      run: { cell: t.cell, cycle: t.cycle, temperatureC: t.temperatureC, group: "cycle", blinded: t.blinded },
       soc: t.blinded || !t.actual || !t.estimated ? undefined : [{ label: "Actual", color: CHART.actual, points: pts(t.t, t.actual), width: 1.25 }, { label: "Estimated", color: CHART.estimated, points: pts(t.t, t.estimated) }],
       err: [{ label: "Error", color: CHART.estimated, points: pts(t.t, err) }],
       legend: [{ label: "Estimated", color: CHART.estimated, rmse: rmseFor(t) }],
-      note: t.blinded ? "Blinded cell: the reference SOC is withheld, so only the error is shown." : undefined,
+      note: t.blinded ? "m448 is the blinded cell: its true SOC is the benchmark's answer key and is never published, so the SOC-against-time plot is omitted here. The error curve (estimated minus true SOC) carries the same information about the model without revealing the key." : undefined,
     };
   };
 
@@ -78,6 +83,7 @@ export function FigureGallery({ traces, perCycle, robustness, values, modelName 
     const longest = runs.reduce((m, r) => ((r.t.t[r.t.t.length - 1] ?? 0) > (m.t.t[m.t.t.length - 1] ?? 0) ? r : m));
     return [{
       title: `m80 ${cycle} at ${temp} °C`,
+      run: { cell: "m80", cycle, temperatureC: temp, group: "initialSoc" },
       soc: [{ label: "Actual", color: CHART.actual, points: pts(longest.t.t, longest.t.actual!, shiftOf(longest.t)), width: 1.25 }, ...runs.map((r) => ({ label: `${r.pct} % start`, color: SERIES[r.q], points: pts(r.t.t, r.t.estimated!, shiftOf(r.t)) }))],
       err: runs.map((r) => ({ label: `${r.pct} % start`, color: SERIES[r.q], points: pts(r.t.t, errorOf(r.t), shiftOf(r.t)) })),
       legend: runs.map((r) => ({ label: `${r.pct} % start`, color: SERIES[r.q], rmse: robustness?.initialSocRmse?.[b * 3 + r.q] !== undefined ? `RMSE ${fmtPct(robustness.initialSocRmse[b * 3 + r.q], 1)} %` : `RMSE ≈ ${fmtPct(rmseOfTrace(r.t), 1)} %` })),
@@ -91,6 +97,7 @@ export function FigureGallery({ traces, perCycle, robustness, values, modelName 
     if (!runs.length) return [];
     return [{
       title: `m1000 ${cycle} at ${temp} °C`,
+      run: { cell: "m1000", cycle, temperatureC: temp, group: "offset" },
       soc: [{ label: "Actual", color: CHART.actual, points: pts(runs[0].t.t, runs[0].t.actual!), width: 1.25 }, ...runs.map((r) => ({ label: r.label, color: SERIES[r.i], points: pts(r.t.t, r.t.estimated!) }))],
       err: runs.map((r) => ({ label: r.label, color: SERIES[r.i], points: pts(r.t.t, errorOf(r.t)) })),
       legend: runs.map((r) => ({ label: r.label, color: SERIES[r.i], rmse: robustness?.currentOffsetRmse?.[b * 6 + r.j] !== undefined ? `RMSE ${fmtPct(robustness.currentOffsetRmse[b * 6 + r.j], 1)} %` : `RMSE ≈ ${fmtPct(rmseOfTrace(r.t), 1)} %` })),
@@ -140,15 +147,22 @@ function Panel({ spec }: { spec: PanelSpec }) {
   const xDomain: [number, number] = [0, Math.max(0.1, Math.ceil(tMax * 10) / 10)];
   return (
     <div className="min-w-0">
-      <p className="mb-1 font-heading text-sm font-semibold text-ink">{spec.title}</p>
-      {spec.soc ? <Mini lines={spec.soc} height={170} xDomain={xDomain} yLabel="SOC" showX={false} /> : null}
-      <Mini lines={spec.err} height={spec.soc ? 130 : 180} xDomain={xDomain} yLabel="Error" showX zeroLine />
+      <p className="font-heading text-sm font-semibold text-ink">{spec.title}</p>
+      <RunChips run={spec.run} className="mb-2 mt-1" />
+      {spec.soc ? (
+        <Mini lines={spec.soc} height={170} xDomain={xDomain} yLabel="SOC" showX={false} />
+      ) : (
+        <div className="flex h-[170px] items-center gap-3 rounded-brand border border-dashed border-border bg-grey-100/50 px-4 text-xs leading-relaxed text-grey-700">
+          <EyeOff className="size-5 shrink-0 text-grey-500" aria-hidden />
+          <p><span className="font-heading font-semibold text-ink">No SOC plot for the blinded cell.</span> {spec.note}</p>
+        </div>
+      )}
+      <Mini lines={spec.err} height={130} xDomain={xDomain} yLabel="Error" showX zeroLine />
       <ul className="mt-1 space-y-0.5 text-xs text-grey-800">
         {spec.legend.map((l) => (
           <li key={l.label} className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-4 rounded" style={{ background: l.color }} aria-hidden /> {l.label} <span className="ml-auto font-heading font-semibold tabular text-ink">{l.rmse}</span></li>
         ))}
       </ul>
-      {spec.note ? <p className="mt-1 text-xs text-grey-600">{spec.note}</p> : null}
     </div>
   );
 }
@@ -157,19 +171,32 @@ function Mini({ lines, height, xDomain, yLabel, showX, zeroLine }: { lines: Line
   const vs = lines.flatMap((l) => l.points.map((q) => q.v));
   let lo = Math.min(...vs), hi = Math.max(...vs);
   if (zeroLine) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
-  const pad = Math.max(0.5, (hi - lo) * 0.08);
-  const yDomain: [number, number] = [Math.floor(lo - pad), Math.ceil(hi + pad)];
+  const { domain: yDomain, ticks } = niceAxis(lo, hi);
   const tick = { ...axisProps.tick, fontSize: 10 };
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart margin={{ top: 6, right: 8, left: 0, bottom: showX ? 0 : -8 }}>
         <CartesianGrid {...gridProps} />
         <XAxis dataKey="t" type="number" domain={xDomain} {...axisProps} tick={tick} height={showX ? 22 : 8} tickFormatter={(v) => (showX ? `${v} h` : "")} tickCount={5} allowDataOverflow />
-        <YAxis {...axisProps} tick={tick} width={42} unit="%" domain={yDomain} tickCount={4} label={{ value: yLabel, angle: -90, position: "insideLeft", offset: 12, fontSize: 10, fill: CHART.text }} />
+        <YAxis {...axisProps} tick={tick} width={42} unit="%" domain={yDomain} ticks={ticks} label={{ value: yLabel, angle: -90, position: "insideLeft", offset: 12, fontSize: 10, fill: CHART.text }} />
         {lines.map((l) => (
           <Line key={l.label} data={l.points} dataKey="v" name={l.label} stroke={l.color} strokeWidth={l.width ?? 1.5} strokeDasharray={l.dashed ? "4 3" : undefined} dot={false} isAnimationActive={false} />
         ))}
       </LineChart>
     </ResponsiveContainer>
   );
+}
+
+/** Axis on round numbers: a 1-2-5 step giving about four intervals, the domain widened to multiples of it. */
+function niceAxis(lo: number, hi: number, target = 4): { domain: [number, number]; ticks: number[] } {
+  const span = Math.max(hi - lo, 1);
+  const raw = span / target;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const r = raw / mag;
+  const step = (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * mag;
+  const a = Math.floor(lo / step) * step;
+  const b = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let v = a; v <= b + 1e-9; v += step) ticks.push(Math.round(v * 1000) / 1000);
+  return { domain: [a, b], ticks };
 }

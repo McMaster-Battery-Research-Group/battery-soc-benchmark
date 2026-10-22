@@ -103,7 +103,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
               ) : (
                 <Row k="Package" v={`${sub.fileName}, ${packageNote(sub.status, sub.shareFiles, hasFiles)}`} />
               )}
-              <Row k="Package size" v={fmtBytes(sub.fileSize)} />
+              <Row k="Package size" v={sub.unpackedSize !== null ? `${fmtBytes(sub.unpackedSize)} unpacked (${fmtBytes(sub.fileSize)} zipped)` : `${fmtBytes(sub.fileSize)} zipped`} />
             </>
           ) : (
             <Row k="Package" v="None; this is a carried-over record, not a run of this evaluator" />

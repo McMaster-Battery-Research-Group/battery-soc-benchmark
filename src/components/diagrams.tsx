@@ -63,29 +63,30 @@ export function PipelineDiagram({ className }: { className?: string }) {
   ];
   return (
     <figure className={className}>
-      <svg viewBox="0 0 760 150" role="img" aria-labelledby="pl-title" className="h-auto w-full">
+      <svg viewBox="0 0 800 150" role="img" aria-labelledby="pl-title" className="h-auto w-full">
         <title id="pl-title">Pipeline: download open data, build a model, submit it to the blinded evaluator, results appear on the leaderboard.</title>
         <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill={GREY} /></marker></defs>
         {steps.map((st, i) => {
-          const x = 10 + i * 190;
+          const W = 178, PAD = 14; // box width and the inset used for every line of text, in every box
+          const x = 10 + i * (W + 20);
           return (
             <g key={st.t}>
-              <rect x={x} y="30" width="160" height="90" rx="4" fill={st.fill} stroke={st.stroke} />
-              <text x={x + 14} y="52" fontSize="11" fontWeight="600" fill={i === 2 ? G : M} style={f}>STEP {i + 1}</text>
-              <text x={x + 14} y="76" fontSize="16" fontWeight="600" fill={st.text} style={f}>{st.t}</text>
-              <foreignObject x={x + 14} y="84" width="136" height="34">
+              <rect x={x} y="30" width={W} height="90" rx="4" fill={st.fill} stroke={st.stroke} />
+              <text x={x + PAD} y="52" fontSize="11" fontWeight="600" fill={i === 2 ? G : M} style={f}>STEP {i + 1}</text>
+              <text x={x + PAD} y="76" fontSize="15" fontWeight="600" fill={st.text} style={f}>{st.t}</text>
+              <foreignObject x={x + PAD} y="84" width={W - 2 * PAD} height="34">
                 <div style={{ fontFamily: "Arial, sans-serif", fontSize: 11, lineHeight: "14px", color: i === 2 ? "rgba(255,255,255,0.85)" : GREY }}>{st.s}</div>
               </foreignObject>
-              {i < steps.length - 1 ? <line x1={x + 162} y1="75" x2={x + 188} y2="75" stroke={GREY} strokeWidth="1.5" markerEnd="url(#arr2)" /> : null}
+              {i < steps.length - 1 ? <line x1={x + W + 2} y1="75" x2={x + W + 18} y2="75" stroke={GREY} strokeWidth="1.5" markerEnd="url(#arr2)" /> : null}
             </g>
           );
         })}
-        {/* blinded boundary: a dashed "wall" in the gap between Step 2 (ends x=360) and Step 3 (starts x=390),
+        {/* blinded boundary: a dashed "wall" in the gap between Step 2 (ends x=386) and Step 3 (starts x=406),
             broken where the Step 2→3 arrow passes through (y=75), so the arrow goes through a doorway
             instead of being drawn over. */}
-        <line x1="375" y1="20" x2="375" y2="66" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
-        <line x1="375" y1="84" x2="375" y2="126" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
-        <text x="380" y="140" textAnchor="middle" fontSize="11" fill={GREY} style={body}>The dashed line is what you never see: the blinded data stays inside the evaluator.</text>
+        <line x1="396" y1="20" x2="396" y2="66" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
+        <line x1="396" y1="84" x2="396" y2="126" stroke={M} strokeWidth="1" strokeDasharray="4 4" />
+        <text x="400" y="140" textAnchor="middle" fontSize="11" fill={GREY} style={body}>The dashed line is what you never see: the blinded data stays inside the evaluator.</text>
       </svg>
     </figure>
   );
