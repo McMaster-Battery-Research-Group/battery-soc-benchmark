@@ -282,7 +282,7 @@ export async function accountEventEmail(kind: "registered" | "verified", user: {
   ];
   const table = `<table style="border-collapse:collapse;font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#6d7a84">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`).join("")}</table>`;
   await Promise.all(
-    targets.map((to) =>
+    (targets.length ? [targets.join(", ")] : []).map((to) =>
       sendMail({
         to,
         subject: `[SOC Benchmark] ${title}`,
@@ -316,7 +316,7 @@ export async function roleChangedEmail(user: { name: string; email: string }, ro
     ),
     text: granted ? `${byName} made you an administrator: ${href}` : `${byName} removed your administrator access.`,
   });
-  // one message with every administrator in the To line, so each copy shows who else was told
+  // Every admin notification is ONE message with all administrators in the To line, so each copy shows who else was told.
   const admins = (await adminNotifyTargets("roles")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   await Promise.all(
     (admins.length ? [admins.join(", ")] : []).map((to) =>
@@ -353,7 +353,7 @@ export async function submissionDeletedEmail(sub: { seq: number; modelName: stri
   ];
   const table = `<table style="border-collapse:collapse;font-size:14px">${rows.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#6d7a84;vertical-align:top">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`).join("")}</table>`;
   await Promise.all(
-    targets.map((to) =>
+    (targets.length ? [targets.join(", ")] : []).map((to) =>
       sendMail({
         to,
         subject: `[SOC Benchmark] ${title}`,
@@ -373,7 +373,7 @@ export async function bulkDeletionEmail(byName: string, reason: string, lines: s
   const title = `${lines.length} submissions deleted by ${byName}`;
   const list = `<ul style="padding-left:18px;font-size:14px">${lines.map((l) => `<li style="margin:2px 0">${esc(l)}</li>`).join("")}</ul>`;
   await Promise.all(
-    targets.map((to) =>
+    (targets.length ? [targets.join(", ")] : []).map((to) =>
       sendMail({
         to,
         subject: `[SOC Benchmark] ${title}`,
@@ -402,7 +402,7 @@ export async function accountDeletedEmail(user: { name: string; email: string },
   }
   const admins = (await adminNotifyTargets("accounts")).filter((t) => t.toLowerCase() !== user.email.toLowerCase());
   await Promise.all(
-    admins.map((to) =>
+    (admins.length ? [admins.join(", ")] : []).map((to) =>
       sendMail({
         to,
         subject: `[SOC Benchmark] Account deleted: ${user.name}`,
@@ -425,7 +425,7 @@ export async function workerAlertEmail(subject: string, lines: string[]) {
   if (!targets.length) return;
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const html = layout(subject, `${lines.map((l) => `<p>${esc(l)}</p>`).join("")}${button(`${site()}/admin/workers`, "Open evaluation workers")}`);
-  await Promise.all(targets.map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html, text: lines.join("\n") })));
+  await Promise.all((targets.length ? [targets.join(", ")] : []).map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html, text: lines.join("\n") })));
 }
 
 /**
@@ -459,7 +459,7 @@ export async function securityAlertEmail(opts: {
     opts.facts.map(([k, v]) => `${k}: ${v}`).join("\n") +
     `\n\nBest-guess assessment: ${opts.assessment}\n\n(The submitted package is not retained.)` +
     (opts.submissionId ? `\n\n${site()}/submissions/${opts.submissionId}` : "");
-  await Promise.all(targets.map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html: layout(subject, body), text })));
+  await Promise.all((targets.length ? [targets.join(", ")] : []).map((to) => sendMail({ to, subject: `[SOC Benchmark] ${subject}`, html: layout(subject, body), text })));
 }
 
 /** Sent to each registrant when an administrator finalizes a contest's results. */
