@@ -3,16 +3,11 @@ import { db } from "@/lib/db";
 // Server-only. Kept out of admin-list.ts because that file is imported by the
 // Edge middleware (via auth.config.ts) and must not pull in Prisma.
 
-/**
- * Event classes an administrator receives by e-mail. Each can be muted individually (Admin → My
- * notifications) except the ones marked `always`: every administrator is told when admin access is
- * granted or revoked, whatever their other settings, so a change of who controls the site can never
- * go unnoticed (Ahmad, 2026-10-22).
- */
+/** Event classes an administrator can mute individually (Admin → My notifications). */
 export const ADMIN_NOTIFY_KINDS = [
   { key: "feedback", label: "Contact & feedback messages", desc: "Every message sent through the contact form." },
   { key: "accounts", label: "Accounts", desc: "Someone registers, or an account completes e-mail verification." },
-  { key: "roles", label: "Administrator changes", desc: "Admin access is granted or revoked (sent to the person, every administrator in copy). Always on: it cannot be muted.", always: true },
+  { key: "roles", label: "Administrator changes", desc: "Admin access is granted or revoked (sent to the person, all admins in CC)." },
   { key: "deletions", label: "Submission deletions", desc: "A submission is deleted, by its owner or by an administrator." },
   { key: "workers", label: "Worker outages", desc: "Evaluation workers stop reporting in, or queued work has no compatible worker, plus the all-clear when service recovers." },
   { key: "errors", label: "Page errors", desc: "A visitor hits the error page. The reference, address and browser are sent so it can be matched with the server log; one e-mail per error per hour." },
@@ -20,8 +15,6 @@ export const ADMIN_NOTIFY_KINDS = [
 ] as const;
 export type AdminNotifyKind = (typeof ADMIN_NOTIFY_KINDS)[number]["key"];
 export type AdminNotifyPrefs = Partial<Record<AdminNotifyKind, boolean>>;
-/** Kinds every administrator receives regardless of preference. */
-export const ALWAYS_NOTIFY: readonly AdminNotifyKind[] = ADMIN_NOTIFY_KINDS.filter((k) => "always" in k && k.always).map((k) => k.key);
 
 /**
  * Where admin notifications of `kind` go: ADMIN_NOTIFY_EMAIL (comma-separated) if set — a fixed list
@@ -32,7 +25,6 @@ export async function adminNotifyTargets(kind?: AdminNotifyKind): Promise<string
   const fixed = (process.env.ADMIN_NOTIFY_EMAIL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   if (fixed.length) return fixed;
   const admins = await db.user.findMany({ where: { role: "ADMIN" }, select: { email: true, adminNotify: true } });
-  if (kind && ALWAYS_NOTIFY.includes(kind)) return admins.map((u) => u.email);
   return admins.filter((u) => !kind || (u.adminNotify as AdminNotifyPrefs | null)?.[kind] !== false).map((u) => u.email);
 }
 

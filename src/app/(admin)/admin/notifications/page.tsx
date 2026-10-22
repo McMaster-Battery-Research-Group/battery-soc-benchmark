@@ -23,7 +23,7 @@ export default async function AdminNotifications() {
           The <code className="rounded bg-grey-100 px-1">ADMIN_NOTIFY_EMAIL</code> environment variable overrides per-admin preferences; these toggles are saved but have no effect until it is removed.
         </Alert>
       ) : null}
-      <NotifyToggles kinds={ADMIN_NOTIFY_KINDS.map((k) => ({ key: k.key, label: k.label, desc: k.desc, always: "always" in k && !!k.always }))} initial={Object.fromEntries(ADMIN_NOTIFY_KINDS.map((k) => [k.key, ("always" in k && !!k.always) || prefs[k.key] !== false]))} />
+      <NotifyToggles kinds={ADMIN_NOTIFY_KINDS.map((k) => ({ ...k }))} initial={Object.fromEntries(ADMIN_NOTIFY_KINDS.map((k) => [k.key, prefs[k.key] !== false]))} />
     </div>
   );
 }
