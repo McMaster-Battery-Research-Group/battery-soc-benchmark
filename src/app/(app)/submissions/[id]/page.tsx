@@ -15,7 +15,6 @@ import { Alert } from "@/components/ui/misc";
 import { Avatar } from "@/components/avatar";
 import { CopyLink } from "@/components/copy-link";
 import { Scorecard } from "@/components/scorecard";
-import { ResultInsights } from "@/components/result-insights";
 import { ResultSummary } from "@/components/result-summary";
 import { ResultTabs } from "@/components/result-tabs";
 import { TestCaseBars } from "@/components/charts/test-case-bars";
@@ -216,8 +215,7 @@ export default async function SubmissionPage({ params, searchParams }: { params:
 
       {r && values ? (
         <div className="mt-6 space-y-6">
-          <ResultSummary values={values} weightedError={r.weightedError} maxError={r.maxError} rank={rank} medians={medians} legacy={legacy} isPrivate={sub.isPrivate} />
-          <ResultInsights values={values} weights={weights} />
+          <ResultSummary values={values} weightedError={r.weightedError} rank={rank} medians={medians} legacy={legacy} isPrivate={sub.isPrivate} />
           <ResultTabs
             tabs={[
               {

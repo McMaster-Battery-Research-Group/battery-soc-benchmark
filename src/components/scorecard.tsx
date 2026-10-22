@@ -45,7 +45,7 @@ export function Scorecard({ values, weights, weightedError, complexity, complexi
             <tr>
               <th className="px-4 py-2 md:px-5">Test case</th>
               <th className="px-3 py-2 text-right">RMSE</th>
-              <th className="hidden w-[26%] px-3 py-2 md:table-cell">Relative</th>
+              <th className="hidden w-[26%] px-3 py-2 md:table-cell" title="Bar length = this test's RMSE as a share of this model's worst test, so the hardest tests stand out at a glance">RMSE vs. worst test</th>
               <th className="hidden px-3 py-2 text-right md:table-cell">Weight</th>
               <th className="px-3 py-2 text-right md:px-5">Weight × RMSE</th>
             </tr>
