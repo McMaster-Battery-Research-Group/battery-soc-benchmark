@@ -14,10 +14,16 @@ import { Button } from "@/components/ui/button";
  * page reloads itself once instead of showing the error or paging the administrators.
  */
 const STALE_ACTION = /was not found on the server|Server Reference ID|failed-to-find-server-action/i;
+/** The browser could not reach the server at all (connection dropped, request blocked by an extension, page left mid-request): nothing to report. */
+const NETWORK = /^(TypeError: )?(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?|network error)$/i;
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  const [reported, setReported] = React.useState<"sending" | "sent" | "failed" | "reloading">("sending");
+  const [reported, setReported] = React.useState<"sending" | "sent" | "failed" | "reloading" | "offline">("sending");
   React.useEffect(() => {
+    if (!error.digest && NETWORK.test((error.message ?? "").trim())) {
+      setReported("offline");
+      return;
+    }
     if (STALE_ACTION.test(error.message ?? "")) {
       let recent = false;
       try {
@@ -37,6 +43,18 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
       .catch(() => setReported("failed"));
   }, [error]);
 
+  if (reported === "offline") {
+    return (
+      <div className="container-site flex min-h-[55vh] flex-col items-center justify-center py-16 text-center">
+        <h1 className="font-heading text-3xl font-bold text-ink">Connection lost</h1>
+        <p className="mt-2 max-w-md text-grey-700">Your browser could not reach the site for a moment. Check the connection and try again; nothing was lost on our side.</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Button onClick={reset}><RotateCcw /> Try again</Button>
+          <Button asChild variant="outline"><Link href="/">Home</Link></Button>
+        </div>
+      </div>
+    );
+  }
   if (reported === "reloading") {
     return (
       <div className="container-site flex min-h-[55vh] flex-col items-center justify-center py-16 text-center">
