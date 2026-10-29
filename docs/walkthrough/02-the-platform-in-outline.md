@@ -5,7 +5,7 @@
 
 ### 2.1 Five stages
 
-![Figure 2.1. The public face of the platform: the landing page, with the top of the leaderboard.](figures/landing.png)
+![Figure 2.1. The public face of the platform: the landing page, with the top of the leaderboard and the three leading models plotted on one withheld cold-weather cycle.](figures/landing.png)
 
 The platform reduces to five stages, and its credibility rests on the separation between the first and the fourth:
 
@@ -35,13 +35,13 @@ Behind the website are three separate programs, and the architecture follows fro
 
 The three programs divide the work as follows:
 
-- **The website** serves pages and forms, records submissions, and shows results. It reads and writes the database and nothing else.
-- **The worker** is a separate machine under the laboratory's control. It holds the withheld data, claims queued submissions and runs each evaluation.
+- **The website** serves pages and forms, records submissions, stores uploaded files on its own disk, and shows results. It reads and writes the database and nothing else.
+- **The worker** is a separate machine under the laboratory's control. It holds the withheld data, claims queued submissions, fetches each package from the website, and runs each evaluation.
 - **The sandbox** is an isolated container the worker starts for every evaluation: no network access, a read-only filesystem, discarded when the run ends. It is the only place a submitted model is ever executed.
 
-![Figure 2.3. The three programs. The website and the worker share nothing but the database; the sandbox is the only place a submitted model is ever executed.](figures/fig-tiers.png)
+![Figure 2.3. The three programs. The website and the worker share nothing but the database and the file store; the sandbox is the only place a submitted model is ever executed.](figures/fig-tiers.png)
 
-The website and the worker never communicate directly; all coordination passes through the database. Three consequences of this recur throughout the manual:
+The website and the worker never communicate directly; all coordination passes through the database, and the only other channel is a private file endpoint through which the worker fetches a package and returns its result traces (Section 9.6). Three consequences of this recur throughout the manual:
 
 1. An additional worker can be added with no configuration, since it simply begins claiming jobs.
 2. The website remains fully available when no worker is reachable, as it did during a ten-hour network outage in September 2026.
@@ -58,13 +58,13 @@ The arrangement is easier to remember as the way a university runs a written exa
 - **The locked marking room is the worker.** It holds the only copy of the answer key. Nobody but the examiner enters, and the examiner never leaves with it.
 - **The sealed exam booth is the sandbox.** The script is answered against the key one at a time, in a booth with no phone and no window, and is shredded the moment it has been marked. Nothing that happens in the booth can reach the outside, and nothing is kept.
 
-A submitted model is the candidate. It is given the questions (the withheld drive cycles), writes its answers (the estimates), and is marked against the key (the reference state of charge). It never sees the key, and no copy of it survives the examination.
+A submitted model is the candidate. It is given the questions (the withheld drive cycles), writes its answers (the estimates), and is marked against the key (the reference state of charge). It never sees the key, and no copy of it survives the examination. The one exception is at the candidate's own request: an author who ticks *Share the model files* asks the registrar to keep a copy of the script in the public reading room, which is the only case in which a package outlives its evaluation.
 
 ### 2.3 Where the components are hosted
 
-Each program runs on a different service, chosen so that the platform costs nothing to host and so that the withheld data stays on a machine the laboratory controls. Figure 2.5 shows the four.
+Since 21 September 2026 the whole platform runs on two virtual machines in the **Arbutus** cloud of the Digital Research Alliance of Canada, so that nothing is paid for and every part of it, including the withheld data, stays on machines the laboratory controls. Figure 2.5 shows the two machines and the three outside services they depend on. (From launch until that date the website ran on Vercel with the database on Supabase; Section 9.6 records the move.)
 
-![Figure 2.5. Where each component runs. The website on Vercel, the database and file storage on Supabase, the worker on the Alliance's Arbutus cloud, and the source code on GitHub.](figures/fig-hosting.png)
+![Figure 2.5. Where each component runs. The website, database and uploaded files on one Arbutus machine; the worker and the withheld data on a second; the source on GitHub; e-mail through Resend; MATLAB licensed online by MathWorks.](figures/fig-hosting.png)
 
 ### 2.4 Visual conventions
 

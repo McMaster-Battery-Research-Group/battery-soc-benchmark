@@ -10,7 +10,7 @@ The chapters build on one another and are best read in order on a first pass:
 - **Chapter 11** is a suggested sequence for demonstrating the platform in ten minutes.
 - **The glossary and appendix** collect terminology, configuration, limits and schema details so that the chapters remain readable.
 
-All diagrams share one visual vocabulary, introduced in Section 2.4, so that a given kind of component looks the same on every page. Screenshots show the production site as of September 2026.
+All diagrams share one visual vocabulary, introduced in Section 2.4, so that a given kind of component looks the same on every page. Screenshots show the production site at batterysocbenchmark.ca as of late October 2026; the administrative pages were captured on a seeded development copy.
 
 ---
 
@@ -22,12 +22,12 @@ All diagrams share one visual vocabulary, introduced in Section 2.4, so that a g
 
 1. [The estimation problem](01-the-estimation-problem.md) — 8 figures
 2. [The platform in outline](02-the-platform-in-outline.md) — 6 figures
-3. [Using the platform](03-using-the-platform.md) — 7 figures
+3. [Using the platform](03-using-the-platform.md) — 13 figures
 4. [The life of a submission](04-the-life-of-a-submission.md) — 7 figures
 5. [Scoring methodology](05-scoring-methodology.md) — 3 figures
 6. [The data model](06-the-data-model.md) — 1 figure
 7. [Accounts and security](07-accounts-and-security.md) — 1 figure
-8. [Administration and monitoring](08-administration-and-monitoring.md) — 5 figures
+8. [Administration and monitoring](08-administration-and-monitoring.md) — 7 figures
 9. [Infrastructure](09-infrastructure.md) — 3 figures
 10. [Maintenance reference](10-maintenance-reference.md) — 0 figures
 11. [A ten-minute demonstration](11-a-ten-minute-demonstration.md) — 0 figures

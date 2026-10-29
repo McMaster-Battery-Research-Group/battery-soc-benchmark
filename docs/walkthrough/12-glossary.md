@@ -14,26 +14,28 @@
 | **EKF / UKF** | Extended and unscented Kalman filters: model-based estimators that fuse a cell model with measurements. |
 | **FNN / LSTM / GRU / Transformer** | Neural-network estimator architectures. |
 | **RMSE / MAE / maximum error** | Root-mean-square, mean-absolute and worst single-sample error, in percentage points of SOC. |
-| **Test case** | One of the eighteen scoring categories, each with a published weight. |
+| **Test case** | One of the eighteen scoring categories, each with a published weight and a plain-language chart name. |
 | **Weighted error** | The leaderboard score: the sum over test cases of weight × RMSE. |
 | **Robustness run** | A run with a deliberately incorrect initial SOC, or with a constant offset added to the current. |
 | **Padding** | One hour of the first sample prepended to each cycle so that stateful models reach steady state. |
 | **Complexity** | Execution time per sample relative to a Coulomb counter, binned 1–10. Informational only. |
+| **Model size / Peak RAM** | The uncompressed total of the files in the package; the peak memory of the model process in the sandbox. Informational only. |
 | **Test run (dry run)** | An evaluation on open data from the submission page; not recorded on the leaderboard. |
-| **Package** | The uploaded archive: `Model.py` or `Model.m`/`Model.p` together with parameter files. |
+| **Package** | The uploaded archive: `Model.py` or `Model.m`/`Model.p` together with parameter files. Deleted after evaluation unless shared. |
+| **Legacy entry** | A score recorded by an administrator from before the platform existed: no package, no re-evaluation, a badge. |
 
 ### Software terms
 
 | Term | Meaning |
 |---|---|
 | **Repository / git / GitHub** | The source code with its full change history, hosted on GitHub. |
-| **Serverless** | A hosting model in which a short-lived server instance handles each request and is suspended once it responds. |
 | **Container / Docker / image** | An isolated execution environment; the runtime that creates it; the template from which it is created. |
 | **Sandbox** | A container with the network disabled, a read-only filesystem and no privileges. |
+| **Nonce** | A random value issued per run, stamped into the result by the evaluator and unknown to the model; a result without it is a forgery. |
 | **Database / table / row** | PostgreSQL stores all persistent state as tables of rows. |
 | **Prisma** | The typed database client; one schema file defines every table. |
 | **Server Component / Server Action** | A page rendered on the server from the database; a form handler executed on the server. There is no separate API layer. |
-| **Signed URL** | A pre-authorised, time-limited address that permits a browser to upload directly to object storage. |
+| **Package store** | The web host's directory of uploaded files, reached by the worker through the internal storage endpoint with a bearer token. |
 | **Session token / JWT / cookie** | A signed token held by the browser after sign-in, proving identity on each request. |
 | **bcrypt** | A deliberately slow one-way hash function for passwords. |
 | **Rate limit** | A cap on the number of attempts within a time window. |
@@ -41,9 +43,11 @@
 | **Compare-and-swap** | An update applied only if the row is unchanged since it was read; the mechanism by which two workers never claim the same job. |
 | **Environment variable / `.env`** | Configuration and secrets supplied to a program from outside its code. |
 | **VM / Arbutus / systemd** | A cloud virtual machine; the Alliance's cloud at the University of Victoria; the Linux service manager. |
+| **Caddy** | The web server in front of the site, which terminates HTTPS and renews the certificate. |
+| **Resend** | The mail provider through which both machines send e-mail from the site's domain. |
 | **mode 600** | A file readable and writable only by its owner. |
 
 ### Key figures
 
-144 test cycles (4 cells × 6 temperatures × 6 cycles) · 195 runs per evaluation · 18 test cases with weights summing to 1 · 3 submissions per day and 5 test runs per hour · 6-hour evaluation limit · worker polls every 2 s, heartbeat every 15 s · a lock expires after 30 min, 2 attempts per job · 50 MB upload limit.
+144 test cycles (4 cells × 6 temperatures × 6 cycles) · 195 runs per evaluation · 18 test cases with weights summing to 1 · 3 submissions per day and 5 test runs per hour · 12-hour evaluation limit, 10-minute test-run limit · worker polls every 2 s, heartbeat every 15 s · a lock expires after 30 min, 2 attempts per job · 50 MB upload limit · description 80–2000 characters · diagram 3 MB, write-up 10 MB · both machines update within 10 min of a push.
 

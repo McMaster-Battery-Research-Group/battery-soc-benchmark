@@ -1,7 +1,7 @@
 <a id="part-5"></a>
 ## 5. Scoring methodology
 
-> **In this chapter.** The model interface, the composition of the evaluation set, the aggregation of per-cycle errors into eighteen test cases and one weighted score, and the two auxiliary quantities reported alongside it.
+> **In this chapter.** The model interface, the composition of the evaluation set, the aggregation of per-cycle errors into eighteen test cases and one weighted score, the two auxiliary quantities reported alongside it, and what leaves the sandbox.
 
 The evaluator is approximately 800 lines of Python. It reimplements the laboratory's original MATLAB blind-modelling tool and reproduces its results to three decimal places on the reference models.
 
@@ -24,8 +24,8 @@ def Model(X, z=None):          # X = [current, voltage, temperature]
 
 The two supported languages are executed differently but scored identically:
 
-- **Python** models are imported and iterated in-process.
-- **MATLAB** models are executed through a single `matlab -batch` session running a forty-line driver script whose only function is the same iteration.
+- **Python** models are imported and iterated in a child process of the evaluator (Section 4.2, Stage 5).
+- **MATLAB** models are executed through a single `matlab -batch` session running a forty-line driver script whose only function is the same iteration. The MATLAB image carries the toolboxes submissions have needed: Deep Learning, Signal Processing, Statistics and Machine Learning, Parallel Computing, Image Processing, Computer Vision, Text Analytics, Coder, and Control System Toolbox (added in October 2026 for models built with `ss`, `tf`, `c2d` and `lsim`).
 
 Both paths produce identical scores, verified against the four reference models.
 
@@ -47,27 +47,34 @@ $$
 
 The weights are fixed and published:
 
-- Seven categories carry a weight of 0.1 each: the withheld cell, the open cells, charging, standard cycles, non-standard cycles, the initial-SOC perturbation and the current-offset perturbation.
+- Seven categories carry a weight of 0.1 each: the withheld cell, the open cells, charging, standard cycles, non-standard cycles, the incorrect-initial-SOC perturbation and the current-offset perturbation.
 - The four payload conditions together carry 0.2.
 - The six temperatures together carry 0.1.
 - The all-cells case is reported on every scorecard but carries a weight of zero, since every other case is a subset of it and a non-zero weight would count each cycle twice.
 
 ![Figure 5.3. The eighteen test cases and their weights. Robustness and generalisation are weighted as heavily as raw accuracy.](figures/fig-weights.png)
 
+Each test case carries, besides its label, a plain-language *chart* name (Payload 448 kg HVAC on, Standard cycles, Incorrect initial SOC, Current-sensor offset, and so on) that the error-by-test-case chart, the comparison page and the PDF use on their axes, so that a reader never has to decode a test number.
+
 ### 5.4 Auxiliary quantities
 
 **Complexity** is reported on a scale from 1 to 10 and addresses the question of whether a model could run on an embedded battery controller. It is the model's execution time per sample relative to a Coulomb counter measured on the same machine in the same language. It is displayed on the leaderboard but has no effect on ranking.
 
-A **suspicious** flag is raised when the mean error exceeds 25 %. The original tool suppressed such results; this implementation records them for review by an administrator.
+**Peak RAM** and **model size** (Section 3.5) are the two resource measures the laboratory asked for in October 2026. Neither enters the score.
+
+A **suspicious** flag is raised when the mean error exceeds 25 %. The original tool suppressed such results; this implementation records them, e-mails the administrators as a security event, and leaves the decision to a person.
 
 ### 5.5 Outputs
 
-Four artefacts leave the sandbox and are written to the database and object storage:
+Five artefacts leave the sandbox and are written to the database and the file store:
 
-- the eighteen metrics and the weighted score,
-- one record per cycle with its RMSE, mean absolute error and maximum error,
-- down-sampled traces of thirteen representative cycles, the robustness runs and the model's worst cycle, down-sampled by a method that preserves every extremum so that the plotted trace always agrees with the reported maximum error,
-- a 6 MB `.mat` file containing every run at full resolution.
+- the eighteen metrics and the weighted score;
+- one record per cycle with its RMSE, mean absolute error and maximum error;
+- down-sampled traces of thirteen representative cycles, the robustness runs and the model's worst cycle, down-sampled by a method that preserves every extremum so that the plotted trace always agrees with the reported maximum error;
+- the per-start and per-offset RMSEs behind tests 10 and 11, which the Charts tab plots;
+- a `.mat` file containing every run at full resolution, with each series stored as a 16-bit integer in hundredths of a percent.
 
-**Files to open:** [pipeline.py](../../evaluator/python/socbench_eval/pipeline.py) (`score`, `complexity`) → [runner.py](../../evaluator/python/socbench_eval/runner.py) → [Run_Model.m](../../matlab/Run_Model.m) → [test-cases.ts](../../src/lib/test-cases.ts).
+Both trace outputs omit one series: the reference state of charge of the withheld m448 cell. Its error series is present, which carries the same information about the model, but the reference itself would be the answer key and is never written. The two labels of test 10 were renamed from "wrong" to "incorrect" initial SOC in October 2026; results evaluated before then still store the old wording and are rewritten on display, so old and new results read the same.
+
+**Files to open:** [pipeline.py](../../evaluator/python/socbench_eval/pipeline.py) (`score`, `complexity`, `write_full_traces`) → [runner.py](../../evaluator/python/socbench_eval/runner.py) → [Run_Model.m](../../matlab/Run_Model.m) → [test-cases.ts](../../src/lib/test-cases.ts) → [traces.ts](../../src/lib/traces.ts).
 
